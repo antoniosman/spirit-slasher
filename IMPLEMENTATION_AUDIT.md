@@ -52,4 +52,5 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 - Character assets: 26/26.
 - Browser console: 0 errors and 0 warnings through a complete Movie I playthrough.
 - Tested screens: main menu, character selection, canon relationship, cast intro, opening, party, key, investigation, rescue, accusations, confession, attack, reveal, finale, dynamic credits, statistics and Movie II handoff.
-- Tested viewports: 390×844 mobile and 1440×1000 desktop.
+- Tested viewports: 393×852 (iPhone 15 Pro), 430×932 (iPhone Pro Max), 852×393 iPhone landscape and 1440×1000 desktop.
+- iPhone responsive checks: 0 horizontal overflow in all three phone viewports; story choice controls measure 313×76 px in portrait, comfortably above touch-target minimums.
