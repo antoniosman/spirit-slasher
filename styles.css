@@ -122,6 +122,37 @@ button { -webkit-tap-highlight-color: transparent; }
 .icon-button:hover, .icon-button:focus-visible { border-color: var(--paper); outline: none; }
 .update-button.checking { animation: update-spin .8s linear infinite; }
 .update-button.ready { border-color: var(--blood); color: white; background: var(--blood); animation: update-ready 1s ease-in-out infinite; }
+.update-status {
+  position: fixed;
+  z-index: 70;
+  top: calc(70px + var(--safe-top));
+  right: max(18px, env(safe-area-inset-right));
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: min(390px, calc(100vw - 36px));
+  padding: 13px 15px;
+  border: 1px solid rgba(137,200,215,.42);
+  color: var(--paper);
+  background: rgba(6,9,12,.96);
+  box-shadow: 0 18px 60px rgba(0,0,0,.58), inset 0 0 30px rgba(137,200,215,.04);
+  backdrop-filter: blur(18px);
+  opacity: 0;
+  transform: translateY(-12px) scale(.98);
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.update-status[hidden] { display: none; }
+.update-status.show { opacity: 1; transform: none; }
+.update-status-icon { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid currentColor; border-radius: 50%; color: var(--ice); font-family: "Archivo Black", sans-serif; }
+.update-status-copy { min-width: 0; display: grid; gap: 3px; }
+.update-status-copy strong { font-size: .86rem; letter-spacing: .04em; }
+.update-status-copy small { color: #aeb7bf; font-size: .75rem; line-height: 1.42; }
+.update-status.checking .update-status-icon { animation: update-spin .8s linear infinite; }
+.update-status.available { border-color: rgba(226,27,45,.68); box-shadow: 0 18px 60px rgba(0,0,0,.58), inset 0 0 38px rgba(226,27,45,.1); }
+.update-status.available .update-status-icon, .update-status.error .update-status-icon { color: #ff5260; }
+.update-status.latest .update-status-icon, .update-status.updated .update-status-icon { color: #91e2c1; }
 
 #app { min-height: 100svh; }
 .screen {
@@ -569,6 +600,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 520px) {
   .topbar { min-height: calc(52px + var(--safe-top)); }
+  .update-status { top: calc(62px + var(--safe-top)); left: 12px; right: 12px; width: auto; }
   .brand-copy small { display: none; }
   .screen { padding-top: calc(82px + var(--safe-top)); padding-inline: 14px; }
   .screen.cinematic { padding-inline: 0; }

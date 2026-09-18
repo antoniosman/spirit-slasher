@@ -27,6 +27,13 @@
         <button class="icon-button" id="fullscreenButton" aria-label="Πλήρης οθόνη">□</button>
       </div>
     </header>
+    <aside id="updateStatus" class="update-status" role="status" aria-live="polite" aria-atomic="true" hidden>
+      <span class="update-status-icon" id="updateStatusIcon" aria-hidden="true">✓</span>
+      <span class="update-status-copy">
+        <strong id="updateStatusTitle">Είσαι ενημερωμένος</strong>
+        <small id="updateStatusDetail">Έχεις την τελευταία έκδοση.</small>
+      </span>
+    </aside>
     <main id="app" tabindex="-1"></main>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="transition" class="transition" aria-hidden="true"><span>SPIRIT SLASHER</span></div>

@@ -31,7 +31,7 @@
 - End credits statistics, cast status και πλήρες trilogy archive.
 - Responsive mobile/desktop design, touch controls, fullscreen, sound toggle και reduced-motion support.
 - Original Spirit Slasher mask-and-slash logo, cinematic room camera moves, animated dialogue, action/death/rescue/sabotage/theory beats, film scratches, glitch cuts, haunted vignette, vibration και procedural Web Audio scare cues.
-- Startup auto-update checker με άμεση εφαρμογή νέας έκδοσης και χειροκίνητο Update button στο header.
+- Startup auto-update checker με σαφές status panel για έλεγχο, τελευταία έκδοση, διαθέσιμη ενημέρωση, ολοκλήρωση και σφάλμα· περιλαμβάνει αριθμό έκδοσης και χειροκίνητο Update button.
 - Installable PWA για Android/iOS και offline cache μετά την πρώτη φόρτωση.
 - GitHub Pages continuous deployment μέσω GitHub Actions.
 

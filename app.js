@@ -7,9 +7,15 @@ const soundButton = document.querySelector("#soundButton");
 const fullscreenButton = document.querySelector("#fullscreenButton");
 const homeButton = document.querySelector("#homeButton");
 const updateButton = document.querySelector("#updateButton");
+const updateStatus = document.querySelector("#updateStatus");
+const updateStatusIcon = document.querySelector("#updateStatusIcon");
+const updateStatusTitle = document.querySelector("#updateStatusTitle");
+const updateStatusDetail = document.querySelector("#updateStatusDetail");
 
 const STORAGE_KEY = "spirit-slasher-trilogies-v1";
 const SETTINGS_KEY = "spirit-slasher-settings-v1";
+const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
+const APP_VERSION = "1.4.1";
 const MAX_SAVES = 3;
 
 const roster = [
@@ -304,6 +310,24 @@ function toast(message) {
   toastNode.classList.add("show");
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => toastNode.classList.remove("show"), 2400);
+}
+
+function showUpdateStatus(state, title, detail, duration = 4600) {
+  const icons = { checking: "↻", latest: "✓", available: "↓", updated: "✓", error: "!", info: "i" };
+  clearTimeout(showUpdateStatus.timer);
+  clearTimeout(showUpdateStatus.hideTimer);
+  updateStatus.className = `update-status ${state}`;
+  updateStatusIcon.textContent = icons[state] || "i";
+  updateStatusTitle.textContent = title;
+  updateStatusDetail.textContent = detail;
+  updateStatus.hidden = false;
+  requestAnimationFrame(() => updateStatus.classList.add("show"));
+  if (duration > 0) {
+    showUpdateStatus.timer = setTimeout(() => {
+      updateStatus.classList.remove("show");
+      showUpdateStatus.hideTimer = setTimeout(() => { updateStatus.hidden = true; }, 280);
+    }, duration);
+  }
 }
 
 function withTransition(callback) {
@@ -1549,31 +1573,48 @@ window.addEventListener("beforeinstallprompt", event => {
 
 async function checkForUpdate(manual = false) {
   if (!swRegistration) {
-    if (manual) toast("Ο update checker δεν είναι ακόμη έτοιμος.");
+    if (manual) showUpdateStatus("info", "Ο έλεγχος ετοιμάζεται", `Τρέχεις την έκδοση v${APP_VERSION}. Δοκίμασε ξανά σε λίγα δευτερόλεπτα.`);
     return;
   }
   updateButton.classList.add("checking");
+  updateButton.setAttribute("aria-label", "Γίνεται έλεγχος για ενημέρωση");
+  showUpdateStatus("checking", "Έλεγχος για ενημέρωση…", `Σύγκριση της έκδοσης v${APP_VERSION} με το GitHub Pages.`, 0);
   try {
     await swRegistration.update();
     if (swRegistration.waiting) {
       updateButton.classList.add("ready");
-      toast("Βρέθηκε update. Εγκατάσταση τώρα…");
+      showUpdateStatus("available", "Βρέθηκε νέα έκδοση", "Η εγκατάσταση γίνεται αυτόματα. Το παιχνίδι θα ανοίξει ξανά μόνο του.", 0);
       swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
-    } else if (manual) toast("Έχεις ήδη την τελευταία έκδοση.");
+    } else if (swRegistration.installing) {
+      showUpdateStatus("available", "Κατεβαίνει η νέα έκδοση", "Μην κλείσεις το παιχνίδι — θα ανανεωθεί αυτόματα μόλις είναι έτοιμη.", 0);
+    } else {
+      updateButton.classList.remove("ready");
+      showUpdateStatus("latest", "Είσαι ενημερωμένος", `Έχεις ήδη την τελευταία έκδοση v${APP_VERSION}.`);
+    }
   } catch {
-    if (manual) toast("Δεν ήταν δυνατός ο έλεγχος update. Δοκίμασε ξανά online.");
+    showUpdateStatus("error", "Δεν ολοκληρώθηκε ο έλεγχος", `Η έκδοση v${APP_VERSION} παραμένει ενεργή. Έλεγξε τη σύνδεσή σου και πάτησε ξανά ↻.`);
   } finally {
     updateButton.classList.remove("checking");
+    updateButton.setAttribute("aria-label", "Έλεγχος για ενημέρωση");
   }
 }
 
 async function setupServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
+  const completedUpdate = sessionStorage.getItem(UPDATE_COMPLETE_KEY);
+  if (completedUpdate) {
+    sessionStorage.removeItem(UPDATE_COMPLETE_KEY);
+    showUpdateStatus("updated", "Η ενημέρωση ολοκληρώθηκε", `Το Spirit Slasher είναι τώρα στην έκδοση v${APP_VERSION}.`, 6000);
+  }
+  if (!("serviceWorker" in navigator)) {
+    showUpdateStatus("info", "Οι αυτόματες ενημερώσεις δεν υποστηρίζονται", `Τρέχεις την έκδοση v${APP_VERSION}. Άνοιξε το παιχνίδι από σύγχρονο browser.`);
+    return;
+  }
   const hadController = Boolean(navigator.serviceWorker.controller);
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || refreshing) return;
     refreshing = true;
+    sessionStorage.setItem(UPDATE_COMPLETE_KEY, APP_VERSION);
     location.reload();
   });
   try {
@@ -1584,13 +1625,16 @@ async function setupServiceWorker() {
       installing.addEventListener("statechange", () => {
         if (installing.state === "installed" && navigator.serviceWorker.controller) {
           updateButton.classList.add("ready");
+          showUpdateStatus("available", "Η νέα έκδοση είναι έτοιμη", "Εφαρμόζεται τώρα και το παιχνίδι θα ανοίξει ξανά αυτόματα.", 0);
           installing.postMessage({ type: "SKIP_WAITING" });
         }
       });
     });
-    await checkForUpdate(false);
+    if (!completedUpdate) await checkForUpdate(false);
     setInterval(() => checkForUpdate(false), 15 * 60 * 1000);
-  } catch {}
+  } catch {
+    showUpdateStatus("error", "Το update system δεν συνδέθηκε", `Η έκδοση v${APP_VERSION} λειτουργεί κανονικά. Πάτησε ↻ όταν είσαι online.`);
+  }
 }
 
 updateButton.addEventListener("click", () => checkForUpdate(true));

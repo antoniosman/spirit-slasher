@@ -43,7 +43,7 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Movie-like, immersive presentation | ✅ | Cinematic typography, scene pacing, full-screen montages, film scratches, glitch cuts, haunted vignette, reveal impacts, Web Audio cues and supported-device vibration. |
 | Original professional logo/icon | ✅ | Custom mask-and-slash Spirit Slasher emblem used in header, home screen, favicon and Android/iOS PWA icons. |
 | Android and iOS PWA | ✅ | Standalone manifest, safe-area layout, Apple metadata/touch icon, responsive orientations and offline service worker. |
-| Update button and automatic startup updates | ✅ | Header update control, startup version check, skip-waiting activation and automatic reload onto the new service worker. |
+| Update button and automatic startup updates | ✅ | Header control, startup check, visible versioned status messages for checking/latest/installing/completed/error, skip-waiting activation and automatic reload. |
 | GitHub Pages deployment | ✅ | GitHub Actions Pages workflow is included and deployment is verified separately after push. |
 
 ## Verification summary
