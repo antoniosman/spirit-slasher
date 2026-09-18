@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Spirit Slasher" />
+    <meta name="description" content="Μια procedural slasher τριλογία όπου κάθε επιλογή γράφει το δικό σου canon." />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <title>Spirit Slasher: A Slasher Trilogy</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="topbar">
+      <button class="brand-button" id="homeButton" aria-label="Κεντρικό μενού">
+        <span class="brand-mark"><img src="icon-192.png" alt="" /></span>
+        <span class="brand-copy"><strong>SPIRIT SLASHER</strong><small>A SLASHER TRILOGY</small></span>
+      </button>
+      <div class="top-actions">
+        <button class="icon-button update-button" id="updateButton" aria-label="Έλεγχος για update" title="Check for update">↻</button>
+        <button class="icon-button" id="soundButton" aria-label="Ήχος ενεργός" aria-pressed="true">♪</button>
+        <button class="icon-button" id="fullscreenButton" aria-label="Πλήρης οθόνη">□</button>
+      </div>
+    </header>
+    <main id="app" tabindex="-1"></main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="transition" class="transition" aria-hidden="true"><span>SPIRIT SLASHER</span></div>
+    <audio id="introAudio" src="assets/audio/intro.mp3" preload="auto" loop></audio>
+    <audio id="outroAudio" src="assets/audio/outro.mp3" preload="auto"></audio>
+    <script src="app.js" defer></script>
+  </body>
+</html>
