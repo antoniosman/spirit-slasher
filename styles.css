@@ -284,6 +284,7 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.actions.compact { margin-top: 0; }
 .btn {
   position: relative;
   min-height: 52px;
@@ -316,6 +317,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .save-name { margin: 10px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 2rem; }
 .save-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .save-actions .btn { min-height: 42px; padding-inline: 16px; font-size: .82rem; }
+.vault-shell { height: 100svh; overflow: hidden; }
+.vault-content { display: flex; height: calc(100svh - 136px - var(--safe-top) - var(--safe-bottom)); min-height: 480px; flex-direction: column; }
+.vault-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex: 0 0 auto; }
+.vault-tools { display: grid; grid-template-columns: 1fr minmax(170px, .26fr); gap: 10px; margin-top: 22px; padding: 12px; flex: 0 0 auto; }
+.vault-search, .vault-sort { min-height: 48px; padding: 0 14px; color: var(--paper); border: 1px solid var(--line); border-radius: 0; outline: none; background: #080a0d; font: 700 .92rem/1 "Inter", sans-serif; }
+.vault-search:focus, .vault-sort:focus { border-color: var(--ice); box-shadow: 0 0 0 3px rgba(137,200,215,.1); }
+.save-vault-list { display: grid; gap: 10px; margin-top: 12px; padding: 0 5px 44px 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--blood) #080a0d; }
+.vault-save-card { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 14px; }
+.vault-save-portrait { width: 88px; height: 104px; object-fit: cover; filter: grayscale(.2) contrast(1.12) brightness(.76); }
+.vault-save-info { min-width: 0; }
+.vault-index { color: var(--blood); font-size: .68rem; font-weight: 900; letter-spacing: .12em; }
+.vault-save-info .save-name { overflow: hidden; margin-top: 5px; font-size: 1.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.vault-save-meta { margin: 5px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.vault-save-card .save-actions { justify-content: end; margin: 0; }
+.vault-empty { padding: 44px; color: var(--muted); border: 1px dashed var(--line); text-align: center; }
 
 .section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
 .section-copy { max-width: 58ch; color: var(--muted); line-height: 1.65; }
@@ -369,6 +385,7 @@ button { -webkit-tap-highlight-color: transparent; }
   overflow: hidden;
   background: #090b0e;
 }
+.scene-webgl { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
 .room-shot {
   background-repeat: no-repeat;
   background-size: cover, 200% 200%;
@@ -418,6 +435,39 @@ button { -webkit-tap-highlight-color: transparent; }
 .scene-copy { display: flex; flex-direction: column; justify-content: center; padding: clamp(26px, 5vw, 64px); border-left: 1px solid var(--line); }
 .scene-copy p { color: #c6cbd1; line-height: 1.72; }
 .ensemble-dialogue { display: grid; gap: 7px; margin-top: 18px; }
+.scene-bond-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 7px; margin-top: 14px; }
+.scene-bond-tile { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 9px; min-width: 0; padding: 7px; border: 1px solid rgba(137,200,215,.2); background: linear-gradient(90deg, rgba(137,200,215,.075), rgba(7,9,12,.78)); }
+.scene-bond-tile img { width: 38px; height: 38px; object-fit: cover; border-radius: 50%; filter: saturate(.72) contrast(1.1); }
+.scene-bond-copy { display: grid; min-width: 0; gap: 2px; }
+.scene-bond-copy strong { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.scene-bond-copy small { overflow: hidden; color: var(--muted); font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
+.scene-bond-meters { position: relative; display: block; height: 6px; margin-top: 4px; overflow: hidden; background: rgba(255,255,255,.08); }
+.scene-bond-meters i { position: absolute; top: 0; bottom: 0; left: 0; }
+.scene-bond-meters .friendship { background: linear-gradient(90deg, #1c835d, #71e7aa); }
+.scene-bond-meters .suspicion { height: 2px; top: auto; background: #ff3044; box-shadow: 0 0 8px rgba(226,27,45,.7); }
+.decision-warning { margin: 22px 0 0; padding: 14px 16px; color: #ffd4d8; border-left: 3px solid var(--blood); background: rgba(226,27,45,.1); font-size: .82rem; font-weight: 900; letter-spacing: .07em; line-height: 1.55; }
+.grief-reactions { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 7px; margin-top: 14px; }
+.grief-line { border-color: rgba(226,27,45,.3); background: rgba(226,27,45,.06); }
+.movie-scene-tools { display: flex; align-items: center; justify-content: end; gap: 10px; white-space: nowrap; }
+.mini-btn { min-height: 34px; padding: 0 10px; font-size: .62rem; letter-spacing: .06em; }
+.relationship-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 10px; }
+.relationship-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 15px; min-height: 220px; padding: 12px; overflow: hidden; background: linear-gradient(145deg, rgba(20,29,32,.96), rgba(7,9,12,.98)); }
+.relationship-card.dead { opacity: .62; filter: grayscale(.72); }
+.relationship-card > img { width: 92px; height: 100%; min-height: 194px; object-fit: cover; border: 1px solid rgba(255,255,255,.16); }
+.relationship-card-copy { min-width: 0; }
+.relationship-card-copy h2 { margin: 5px 0 12px; font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.7rem; }
+.bond-identity { display: flex; align-items: center; gap: 8px; color: #b6c2c8; }
+.bond-identity small { overflow: hidden; font-size: .65rem; font-weight: 800; letter-spacing: .06em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.social-diamond { width: 12px; height: 18px; flex: 0 0 auto; background: linear-gradient(#7af3b4, #16865a); clip-path: polygon(50% 0, 100% 42%, 50% 100%, 0 42%); filter: drop-shadow(0 0 6px rgba(76,220,148,.5)); }
+.bond-row { display: grid; grid-template-columns: 94px 1fr; align-items: center; gap: 8px; margin-top: 8px; }
+.bond-label { display: grid; }
+.bond-label b { font-size: .67rem; }
+.bond-label small { color: var(--muted); font-size: .56rem; }
+.bond-meter { display: block; height: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); background: #080a0c; }
+.bond-meter i { display: block; height: 100%; background: linear-gradient(90deg, #176d55, #6be7aa); }
+.bond-row.trust .bond-meter i { background: linear-gradient(90deg, #246b86, #7bd9ee); }
+.bond-row.loyalty .bond-meter i { background: linear-gradient(90deg, #705b12, #f1ce58); }
+.bond-row.suspicion .bond-meter i { background: linear-gradient(90deg, #771621, #ff4253); }
 .ensemble-line { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 10px; padding: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.025); animation: dialogue-in .45s ease both; }
 .ensemble-line:nth-child(2) { animation-delay: .12s; }
 .ensemble-line img { width: 40px; height: 40px; object-fit: cover; filter: grayscale(.25) contrast(1.15); }
@@ -525,9 +575,10 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .funeral-screen { min-height: 100svh; padding: 0; overflow: hidden; background: radial-gradient(circle at 50% 28%, #172026, #030406 64%); perspective: 1400px; }
 .funeral-stage { position: absolute; inset: 0; }
-.funeral-scene { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(260px, .86fr) 1.14fr; align-items: center; gap: clamp(28px, 7vw, 110px); padding: clamp(70px, 8vw, 120px); transform-style: preserve-3d; animation: funeral-scene-in 1.35s cubic-bezier(.16,.78,.2,1) both; }
-.funeral-depth { position: absolute; inset: 0; overflow: hidden; pointer-events: none; transform-style: preserve-3d; }
-.funeral-depth::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(2,3,5,.3), rgba(2,3,5,.04) 46%, rgba(2,3,5,.76)), linear-gradient(0deg, rgba(2,3,5,.94), transparent 48%); }
+.funeral-scene { position: absolute; inset: 0; overflow: hidden; transform-style: preserve-3d; animation: funeral-scene-in 1.35s cubic-bezier(.16,.78,.2,1) both; }
+.funeral-webgl { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 42%, rgba(28,39,43,.74), rgba(2,3,5,.96) 72%); }
+.funeral-depth { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; transform-style: preserve-3d; }
+.funeral-depth::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(2,3,5,.62), transparent 38% 70%, rgba(2,3,5,.6)), linear-gradient(0deg, rgba(2,3,5,.9), transparent 45%); }
 .funeral-rain { position: absolute; inset: -25%; background: repeating-linear-gradient(108deg, transparent 0 18px, rgba(170,210,222,.12) 19px 20px, transparent 21px 38px); }
 .rain-far { opacity: .28; transform: translateZ(-120px) scale(1.2); animation: funeral-rain-fall 3.6s linear infinite; }
 .rain-near { opacity: .48; filter: blur(.5px); transform: translateZ(130px) scale(1.08); animation: funeral-rain-fall 1.8s linear infinite; }
@@ -539,10 +590,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .funeral-portrait::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(3,4,6,.88), transparent 55%), radial-gradient(circle at 50% 32%, transparent, rgba(2,3,5,.48)); }
 .funeral-portrait img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.9) contrast(1.13) brightness(.66); transform: scale(1.07); animation: funeral-photo-drift 4.6s ease-out both; }
 .mourning-ribbon { position: absolute; z-index: 2; right: -43px; bottom: 34px; width: 190px; padding: 8px; color: #dce4e7; background: rgba(7,9,12,.86); border-top: 1px solid rgba(255,255,255,.22); border-bottom: 1px solid rgba(255,255,255,.22); font-size: .62rem; font-weight: 900; letter-spacing: .2em; text-align: center; transform: rotate(-42deg); }
-.funeral-copy { position: relative; z-index: 1; max-width: 700px; transform: translateZ(45px); animation: funeral-copy-in 1s .36s both; }
+.funeral-copy { position: absolute; z-index: 2; left: clamp(20px, 6vw, 88px); bottom: clamp(96px, 13vh, 150px); max-width: min(680px, calc(100% - 40px)); padding: 22px 24px; border-left: 3px solid rgba(226,27,45,.82); background: linear-gradient(90deg, rgba(3,5,7,.9), rgba(3,5,7,.28) 78%, transparent); backdrop-filter: blur(6px); transform: translateZ(45px); animation: funeral-copy-in 1s .36s both; }
 .funeral-copy .display { margin: 12px 0; font-size: clamp(4rem, 11vw, 10rem); text-shadow: 0 10px 45px rgba(0,0,0,.72); }
 .funeral-line { max-width: 540px; margin: 0 0 18px; color: #c7d0d4; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(1.35rem, 2.5vw, 2rem); font-style: italic; }
 .funeral-status { color: #879399; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.funeral-witnesses { max-width: 66ch; margin: 12px 0 0; color: #aab4b9; font-size: .78rem; line-height: 1.5; }
 .funeral-heading { position: fixed; z-index: 4; top: max(20px, env(safe-area-inset-top)); left: 50%; color: rgba(222,231,235,.56); font-family: "Cormorant Garamond", Georgia, serif; font-size: .8rem; letter-spacing: .32em; transform: translateX(-50%); white-space: nowrap; }
 .funeral-controls { position: fixed; z-index: 5; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
 
@@ -564,6 +616,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .feature p { margin: 10px 0 0; color: var(--muted); line-height: 1.6; }
 .archive-deaths { color: #ff6975 !important; }
 .archive-bet { color: var(--ice) !important; }
+.legacy-resolution { margin: 30px 0; padding: clamp(22px, 4vw, 38px); border-left: 3px solid var(--blood); }
 .trilogy-memorial { margin-top: 44px; }
 .memorial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; margin-top: 24px; }
 .memorial-card { position: relative; min-height: 210px; overflow: hidden; border: 1px solid rgba(226,27,45,.34); background: #09090b; }
@@ -674,6 +727,10 @@ button { -webkit-tap-highlight-color: transparent; }
   .credit-copy { position: absolute; inset: auto 0 0; min-height: 48svh; justify-content: end; background: linear-gradient(transparent, #020304 33%); }
   .credit-image::after { background: linear-gradient(0deg, #020304, transparent 50%), linear-gradient(90deg, transparent, rgba(226,27,45,.18)); }
   .section-head { align-items: start; flex-direction: column; }
+  .vault-head { align-items: start; flex-direction: column; }
+  .vault-save-card { grid-template-columns: 72px minmax(0, 1fr); }
+  .vault-save-portrait { width: 72px; height: 88px; }
+  .vault-save-card .save-actions { grid-column: 1 / -1; justify-content: start; }
 }
 
 @media (max-width: 520px) {
@@ -688,6 +745,11 @@ button { -webkit-tap-highlight-color: transparent; }
   .roster { grid-template-columns: repeat(2, 1fr); }
   .character-card, .character-card img { min-height: 210px; height: 210px; }
   .scene-copy { padding: 26px 18px calc(28px + var(--safe-bottom)); }
+  .movie-topline { flex-wrap: wrap; gap: 10px; }
+  .movie-topline > .progress { order: 3; flex-basis: 100%; }
+  .movie-scene-tools { gap: 6px; }
+  .movie-scene-tools > span { display: none; }
+  .mini-btn { min-height: 32px; }
   .scene-visual { min-height: 45svh; }
   .speaker-portrait { width: 42%; height: 60%; top: 11%; }
   .visual-caption strong { font-size: 2.4rem; }
@@ -704,16 +766,25 @@ button { -webkit-tap-highlight-color: transparent; }
   .bet-controls { align-items: stretch; }
   .bet-input { width: 100%; }
   .memorial-grid { grid-template-columns: repeat(2, 1fr); }
-  .funeral-scene { grid-template-columns: 1fr; align-content: center; gap: 18px; padding: 72px 18px 118px; text-align: center; }
-  .funeral-portrait { justify-self: center; width: min(64vw, 290px); max-height: 48svh; }
-  .funeral-copy { justify-self: center; transform: none; }
+  .funeral-copy { right: 14px; bottom: 104px; left: 14px; max-width: none; padding: 16px; text-align: left; transform: none; }
   .funeral-copy .display { margin: 7px 0; font-size: clamp(3.1rem, 17vw, 5.5rem); }
-  .funeral-line { font-size: 1.15rem; }
+  .funeral-line { margin-bottom: 10px; font-size: 1.05rem; }
+  .funeral-witnesses { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .funeral-controls { right: 12px; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
   .funeral-controls .btn { flex: 1; padding-inline: 10px; }
   .credit-copy h1 { font-size: 4rem; }
   .status-row { grid-template-columns: 46px 1fr auto; }
   .status-row img { width: 46px; height: 46px; }
+  .vault-shell { height: auto; min-height: 100svh; overflow: visible; }
+  .vault-content { height: auto; min-height: 0; }
+  .vault-tools { grid-template-columns: 1fr; }
+  .save-vault-list { max-height: 58svh; }
+  .vault-save-card { grid-template-columns: 58px minmax(0, 1fr); gap: 12px; padding: 10px; }
+  .vault-save-portrait { width: 58px; height: 72px; }
+  .vault-save-card .save-actions .btn { flex: 1; padding-inline: 9px; }
+  .relationship-grid { grid-template-columns: 1fr; }
+  .relationship-card { grid-template-columns: 76px minmax(0, 1fr); min-height: 200px; }
+  .relationship-card > img { width: 76px; min-height: 174px; }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {

@@ -1,8 +1,9 @@
-const CACHE = "spirit-slasher-v1.5.0";
+const CACHE = "spirit-slasher-v1.6.0";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./funeral-webgl.js",
   "./app.js",
   "./manifest.webmanifest",
   "./version.json",

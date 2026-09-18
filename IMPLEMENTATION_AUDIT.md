@@ -4,7 +4,7 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 
 | Requirement | Status | Implemented behavior |
 |---|---:|---|
-| Every save creates its own trilogy canon | ✅ | Three independent local universes; seed, cast, choices, relationships, outcomes and history persist per save. |
+| Every save creates its own trilogy canon | ✅ | Unlimited device-local universes; seed, cast, choices, relationships, outcomes, custom name and history persist per save. |
 | Main Character creation | ✅ | Player chooses one of all 26 Spirits; that character is permanently marked as You. |
 | Player is never killer or victim | ✅ | Protagonist is excluded from killer and victim pools and is forced alive at the finale. |
 | Movie I cast of 8–12 characters | ✅ | Movie I procedurally selects 11 characters including the protagonist. Movie III expands as needed to include every unused living character and all eligible legacy survivors. |
@@ -15,6 +15,8 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Different maps and rooms | ✅ | Three original cinematic atlases drive 120 named sub-room variants with randomized routes, scene order and investigation locations. |
 | Meaningful friend-group choice | ✅ | Selected group becomes the inner circle and changes friendship, trust, loyalty, danger calls, Act III and credits order. |
 | Hidden relationship system | ✅ | Trust, friendship, suspicion, fear, loyalty and knowledge are stored without exposing numeric values. |
+| Visible life-sim relationship UI | ✅ | A portrait-based Relationship Board and in-scene HUD show canonical bonds, main-group status and qualitative trust, friendship, loyalty and suspicion meters. |
+| Randomized social events | ✅ | Each movie can generate animated grief, argument, accusation, vow, confession or rivalry scenes whose reactions use hidden rolls and never reveal whether a participant is a killer. |
 | “Will remember that” feedback | ✅ | Important social choices show non-numeric memory feedback. |
 | Real clues | ✅ | A generated clue points to the mastermind but is presented as neutral evidence. |
 | Red herrings | ✅ | True physical evidence implicates an innocent person without the game lying about the evidence. |
@@ -34,13 +36,16 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Movie III mastermind chosen after Movies I/II | ✅ | Non-returning mastermind candidates prioritize wrongly accused legacy characters and old friends. |
 | Movie III killer distribution | ✅ | Approximately equal thirds: one killer; two/three killers; one returning presumed-dead killer. |
 | Returning killer hidden from Movie III intro | ✅ | Exactly one old killer may return; they are removed from cast, intro, dialogue, suspect lists and choices until the Act III reveal. |
+| Movie III evidence never leaks the legacy twist | ✅ | Final-film real clues use an unknown identity in both returning and non-returning branches, so the branch cannot be inferred from evidence before the reveal. |
+| Legacy killers resolved after the trilogy | ✅ | Presumed Dead remains unresolved through Movies I/II; after Movie III every prior killer, including those who did not return, is archived as officially confirmed dead. |
 | Cinematic animated actions | ✅ | Choices cut to perspective-driven animated beats with depth layers and distinct 3D motion for deaths, rescues, active movement, killers, clues, relationship scenes, sabotage, theories and finale casualties. |
 | “Previously…” before Movie III | ✅ | Generates a recap from the player’s actual trust, rescue, accusation, killer and survivor history. |
 | Supplied intro music | ✅ | Used in every procedural cast intro. |
 | Supplied outro music | ✅ | Used in every outcome-built credit sequence. |
 | Dynamic outro order | ✅ | Player first; inner-circle friends; mastermind and other killers; remaining cast. |
 | End Credits Statistics | ✅ | Final survivor, killers, survivors, named deaths, identified killers, saved people, wrong accusations, relationships, theories, clues, item saves, fictional bet result, balance, prevented deaths and choices. |
-| 3D funeral for every death | ✅ | Completing Movie III launches a full-screen portrait memorial for every confirmed death with perspective movement, rain, candles, film identification and the supplied funeral music; it can be replayed from the trilogy archive. |
+| WebGL funeral for every death | ✅ | Completing Movie III launches a raw-WebGL cemetery for every confirmed death with a grave, textured headstone, survivor procession, crying animation, lit candles, thrown flowers, rain and the supplied funeral music. |
+| Unlimited organized saves | ✅ | The previous three-slot limit is removed; the Save Vault supports names, rename, search, sorting and a scrollable list while preserving each universe locally. |
 | Fictional killer betting | ✅ | Players may wager any available Slasher Credits on the final theory. Exact complete identification pays 2×; partial correct identification returns the matching fraction; no real money or payment exists. |
 | Cast Status | ✅ | Every participant is listed with their final state and killer status. |
 | 26 Spirits and clean character art | ✅ | All 26 named assets from the existing Spirits game are packaged and cached offline. |
@@ -54,4 +59,4 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 ## Verification summary
 
 - Static JavaScript/JSON/asset checks are performed before deployment.
-- Manual gameplay and balance testing of version 1.5.0 is intentionally left to the owner, as requested.
+- Manual gameplay and balance testing of version 1.6.0 is intentionally left to the owner, as requested.

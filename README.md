@@ -4,7 +4,7 @@
 
 ## Implemented features
 
-- Τρία ανεξάρτητα save slots / universes με αυτόματη αποθήκευση στη συσκευή.
+- Unlimited local Save Vault με ονομασία, μετονομασία, αναζήτηση, ταξινόμηση και scrollable επιλογή universe χωρίς αυτόματη διαγραφή παλιού slot.
 - Επιλογή main character από τους 26 υπάρχοντες Spirits χαρακτήρες.
 - Και οι 26 καθαρές character εικόνες από τα προηγούμενα Spirits games.
 - Προκαθορισμένες συγγένειες και σχέσεις: Luna–Hope, Demarin–Irene, Catherine–Evaggelia, Rino–Pauline, Rino–Billy, Luna–Vincent, Hope–Paul, Tony–Ian.
@@ -14,10 +14,13 @@
 - Procedural cast 11–12 χαρακτήρων στα Movie I/II και διευρυμένο Movie III ensemble που φέρνει υποχρεωτικά κάθε ζωντανό χαρακτήρα που δεν είχε screen time, μαζί με όλους τους διαθέσιμους legacy survivors.
 - Οι killers των Movie I/II καταγράφονται ως `KILLER · PRESUMED DEAD`, αποκλείονται από κάθε επόμενο κανονικό cast και μόνο ένας μπορεί να επιστρέψει κρυφά στο Movie III.
 - Returning killer του Movie III κρύβεται από intro, cast, διάλογο, suspect list και επιλογές και εμφανίζεται μόνο στο reveal/outro.
+- Όλα τα πραγματικά στοιχεία του Movie III παραμένουν identity-neutral μέχρι το reveal, είτε υπάρχει returning killer είτε όχι. Μετά το τέλος, κάθε παλιός killer που δεν επέστρεψε κλείνει επίσημα ως confirmed dead.
 - Procedural engine 100 διαφορετικών opening scenarios με κάμερες, projector, alarms, elevator, radio, livestream, sensors, lockdown, generator και παγιδευμένα δωμάτια.
 - 120 διαφορετικά sub-room variants σε τρία ξεχωριστά cinematic map atlases, με randomized routes, crops, clues και scene order.
 - Μηχανισμός επιλογής βασικής παρέας που αλλάζει trust, friendship και loyalty. Οι σημαντικοί survivors προστατεύονται μόνο από το επόμενο opening kill — όχι από τους κινδύνους της ταινίας.
 - Κρυφό relationship state: trust, friendship, suspicion, fear, loyalty και knowledge.
+- Life-sim Relationship Board μέσα σε κάθε ταινία με portrait tiles, canon συγγένειες και εμφανή qualitative friendship, trust, loyalty και suspicion meters.
+- Randomized relationship events με καβγάδες, πένθος, κατηγορίες, confessions, rivalry και όρκους προστασίας· ακόμη και ένας killer μπορεί να κλαίει ή να χειραγωγεί χωρίς να αποκαλύπτεται.
 - Real clues, red herrings και character secrets χωρίς να αποκαλύπτεται ο τύπος της σωστής ερμηνείας.
 - Midpoint και final accusation 1–4 υπόπτων, με αποθήκευση πρώτης και τελικής θεωρίας.
 - Δυναμικές καταστάσεις Alive, Saved, Dead και Killer · Presumed Dead. Οι κανονικοί νεκροί δεν επιστρέφουν ποτέ.
@@ -32,7 +35,7 @@
 - Movie III “Previously…” recap φτιαγμένο από τις πραγματικές επιλογές του save.
 - Dynamic outro με το supplied outro track και σειρά: player, φίλοι, killers, υπόλοιπο cast.
 - End credits statistics, cast status, αναλυτική λίστα νεκρών και πλήρες trilogy In Memoriam archive.
-- Μετά το Movie III παίζει αυτόματο 3D funeral montage για κάθε επιβεβαιωμένο νεκρό, με πορτρέτα, βροχή, κεριά, depth animation και το supplied `funeral_music.mp3`.
+- Μετά το Movie III παίζει πραγματικό raw-WebGL funeral για κάθε επιβεβαιωμένο νεκρό: τρισδιάστατος τάφος, headstone portrait, ζωντανοί attendees που πλησιάζουν κλαίγοντας, αναμμένα 3D κεριά και λουλούδια που πετούν στον τάφο, με το supplied `funeral_music.mp3`.
 - Προαιρετικό fictional betting: ο παίκτης ποντάρει Slasher Credits στη final theory, κερδίζει 2× μόνο με ακριβή πλήρη πρόβλεψη ή παίρνει αναλογική επιστροφή για μερική επιτυχία. Δεν χρησιμοποιούνται πραγματικά χρήματα ή πληρωμές.
 - Responsive mobile/desktop design, touch controls, fullscreen, sound toggle και reduced-motion support.
 - Original Spirit Slasher mask-and-slash logo, cinematic room camera moves, animated dialogue, 3D-perspective action/death/rescue/killer beats, film scratches, depth layers, glitch cuts, haunted vignette, vibration και procedural Web Audio scare cues.
