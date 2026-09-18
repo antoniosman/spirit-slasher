@@ -11,7 +11,8 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Cinematic cast intro | ✅ | Timed full-screen cast montage with supplied intro music and player/returning cast labels. |
 | Hidden killers, motives, secrets, victims, clues and changeable events | ✅ | All are generated before each movie and remain hidden until their relevant scene or reveal. |
 | Movie I/II killer odds 10% / 69% / 20% / 1% | ✅ | Exact thresholds: 0–.10, .10–.79, .79–.99 and .99–1.00. |
-| Opening Kill every movie | ✅ | Every opening branch ends with at least one cast death while the selected warning/rescue changes who survives. |
+| Randomized Opening Kill every movie | ✅ | 100 opening combinations vary the incident, complication and three actions; every branch changes who survives. |
+| Different maps and rooms | ✅ | Three original cinematic atlases drive 120 named sub-room variants with randomized routes, scene order and investigation locations. |
 | Meaningful friend-group choice | ✅ | Selected group becomes the inner circle and changes friendship, trust, loyalty, danger calls, Act III and credits order. |
 | Hidden relationship system | ✅ | Trust, friendship, suspicion, fear, loyalty and knowledge are stored without exposing numeric values. |
 | “Will remember that” feedback | ✅ | Important social choices show non-numeric memory feedback. |
@@ -19,17 +20,18 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Red herrings | ✅ | True physical evidence implicates an innocent person without the game lying about the evidence. |
 | Character secrets | ✅ | Procedural personal secret is unrelated to the murders but can affect suspicion. |
 | Accusations of 1–4 people | ✅ | Midpoint and Final Theory screens enforce 1–4 suspects and preserve both theories. |
-| Dynamic deaths and rescues | ✅ | Alive, Saved, Dead, Presumed Dead and Killer states change from choices and earlier flags. |
+| Dynamic deaths and rescues | ✅ | Alive, Saved, Dead and Killer · Presumed Dead states change from choices and earlier flags; victim count is randomized per movie. |
 | Delayed consequence such as spare key | ✅ | The key is given in a quiet early scene and can prevent a later off-screen death. |
 | Act III 0/N, partial or full discovery | ✅ | Reveal counts correct suspects and changes protagonist dialogue and finale survival logic. |
-| Rare fake deaths | ✅ | 4% branch; presumed-dead character physically returns alive at the reveal. |
+| No resurrection of ordinary dead | ✅ | Any non-killer marked Dead is permanently excluded from later casts, scenes, dialogue and choices. |
 | Motive engine | ✅ | Revenge, family secret, past incident, obsession, jealousy, cover-up, notoriety, manipulation and history-driven motives. |
 | Motive connected to protagonist | ✅ | Every reveal includes a protagonist-directed motive line; Movie III can quote a past player choice. |
-| Movie II legacy survivors | ✅ | Previous survivors receive casting priority and are still eligible for the opening kill and later deaths. |
+| Movie II legacy survivors | ✅ | A limited set of real survivors returns alongside a majority of new characters; closest/trusted/loyal allies cannot be the immediate sequel opening kill but can die later. |
 | Movie III reads full save history | ✅ | Uses saved killers, survivors, friends, accusations, rescues, deaths and pivotal choices. |
 | Movie III mastermind chosen after Movies I/II | ✅ | Non-returning mastermind candidates prioritize wrongly accused legacy characters and old friends. |
 | Movie III killer distribution | ✅ | Approximately equal thirds: one killer; two/three killers; one returning presumed-dead killer. |
-| Returning killer hidden from Movie III intro | ✅ | Removed from current cast/intro, revealed only in Act III and included in outcome credits. |
+| Returning killer hidden from Movie III intro | ✅ | Exactly one old killer may return; they are removed from cast, intro, dialogue, suspect lists and choices until the Act III reveal. |
+| Cinematic animated actions | ✅ | Choices cut to persistent animated beats for deaths, rescues, clues, relationship scenes, sabotage, theories and finale casualties. |
 | “Previously…” before Movie III | ✅ | Generates a recap from the player’s actual trust, rescue, accusation, killer and survivor history. |
 | Supplied intro music | ✅ | Used in every procedural cast intro. |
 | Supplied outro music | ✅ | Used in every outcome-built credit sequence. |
@@ -46,11 +48,5 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 
 ## Verification summary
 
-- JavaScript syntax: passed.
-- Manifest and version JSON: valid.
-- Service-worker precache: 38 declared assets, 0 missing.
-- Character assets: 26/26.
-- Browser console: 0 errors and 0 warnings through a complete Movie I playthrough.
-- Tested screens: main menu, character selection, canon relationship, cast intro, opening, party, key, investigation, rescue, accusations, confession, attack, reveal, finale, dynamic credits, statistics and Movie II handoff.
-- Tested viewports: 393×852 (iPhone 15 Pro), 430×932 (iPhone Pro Max), 852×393 iPhone landscape and 1440×1000 desktop.
-- iPhone responsive checks: 0 horizontal overflow in all three phone viewports; story choice controls measure 313×76 px in portrait, comfortably above touch-target minimums.
+- Static JavaScript/JSON/asset checks are performed before deployment.
+- Manual gameplay and balance testing of version 1.4.0 is intentionally left to the owner, as requested.
