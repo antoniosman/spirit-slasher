@@ -443,7 +443,65 @@ function isOnlineEngine() {
 
 function onlineDecisionKey() {
   const movie = current.movie;
-  return `movie-${movie.number}-stage-${movie.stage}-choice-${movie.choices.length}`;
+  const revision = Number(onlineSession?.sceneState?.revision || current.onlineSceneRevision || 0);
+  return `movie-${movie.number}-stage-${movie.stage}-rev-${revision}-choice-${movie.choices.length}`;
+}
+
+function onlineDecisionScope() {
+  // The opening is a shared vote. Once the common outcome is shown, turns
+  // rotate: one player completes their scene, then the other gets the next
+  // personal decision and sees the synced outcome.
+  return current?.movie?.stage === 1 ? "shared" : "personal";
+}
+
+function onlineTurnLabel(session = onlineSession) {
+  const turn = session?.turn;
+  if (!turn || turn.mode === "shared") return "SHARED DECISION · everyone may choose";
+  if (turn.pendingUsername) return `SYNCING SCENE · ${turn.username || "player"} is finishing`;
+  return `NOW DECIDING · ${turn.username || "player"}`;
+}
+
+function onlineCanAct(session = onlineSession) {
+  const turn = session?.turn;
+  if (!turn || turn.mode === "shared") return true;
+  return !turn.pendingUsername && turn.username === current?.onlineUsername;
+}
+
+function syncOnlineSceneState(session) {
+  const shared = session?.sceneState;
+  if (!isOnlineEngine() || !current?.movie || !shared) return false;
+  const targetMovie = Number(shared.movie);
+  const targetStage = Number(shared.stage);
+  if (!Number.isInteger(targetMovie) || !Number.isInteger(targetStage)) return false;
+  if (targetMovie < current.movie.number || (targetMovie === current.movie.number && targetStage < current.movie.stage)) return false;
+  const decisionKey = shared.lastDecision?.key || "";
+  const samePosition = targetMovie === current.movie.number && targetStage === current.movie.stage;
+  const hasNewSharedState = Number(shared.revision || 0) > Number(current.onlineSceneRevision || 0) || (decisionKey && decisionKey !== current.onlineLastDecisionKey);
+  if (samePosition && !hasNewSharedState) return false;
+  if (targetMovie > current.movie.number) {
+    current.movie = null;
+    current.movieNumber = targetMovie;
+    current.onlineScenePublishKey = null;
+    current.onlineSceneRevision = 0;
+    current.onlineLastDecisionKey = null;
+    startMovie(targetMovie);
+    toast(`Το κοινό session προχώρησε στο ${movieLabel(targetMovie)}.`);
+    return true;
+  }
+  current.movie.stage = targetStage;
+  current.movie.pendingBeat = null;
+  current.movie.pendingNextStage = null;
+  current.onlinePendingDecision = null;
+  current.onlineScenePublishKey = `${targetMovie}:${targetStage}:${shared.scene}`;
+  current.onlineSceneRevision = Number(shared.revision || 0);
+  if (shared.lastDecision?.choices) {
+    current.onlineLastDecisionKey = shared.lastDecision.key;
+    current.onlineDecisionNotice = { key: shared.lastDecision.key, choices: shared.lastDecision.choices, player: current.onlineUsername };
+  }
+  saveCurrent();
+  toast(`Κοινός συγχρονισμός: ${shared.scene}`);
+  renderMovie();
+  return true;
 }
 
 function onlineDecisionResolved(session, key, player) {
@@ -453,6 +511,7 @@ function onlineDecisionResolved(session, key, player) {
 function finishOnlineDecision(key, player, action, session) {
   const resolved = onlineDecisionResolved(session, key, player);
   if (!resolved || current?.onlinePendingDecision?.key !== key) return false;
+  rememberOnlineSession(session);
   current.onlinePendingDecision = null;
   current.onlineDecisionNotice = { key, choices: resolved.choices || {}, player };
   action();
@@ -461,7 +520,12 @@ function finishOnlineDecision(key, player, action, session) {
 
 function onlineDecisionGate(label, action) {
   if (!isOnlineEngine()) return action();
+  if (!onlineCanAct()) {
+    toast(`Περίμενε τη σειρά του/της ${onlineSession?.turn?.username || "άλλου παίκτη"}.`);
+    return;
+  }
   const key = onlineDecisionKey();
+  const scope = onlineDecisionScope();
   if (current.onlinePendingDecision?.key === key) return;
   const player = current.onlineUsername || current.protagonist;
   current.onlinePendingDecision = { key, label, player };
@@ -476,11 +540,11 @@ function onlineDecisionGate(label, action) {
       current.onlineDecisionTimer = setTimeout(waitForResolution, 1500);
     }
   };
-  window.SpiritOnline.sendDecision(current.onlineSessionCode, key, { label, player })
+  window.SpiritOnline.sendDecision(current.onlineSessionCode, key, { label, player }, scope)
     .then(result => {
       if (result.resolved && finishOnlineDecision(key, player, action, result.session)) return;
       current.onlineDecisionTimer = setTimeout(waitForResolution, 600);
-      toast(`Κλείδωσες: ${label}. Περιμένουμε τον άλλο παίκτη.`);
+      toast(scope === "shared" ? `Κλείδωσες: ${label}. Περιμένουμε την κοινή opening επιλογή.` : `Κλείδωσες: ${label}. Τώρα θα φανεί το outcome και μετά περνάει η σειρά.`);
     })
     .catch(error => {
       current.onlinePendingDecision = null;
@@ -816,13 +880,16 @@ function onlineWatch(code) {
   if (!code || onlineWatchingCode === code) return;
   window.SpiritOnline.stopWatching();
   onlineWatchingCode = code;
+  window.SpiritOnline.rememberSessionCode?.(code);
   const applySession = session => {
-    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, sceneState: session.sceneState, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
+    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, sceneState: session.sceneState, turn: session.turn, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
     if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
     onlineSessionSignature = signature;
     onlineSession = session;
+    window.SpiritOnline.rememberSessionCode?.(session.code);
     updateOnlineLivePanel(session);
     if (session.status === "playing") {
+      syncOnlineSceneState(session);
       launchOnlinePreview(session);
       return;
     }
@@ -832,11 +899,25 @@ function onlineWatch(code) {
   // changes network. Polling is intentionally the reliable Online test path.
   // A short poll keeps avatars and live choice labels responsive without the
   // fragile long-lived SSE stream that Quick Tunnels can cancel.
-  window.SpiritOnline.startPolling(code, applySession, onlineFailure, 2500);
+  window.SpiritOnline.startPolling(code, applySession, onlineFailure, 1500);
 }
 
 function onlineFailure(error) {
+  if (error?.status === 404 || error?.code === "session_not_found") {
+    window.SpiritOnline?.clearSavedSessionCode?.();
+    onlineSession = null;
+    onlineWatchingCode = null;
+    onlineSessionSignature = "";
+    window.SpiritOnline?.stopWatching?.();
+    if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
+  }
   toast(error?.message || "Δεν ολοκληρώθηκε η ενέργεια στον Online server.");
+}
+
+function rememberOnlineSession(session) {
+  onlineSession = session || null;
+  if (session?.code) window.SpiritOnline?.rememberSessionCode?.(session.code);
+  return onlineSession;
 }
 
 function onlinePendingChoice(session, username) {
@@ -871,7 +952,7 @@ function mountOnlineLivePanel() {
     send.disabled = true;
     try {
       const result = await window.SpiritOnline.sendChat(onlineSession.code, text);
-      onlineSession = result.session || onlineSession;
+      rememberOnlineSession(result.session || onlineSession);
       input.value = "";
       updateOnlineLivePanel(onlineSession);
     } catch (error) {
@@ -897,7 +978,8 @@ function updateOnlineLivePanel(session = onlineSession) {
   if (scene) {
     sharedScene.append(
       el("span", "eyebrow", "SERVER SCENE STATE"),
-      el("strong", "", `${movieLabel(scene.movie)} · STAGE ${scene.stage} · ${scene.scene}`)
+      el("strong", "", `${movieLabel(scene.movie)} · STAGE ${scene.stage} · ${scene.scene}`),
+      el("small", "", onlineTurnLabel(session))
     );
     if (scene.lastDecision?.choices) {
       const decisions = Object.entries(scene.lastDecision.choices).map(([username, value]) => `${username}: ${describeOnlineChoice(value)}`);
@@ -942,15 +1024,18 @@ function publishOnlineSceneState(sceneName) {
   window.SpiritOnline.updateSceneState(current.onlineSessionCode, movie.number, movie.stage, normalizedScene, decisionKey)
     .then(result => {
       if (!result.session) return;
-      onlineSession = result.session;
+      rememberOnlineSession(result.session);
+      current.onlineSceneRevision = Number(result.session.sceneState?.revision || current.onlineSceneRevision || 0);
+      current.onlineLastDecisionKey = result.session.sceneState?.lastDecision?.key || current.onlineLastDecisionKey || null;
       onlineSessionSignature = "";
       updateOnlineLivePanel(onlineSession);
     })
     .catch(error => {
       if (error.session) {
-        onlineSession = error.session;
+        rememberOnlineSession(error.session);
         onlineSessionSignature = "";
         updateOnlineLivePanel(onlineSession);
+        syncOnlineSceneState(error.session);
       }
       if (error.status !== 409) {
         current.onlineScenePublishKey = null;
@@ -964,8 +1049,17 @@ function launchOnlinePreview(session) {
   const player = session.players.find(entry => entry.username === session.me);
   if (!player?.character) return;
   onlineEngineStartedCode = session.code;
-  onlineSession = session;
+  rememberOnlineSession(session);
   toast("Το Online Preview ξεκινά με τον δικό σου χαρακτήρα.");
+  const savedOnlineCut = [...saves]
+    .filter(save => save.gameMode === "online" && save.onlineSessionCode === session.code)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  if (savedOnlineCut) {
+    savedOnlineCut.onlineUsername = session.me;
+    savedOnlineCut.onlineGroupCharacters = session.players.map(entry => entry.character).filter(Boolean);
+    loadUniverse(savedOnlineCut.id);
+    return;
+  }
   createUniverse(player.character, {
     mode: "online",
     playerCharacters: [player.character],
@@ -1004,6 +1098,33 @@ function renderOnlineLobby() {
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
+  if (!onlineSession && client.getSavedSessionCode?.()) {
+    const resumePanel = el("article", "panel online-resume-panel");
+    resumePanel.append(
+      el("p", "eyebrow", "SAVED ONLINE SESSION"),
+      el("h2", "headline", `Βρέθηκε το session ${client.getSavedSessionCode()}`),
+      el("p", "section-copy", "Το session αποθηκεύτηκε στον server. Μπορείς να κάνεις reconnect μετά από refresh, κλείσιμο του tab ή προσωρινή αποσύνδεση του host.")
+    );
+    const resumeActions = el("div", "actions");
+    resumeActions.append(
+      button("Reconnect to session", "", async () => {
+        try {
+          const result = await client.getSession(client.getSavedSessionCode());
+          rememberOnlineSession(result.session);
+          onlineSessionSignature = "";
+          renderOnlineLobby();
+          if (result.session.status === "playing") launchOnlinePreview(result.session);
+        } catch (error) { onlineFailure(error); }
+      }),
+      button("Forget saved session", "ghost", () => {
+        client.clearSavedSessionCode?.();
+        renderOnlineLobby();
+      })
+    );
+    resumePanel.append(resumeActions);
+    content.append(resumePanel);
+  }
+
   if (!onlineSession) {
     content.append(el("p", "eyebrow", "ONLINE · LOBBY"), el("h1", "display", "Δημιούργησε ή μπες."), el("p", "lead", "Ο κάθε λογαριασμός είναι ξεχωριστός παίκτης. Ο host δεν αποφασίζει για τους άλλους."));
     const panel = el("article", "panel");
@@ -1013,10 +1134,10 @@ function renderOnlineLobby() {
     panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Οι νέες συνδέσεις χρησιμοποιούν το named hostname· άλλαξε το URL μόνο για LAN/testing override.`));
     const actions = el("div", "actions");
     actions.append(button("Create 2–4 player session", "", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
+      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
@@ -1042,7 +1163,7 @@ function renderOnlineLobby() {
       const lockedByOther = Boolean(selectedBy && !selectedByMe);
       const card = characterButton(item.name, async () => {
         if (lockedByOther) return;
-        try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+        try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
       }, false, lockedByOther ? "online-locked" : selectedByMe ? "online-selected" : "");
       if (selectedBy) {
         const label = selectedByMe ? "SELECTED BY YOU" : `LOCKED · ${selectedBy.username}`;
@@ -1058,7 +1179,7 @@ function renderOnlineLobby() {
     characterPanel.append(characterGrid); content.append(characterPanel);
     const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
     const actions = el("div", "actions");
-    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; onlineSession = result.session; launchOnlinePreview(result.session); } catch (error) { onlineFailure(error); } }));
+    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; rememberOnlineSession(result.session); launchOnlinePreview(result.session); } catch (error) { onlineFailure(error); } }));
     else actions.append(el("p", "online-status", `Waiting for host ${onlineSession.host} to start…`));
     actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; client.stopWatching(); renderOnlineLobby(); }));
     content.append(actions);
@@ -1167,6 +1288,8 @@ function createUniverse(protagonist, options = {}) {
     onlinePendingDecision: null,
     onlineDecisionNotice: null,
     onlineScenePublishKey: null,
+    onlineSceneRevision: 0,
+    onlineLastDecisionKey: null,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1199,6 +1322,8 @@ function loadUniverse(id) {
   current.gameMode ||= current.playerCharacters.length > 1 ? "local" : "single";
   current.activePlayerIndex ??= 0;
   current.relationshipViewer ||= current.playerCharacters[0];
+  current.onlineSceneRevision ??= 0;
+  current.onlineLastDecisionKey ||= null;
   if (!current.playerCharacters.includes(current.relationshipViewer)) current.relationshipViewer = current.playerCharacters[0];
   current.playerCredits ||= Object.fromEntries(current.playerCharacters.map(name => [name, 1000]));
   current.relationshipsByPlayer = Object.fromEntries(current.playerCharacters.map((name, index) => [name, buildRelationshipBoard(name, current.relationshipsByPlayer?.[name] || (index === 0 ? current.relationships : null))]));
@@ -1860,6 +1985,13 @@ function movieScreen(sceneName, progress) {
     if (actionLog) content.append(actionLog);
   }
   if (current.gameMode === "online") {
+    const onlineTurn = el("div", "turn-strip online-turn-strip");
+    onlineTurn.append(
+      el("span", "eyebrow", "SERVER TURN"),
+      el("strong", "", onlineTurnLabel()),
+      el("small", "", "Το scene progress είναι κοινό. Ο ενεργός παίκτης ολοκληρώνει το δικό του outcome πριν ξεκλειδώσει ο επόμενος."),
+    );
+    content.append(onlineTurn);
     publishOnlineSceneState(sceneName);
     onlineLivePanel = mountOnlineLivePanel();
     content.append(onlineLivePanel);
@@ -1962,6 +2094,11 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
     const item = el("button", "choice");
     item.type = "button";
     item.dataset.storyChoice = "true";
+    if (isOnlineEngine() && !onlineCanAct()) {
+      item.disabled = true;
+      item.classList.add("turn-locked");
+      item.title = `Περίμενε τη σειρά του/της ${onlineSession?.turn?.username || "άλλου παίκτη"}.`;
+    }
     item.append(el("b", "", String.fromCharCode(65 + index)), el("span", "", choice.label));
     item.addEventListener("click", () => onlineDecisionGate(choice.label, choice.action));
     list.append(item);

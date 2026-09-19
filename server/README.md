@@ -54,10 +54,13 @@ LAN or another test server.
 - Authoritative lobby/start state and shared movie/scene stage.
 - Server-defined `sceneState` with monotonic movie/stage/revision and the last
   resolved decision, published by the active clients as they enter a scene.
-- Per-player decisions. A decision resolves only after every active player has
-  submitted their own value, then the server broadcasts the resolved choices.
+- Per-player decisions. A shared decision resolves after every active player has
+  submitted their own value. Personal decisions resolve for the active player,
+  rotate the turn and unlock the other player after the shared scene advances.
+- Sessions and turn state are persisted in `server/data/db.json`, so a refresh,
+  closed tab or temporary host disconnect can be resumed with the saved code.
 - Lightweight polling for lobby/avatar/pending-choice updates (the frontend uses
-  a 2.5-second interval during an active game, avoiding fragile long-lived tunnel
+  a 1.5-second interval during an active game, avoiding fragile long-lived tunnel
   streams), plus a session-private chat endpoint.
 - Server-Sent Events (`GET /api/sessions/:code/events`) remain available for
   compatible clients, but the browser test adapter intentionally uses polling.

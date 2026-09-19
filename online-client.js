@@ -2,6 +2,7 @@
 window.SpiritOnline = (() => {
   const TOKEN_KEY = "spirit-slasher-online-token-v1";
   const SERVER_KEY = "spirit-slasher-online-server-v1";
+  const SESSION_KEY = "spirit-slasher-online-session-v1";
   // GitHub Pages is the static client; the named Cloudflare hostname is the
   // public account/lobby origin. A user can still override it in the lobby
   // or by setting window.SPIRIT_ONLINE_SERVER_URL before this adapter loads.
@@ -34,6 +35,13 @@ window.SpiritOnline = (() => {
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
   function setToken(token) { token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY); }
+  function getSavedSessionCode() { return localStorage.getItem(SESSION_KEY) || ""; }
+  function rememberSessionCode(code) {
+    const normalized = String(code || "").trim().toUpperCase();
+    if (normalized) localStorage.setItem(SESSION_KEY, normalized);
+    return normalized;
+  }
+  function clearSavedSessionCode() { localStorage.removeItem(SESSION_KEY); }
 
   async function request(path, options = {}) {
     const headers = { ...(options.headers || {}) };
@@ -135,10 +143,13 @@ window.SpiritOnline = (() => {
     startSession: code => request(`/api/sessions/${encodeURIComponent(code)}/start`, { method: "POST" }),
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),
     updateSceneState: (code, movie, stage, scene, decisionKey = "") => request(`/api/sessions/${encodeURIComponent(code)}/scene-state`, { method: "POST", body: JSON.stringify({ movie, stage, scene, decisionKey }) }),
-    sendDecision: (code, key, value) => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value }) }),
+    sendDecision: (code, key, value, scope = "shared") => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value, scope }) }),
     sendChat: (code, text) => request(`/api/sessions/${encodeURIComponent(code)}/chat`, { method: "POST", body: JSON.stringify({ text }) }),
     stopWatching,
     startPolling,
     watchSession,
+    getSavedSessionCode,
+    rememberSessionCode,
+    clearSavedSessionCode,
   };
 })();

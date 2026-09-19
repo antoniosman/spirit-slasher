@@ -199,6 +199,10 @@ function findSession(code) {
     session.seed = crypto.randomInt(1, 0x7fffffff);
     persistDb();
   }
+  if (session && !session.turn) {
+    session.turn = { mode: session.status === "playing" ? "shared" : "lobby", username: null, pendingUsername: null, key: null };
+    persistDb();
+  }
   return session;
 }
 
@@ -229,6 +233,7 @@ function publicSession(session, viewer) {
   const pending = {};
   for (const [key, decision] of Object.entries(session.pendingDecisions || {})) {
     pending[key] = {
+      scope: decision.scope || "shared",
       submittedBy: Object.keys(decision.submissions || {}),
       submittedByMe: Boolean(decision.submissions && decision.submissions[viewer]),
       submissions: Object.fromEntries(Object.entries(decision.submissions || {}).map(([username, value]) => [username, value])),
@@ -246,6 +251,7 @@ function publicSession(session, viewer) {
     pendingDecisions: pending,
     history: session.history,
     chat: (session.chat || []).slice(-80),
+    turn: session.turn || null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     me: viewer,
@@ -445,6 +451,7 @@ async function handleApi(request, response, url) {
       pendingDecisions: {},
       history: [],
       chat: [],
+      turn: { mode: "lobby", username: null, pendingUsername: null, key: null },
       createdAt: now(),
       updatedAt: now(),
     };
@@ -505,6 +512,7 @@ async function handleApi(request, response, url) {
     if (session.players.some((player) => !player.character)) return sendError(request, response, 422, "Every player must choose a character.", "missing_character");
     session.status = "playing";
     session.stage = { movie: 1, scene: "opening" };
+    session.turn = { mode: "shared", username: null, pendingUsername: null, key: null };
     session.sceneState = { movie: 1, stage: 1, scene: "opening", revision: Number(session.sceneState?.revision || 0) + 1, lastDecision: null, updatedAt: now(), by: user.username };
     updateSession(session);
     sendJson(request, response, 200, { session: publicSession(session, user.username) });
@@ -538,32 +546,52 @@ async function handleApi(request, response, url) {
     const key = String(body.key || "").trim();
     if (!key || key.length > 120) return sendError(request, response, 422, "Decision key is required.", "invalid_decision");
     if (!Object.prototype.hasOwnProperty.call(body, "value")) return sendError(request, response, 422, "Decision value is required.", "invalid_decision");
+    const scope = body.scope === "personal" ? "personal" : "shared";
+    if (scope === "personal") {
+      const activeUsername = session.turn?.username || session.players[0]?.username;
+      if (activeUsername !== user.username || session.turn?.pendingUsername) {
+        return sendError(request, response, 409, `Now deciding: ${activeUsername || "another player"}.`, "not_your_turn");
+      }
+    }
     const serializedValue = JSON.stringify(body.value);
     if (serializedValue.length > 5000) return sendError(request, response, 422, "Decision value is too large.", "invalid_decision");
-    const pending = session.pendingDecisions[key] || { submissions: {}, createdAt: now() };
+    const pending = session.pendingDecisions[key] || { submissions: {}, scope, createdAt: now() };
+    if (pending.scope && pending.scope !== scope) return sendError(request, response, 409, "This decision is already being resolved.", "decision_scope_mismatch");
+    pending.scope = scope;
     pending.submissions[user.username] = body.value;
     session.pendingDecisions[key] = pending;
-    const everyoneSubmitted = session.players.every((player) => Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
-      if (everyoneSubmitted) {
+    const everyoneSubmitted = scope === "shared" && session.players.every((player) => Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
+    const shouldResolve = scope === "personal" || everyoneSubmitted;
+    if (shouldResolve) {
+      const choices = scope === "personal" ? { [user.username]: body.value } : pending.submissions;
       const resolved = {
         type: "decision-resolved",
         key,
-        choices: pending.submissions,
+        scope,
+        choices,
         stage: session.stage,
         resolvedAt: now(),
       };
       session.history.push(resolved);
       session.sceneState ||= { movie: session.stage.movie, stage: 0, scene: session.stage.scene || "lobby", revision: 0, lastDecision: null, updatedAt: now() };
-      session.sceneState.lastDecision = { key, choices: pending.submissions, resolvedAt: resolved.resolvedAt };
+      session.sceneState.revision = Number(session.sceneState.revision || 0) + 1;
+      session.sceneState.lastDecision = { key, choices, scope, resolvedAt: resolved.resolvedAt };
       session.sceneState.updatedAt = resolved.resolvedAt;
       delete session.pendingDecisions[key];
+      if (scope === "shared") {
+        session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null };
+      } else {
+        const currentIndex = Math.max(0, session.players.findIndex(player => player.username === user.username));
+        const nextUsername = session.players[(currentIndex + 1) % session.players.length]?.username || user.username;
+        session.turn = { mode: "personal", username: nextUsername, pendingUsername: null, key: null };
+      }
       session.updatedAt = now();
       persistDb();
       broadcast(session, "decision-resolved");
     } else {
       updateSession(session);
     }
-    sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: everyoneSubmitted });
+    sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: shouldResolve });
     return;
   }
 
@@ -594,6 +622,9 @@ async function handleApi(request, response, url) {
     }
     session.sceneState = candidate;
     session.stage = { movie, scene };
+    if (changed && session.turn?.pendingUsername) {
+      session.turn = { mode: "personal", username: session.turn.pendingUsername, pendingUsername: null, key: null };
+    }
     updateSession(session);
     sendJson(request, response, 200, { session: publicSession(session, user.username) });
     return;
@@ -622,7 +653,7 @@ async function handleApi(request, response, url) {
     if (!membership) return;
     const { user, session } = membership;
     session.players = session.players.filter((player) => player.username !== user.username);
-    if (!session.players.length || session.host === user.username) {
+    if (!session.players.length) {
       delete db.sessions[session.code];
       persistDb();
       broadcast(session, "session-closed");
@@ -630,8 +661,9 @@ async function handleApi(request, response, url) {
       sendJson(request, response, 200, { ok: true, closed: true });
       return;
     }
+    if (session.host === user.username) session.host = session.players[0].username;
     updateSession(session);
-    sendJson(request, response, 200, { ok: true, session: publicSession(session, user.username) });
+    sendJson(request, response, 200, { ok: true, session: publicSession(session, session.players[0].username), hostTransferred: session.host !== user.username });
     return;
   }
 

@@ -529,6 +529,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .choice span { line-height: 1.45; }
 .choice small { display: block; margin-top: 4px; color: var(--muted); }
 .choice:hover, .choice:focus-visible, .choice.selected { border-color: var(--paper); background: rgba(255,255,255,.07); outline: none; transform: translateX(4px); }
+.choice.turn-locked { opacity: .46; cursor: not-allowed; filter: saturate(.55); }
 .remember { margin-top: 20px; color: var(--ice); font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.16rem; font-style: italic; animation: fade-up .5s both; }
 
 .cast-intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: #030405; }
@@ -901,6 +902,13 @@ button { -webkit-tap-highlight-color: transparent; }
   .funeral-controls { right: 12px; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
   .funeral-controls .btn { flex: 1; padding-inline: 10px; }
   .credit-copy h1 { font-size: 4rem; }
+  .cast-intro { place-items: end; padding: 0 16px calc(76px + var(--safe-bottom)); }
+  .cast-backdrop img { object-fit: contain; object-position: center top; transform: none; filter: grayscale(.24) contrast(1.16) brightness(.62); }
+  .cast-backdrop::after { background: linear-gradient(0deg, rgba(3,4,5,.98) 0%, rgba(3,4,5,.84) 24%, rgba(3,4,5,.16) 68%, transparent 100%); }
+  .cast-title { width: 100%; align-self: end; }
+  .cast-title h1 { margin-top: 9px; font-size: clamp(3.3rem, 18vw, 5.4rem); line-height: .78; overflow-wrap: anywhere; }
+  .cast-title p { margin-top: 14px; font-size: .72rem; letter-spacing: .15em; }
+  .cast-title .credit { font-size: .64rem; letter-spacing: .21em; }
   .status-row { grid-template-columns: 46px 1fr auto; }
   .status-row img { width: 46px; height: 46px; }
   .vault-shell { height: auto; min-height: 100svh; overflow: visible; }
