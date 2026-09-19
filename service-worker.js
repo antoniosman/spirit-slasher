@@ -1,9 +1,10 @@
-const CACHE = "spirit-slasher-v1.10-build-2";
+const CACHE = "spirit-slasher-v1.10-build-3";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
   "./funeral-webgl.js",
+  "./online-client.js",
   "./app.js",
   "./manifest.webmanifest",
   "./version.json",
@@ -60,6 +61,7 @@ self.addEventListener("message", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).pathname.startsWith("/api/")) return;
   event.respondWith(
     caches.match(event.request).then(cached => {
       const network = fetch(event.request).then(response => {

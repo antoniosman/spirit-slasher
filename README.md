@@ -51,8 +51,13 @@
 παρέχει accounts, sessions 2–4 παικτών, character lobby, authoritative stage,
 per-player decisions και live events. Οι λεπτομέρειες βρίσκονται στο
 [`server/README.md`](server/README.md). Το επόμενο βήμα είναι η σύνδεση του
-Online UI και του movie engine στα endpoints, ενώ τα Single Player και Local
-μένουν ανεπηρέαστα.
+movie engine στα authoritative decisions· το Online account/lobby UI είναι ήδη
+συνδεδεμένο, ενώ τα Single Player και Local μένουν ανεπηρέαστα.
+
+Για δοκιμή με παίκτη εκτός του τοπικού δικτύου, τρέξε
+`powershell -ExecutionPolicy Bypass -File .\scripts\start-online.ps1`. Το script
+ξεκινά server και προσωρινό HTTPS Cloudflare Quick Tunnel και το Online client
+συνδέεται αυτόματα όταν ανοίξεις το tunnel URL.
 
 ## Run locally
 

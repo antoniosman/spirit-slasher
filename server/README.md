@@ -16,6 +16,25 @@ To let an iPhone or another computer on the same Wi-Fi connect, find this PC's
 LAN IPv4 address with `ipconfig` and open `http://YOUR-LAN-IP:8787` on that
 device. Windows Firewall may need an inbound rule for TCP port `8787`.
 
+## Secure remote testing
+
+For a player outside your home network, run this from the project folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-online.ps1
+```
+
+The script starts the local server, installs the official `cloudflared` package
+with `winget` if needed, and opens a temporary HTTPS Quick Tunnel. Share the
+printed `https://….trycloudflare.com` URL with the other player. Because the
+app is served from that same URL, its Online client auto-connects to the correct
+server; no Server URL typing is needed. The URL changes each time the script
+starts and is for testing only. Stop it with `Ctrl+C` when finished.
+
+Do not use a Quick Tunnel for production accounts or persistent sessions. Later
+we can move the same API behind a named Cloudflare Tunnel, authentication rate
+limits and a hosted database.
+
 ## What is implemented
 
 - Account registration and login with salted `scrypt` password hashes.
@@ -29,9 +48,9 @@ device. Windows Firewall may need an inbound rule for TCP port `8787`.
   updates.
 
 The existing Single Player and Local pass-the-phone modes remain client-only.
-The next integration step is to connect the Online mode UI to these endpoints
-and then route the existing movie engine through the server's authoritative
-decision events.
+The Online account/lobby UI now connects to these endpoints. The next
+integration step is routing the existing movie engine through the server's
+authoritative decision events.
 
 ## Useful environment variables
 

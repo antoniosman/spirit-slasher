@@ -562,6 +562,19 @@ button { -webkit-tap-highlight-color: transparent; }
 .bet-chip { min-height: 48px; padding: 0 15px; color: var(--paper); border: 1px solid var(--line); background: rgba(255,255,255,.035); font-weight: 800; cursor: pointer; }
 .bet-chip:hover, .bet-chip:focus-visible { border-color: var(--blood); background: rgba(226,27,45,.12); }
 .bet-disclaimer { margin: 16px 0 0 !important; color: #ff8791 !important; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.online-auth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.online-field { display: grid; gap: 8px; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.online-field.full { grid-column: 1 / -1; }
+.online-field input { width: 100%; min-height: 48px; padding: 0 13px; color: var(--paper); border: 1px solid var(--line); border-radius: 0; outline: none; background: rgba(7,9,12,.85); }
+.online-field input:focus { border-color: var(--ice); box-shadow: 0 0 0 3px rgba(137,200,215,.11); }
+.online-server-note { margin: 16px 0 0 !important; color: var(--muted) !important; font-size: .75rem !important; line-height: 1.6 !important; }
+.online-code { display: inline-block; margin: 8px 0 0; color: var(--ice); font-family: "Archivo Black", sans-serif; font-size: clamp(2rem, 8vw, 4.4rem); letter-spacing: .18em; }
+.online-player-list { display: grid; gap: 10px; margin: 18px 0 0; }
+.online-player-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
+.online-player-row small { color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.online-player-row.ready { border-color: rgba(137,200,215,.65); }
+.online-status { margin: 0; color: var(--ice); font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+@media (max-width: 640px) { .online-auth-grid { grid-template-columns: 1fr; } .online-field.full { grid-column: auto; } .online-player-row { align-items: flex-start; flex-direction: column; } }
 
 .notebook { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-top: 26px; }
 .clue { min-height: 160px; padding: 22px; border-left: 3px solid var(--ice); }

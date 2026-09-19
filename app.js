@@ -207,6 +207,8 @@ let sceneWebGLStops = [];
 let deferredInstallPrompt = null;
 let swRegistration = null;
 let audioContext = null;
+let onlineSession = null;
+let onlineWatchingCode = null;
 
 function loadJSON(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -676,7 +678,7 @@ function renderModeSelect() {
   const single = el("article", "panel mode-card");
   single.append(el("p", "eyebrow", "SINGLE PLAYER"), el("h2", "headline", "Μόνος/η στο cut"), el("p", "section-copy", "Ένας πρωταγωνιστής, procedural τριλογία και όλο το canon στα χέρια σου."), button("Single Player", "", () => renderProtagonist("single")));
   const multi = el("article", "panel mode-card");
-  multi.append(el("p", "eyebrow", "MULTIPLAYER"), el("h2", "headline", "Παίξε μαζί"), el("p", "section-copy", "Online έρχεται αργότερα. Local υποστηρίζει μέχρι δύο παίκτες με κοινή οθόνη ή pass-the-phone."), button("Multiplayer", "secondary", renderMultiplayerMode));
+  multi.append(el("p", "eyebrow", "MULTIPLAYER"), el("h2", "headline", "Παίξε μαζί"), el("p", "section-copy", "Online με account και local/tunnel server ή Local μέχρι δύο παίκτες με κοινή οθόνη / pass-the-phone."), button("Multiplayer", "secondary", renderMultiplayerMode));
   grid.append(single, multi); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderHome)); content.append(actions);
   root.append(content);
@@ -685,14 +687,116 @@ function renderModeSelect() {
 function renderMultiplayerMode() {
   const root = screen();
   const content = el("div", "content narrow");
-  content.append(el("p", "eyebrow", "MULTIPLAYER CUT"), el("h1", "display", "Διάλεξε τρόπο σύνδεσης."), el("p", "lead", "Το Online mode είναι Coming Soon. Το Local mode παίζεται τώρα σε μία συσκευή με δύο ανθρώπινους χαρακτήρες."));
+  content.append(el("p", "eyebrow", "MULTIPLAYER CUT"), el("h1", "display", "Διάλεξε τρόπο σύνδεσης."), el("p", "lead", "Το Online mode συνδέεται τώρα σε local/LAN server από το PC σου. Το Local mode παραμένει pass-the-phone σε μία συσκευή."));
   const grid = el("div", "mode-grid");
-  const online = el("article", "panel mode-card disabled");
-  online.append(el("p", "eyebrow", "ONLINE"), el("h2", "headline", "COMING SOON"), el("p", "section-copy", "Απαιτεί server/account υποδομή και θα ενεργοποιηθεί σε επόμενη έκδοση."), button("Coming soon", "ghost", () => toast("Το Online multiplayer έρχεται σύντομα.")));
+  const online = el("article", "panel mode-card");
+  online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", renderOnlineLobby));
   const local = el("article", "panel mode-card");
   local.append(el("p", "eyebrow", "LOCAL · 2 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Δύο καλοί χαρακτήρες, ποτέ killers και ποτέ μόνιμα νεκροί. Όλοι οι υπόλοιποι είναι NPCs και οι σχέσεις συνεχίζουν κανονικά."), button("Local 2 Players", "", () => renderLocalSetup()));
   grid.append(online, local); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderModeSelect)); content.append(actions);
+  root.append(content);
+}
+
+function onlineField(label, type, value = "", placeholder = "") {
+  const wrapper = el("label", "online-field");
+  wrapper.append(el("span", "", label));
+  const input = el("input");
+  input.type = type;
+  input.value = value;
+  input.placeholder = placeholder;
+  input.autocomplete = type === "password" ? "current-password" : "off";
+  wrapper.append(input);
+  return { wrapper, input };
+}
+
+function onlineWatch(code) {
+  if (!code || onlineWatchingCode === code) return;
+  window.SpiritOnline.stopWatching();
+  onlineWatchingCode = code;
+  window.SpiritOnline.watchSession(code, session => {
+    onlineSession = session;
+    if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
+  }, error => toast(error.message || "Το live session stream σταμάτησε."));
+}
+
+function onlineFailure(error) {
+  toast(error?.message || "Δεν ολοκληρώθηκε η ενέργεια στον Online server.");
+}
+
+function renderOnlineLobby() {
+  const root = screen();
+  root.dataset.onlineLobby = "true";
+  const content = el("div", "content narrow");
+  const client = window.SpiritOnline;
+  if (!client) {
+    content.append(el("p", "eyebrow", "ONLINE ERROR"), el("h1", "display", "Λείπει ο Online adapter."), el("p", "lead", "Κάνε refresh την εφαρμογή για να φορτωθεί το Online client."));
+    root.append(content);
+    return;
+  }
+
+  if (!client.getToken()) {
+    content.append(el("p", "eyebrow", "ONLINE · ACCOUNT"), el("h1", "display", "Σύνδεση στον server."), el("p", "lead", "Δημιούργησε λογαριασμό στον local ή tunnel server. Ο κωδικός μένει μόνο σε αυτή τη συσκευή."));
+    const panel = el("article", "panel");
+    const server = onlineField("SERVER URL", "url", client.getServerUrl(), "https://your-tunnel.example"); server.wrapper.classList.add("full");
+    const username = onlineField("USERNAME", "text", "", "billy");
+    const password = onlineField("PASSWORD", "password", "", "8+ characters");
+    const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, username.wrapper, password.wrapper);
+    panel.append(fields, el("p", "online-server-note", "Στο ίδιο PC χρησιμοποίησε http://localhost:8787. Για παίκτη εκτός Wi‑Fi βάλε το HTTPS tunnel URL."));
+    const actions = el("div", "actions");
+    actions.append(button("Create account", "", async () => {
+      try { client.setServerUrl(server.input.value); const result = await client.register(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Account δημιουργήθηκε."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Sign in", "secondary", async () => {
+      try { client.setServerUrl(server.input.value); const result = await client.login(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Συνδέθηκες στον Online server."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Πίσω", "ghost", renderMultiplayerMode));
+    panel.append(actions); content.append(panel); root.append(content); return;
+  }
+
+  if (!onlineSession) {
+    content.append(el("p", "eyebrow", "ONLINE · LOBBY"), el("h1", "display", "Δημιούργησε ή μπες."), el("p", "lead", "Ο κάθε λογαριασμός είναι ξεχωριστός παίκτης. Ο host δεν αποφασίζει για τους άλλους."));
+    const panel = el("article", "panel");
+    const server = onlineField("SERVER URL", "url", client.getServerUrl(), "https://your-tunnel.example"); server.wrapper.classList.add("full");
+    const joinCode = onlineField("JOIN CODE", "text", "", "ABC123");
+    const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, joinCode.wrapper);
+    panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Ο server μπορεί να είναι στο PC σου ή στο HTTPS tunnel URL.`));
+    const actions = el("div", "actions");
+    actions.append(button("Create 2–4 player session", "", async () => {
+      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Join session", "secondary", async () => {
+      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Sign out", "ghost", async () => { await client.logout(); onlineSession = null; onlineWatchingCode = null; renderOnlineLobby(); }));
+    panel.append(actions); content.append(panel); root.append(content); return;
+  }
+
+  onlineWatch(onlineSession.code);
+  const mine = onlineSession.players.find(player => player.username === onlineSession.me);
+  content.append(el("p", "eyebrow", `ONLINE · ${onlineSession.status.toUpperCase()}`), el("h1", "display", "Η παρέα συγκεντρώνεται."), el("p", "lead", "Μοιράσου τον κωδικό με τον Billy. Οι επιλογές και τα outcomes θα είναι ξεχωριστά ανά account."));
+  const codePanel = el("article", "panel");
+  codePanel.append(el("p", "eyebrow", "SESSION CODE"), el("span", "online-code", onlineSession.code), el("p", "online-server-note", `${onlineSession.players.length}/${onlineSession.maxPlayers} players · ${client.getServerUrl()}`));
+  const players = el("div", "online-player-list");
+  onlineSession.players.forEach(player => {
+    const row = el("div", `online-player-row ${player.character ? "ready" : ""}`);
+    row.append(el("strong", "", player.username), el("small", "", player.character || "Choosing character…")); players.append(row);
+  });
+  codePanel.append(players); content.append(codePanel);
+
+  if (onlineSession.status === "lobby") {
+    const characterPanel = el("article", "panel");
+    characterPanel.append(el("p", "eyebrow", "YOUR CHARACTER"), el("h2", "headline", mine?.character || "Choose one"), el("p", "section-copy", "Ο χαρακτήρας σου είναι προσωπικός και δεν γίνεται killer. Οι canon σχέσεις του παραμένουν δικές του."));
+    const characterGrid = el("div", "roster");
+    roster.forEach(item => characterGrid.append(characterButton(item.name, async () => {
+      try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }, mine?.character === item.name)));
+    characterPanel.append(characterGrid); content.append(characterPanel);
+    const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
+    const actions = el("div", "actions");
+    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); } }));
+    else actions.append(el("p", "online-status", "Waiting for the host to start…"));
+    actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; client.stopWatching(); renderOnlineLobby(); }));
+    content.append(actions);
+  } else {
+    const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session είναι συνδεδεμένα. Η επόμενη φάση περνάει το Movie I engine στα shared server decisions.")); content.append(connected);
+  }
   root.append(content);
 }
 

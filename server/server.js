@@ -242,10 +242,10 @@ function publicSession(session, viewer) {
 function broadcast(session, eventName = "session") {
   const clients = clientsBySession.get(session.code);
   if (!clients || !clients.size) return;
-  const payload = JSON.stringify({ event: eventName, session: publicSession(session, null) });
   for (const client of clients) {
     try {
-      client.write(`event: ${eventName}\ndata: ${payload}\n\n`);
+      const payload = JSON.stringify({ event: eventName, session: publicSession(session, client.username) });
+      client.response.write(`event: ${eventName}\ndata: ${payload}\n\n`);
     } catch {
       clients.delete(client);
     }
@@ -543,13 +543,15 @@ async function handleApi(request, response, url) {
     });
     response.write(`event: session\ndata: ${JSON.stringify({ event: "session", session: publicSession(session, user.username) })}\n\n`);
     if (!clientsBySession.has(session.code)) clientsBySession.set(session.code, new Set());
-    clientsBySession.get(session.code).add(response);
+    clientsBySession.get(session.code).add({ response, username: user.username });
     const keepAlive = setInterval(() => response.write(": keep-alive\n\n"), 20000);
     request.on("close", () => {
       clearInterval(keepAlive);
       const clients = clientsBySession.get(session.code);
       if (!clients) return;
-      clients.delete(response);
+      for (const client of clients) {
+        if (client.response === response) clients.delete(client);
+      }
       if (!clients.size) clientsBySession.delete(session.code);
     });
     return;
@@ -597,7 +599,7 @@ server.listen(PORT, HOST, () => {
 
 process.on("SIGINT", () => {
   for (const clients of clientsBySession.values()) {
-    for (const client of clients) client.end();
+    for (const client of clients) client.response.end();
   }
   server.close(() => process.exit(0));
 });
