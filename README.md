@@ -24,8 +24,7 @@
 - Randomized relationship events με καβγάδες, πένθος, κατηγορίες, confessions, rivalry και όρκους προστασίας· ακόμη και ένας killer μπορεί να κλαίει ή να χειραγωγεί χωρίς να αποκαλύπτεται.
 - Real clues, red herrings και character secrets χωρίς να αποκαλύπτεται ο τύπος της σωστής ερμηνείας.
 - Midpoint και final accusation 1–4 υπόπτων, με αποθήκευση πρώτης και τελικής θεωρίας.
-- Δυναμικές καταστάσεις Alive, Saved, Dead και Killer · Presumed Dead. Κανονικός νεκρός μπορεί να επιστρέψει μόνο μέσω του εξαιρετικά συγκεκριμένου, one-use Κρυστάλλου Αναζωογόνησης που βρέθηκε και ενεργοποιήθηκε στην ίδια ταινία.
-- Πέντε cinematic supernatural relics με διαφορετικές λειτουργίες: resurrection crystal, ambiguous echo mirror, probability-reroll hourglass, relationship talisman και protective black rose με τίμημα. Τα παλιά totems δεν εμφανίζονται πλέον.
+- Δυναμικές καταστάσεις Alive, Saved, Dead και Killer · Presumed Dead. Οι θάνατοι παραμένουν οριστικοί και κανένας χαρακτήρας δεν επιστρέφει με ειδικό μηχανισμό.
 - Παλαιότερες αποφάσεις (π.χ. survival item) αλλάζουν πραγματικά τις πιθανότητες επιβίωσης και μπορούν να σώσουν τον κάτοχό τους σε attack, rooms ή finale.
 - Τα openings μπορούν να σκοτώσουν τον στόχο, τον σύντροφό του ή και τους δύο. Ο opening survivor χωρίς θέση στην παρέα μπαίνει ισότιμα στα επόμενα death pools και έχει μικρή κρυφή πιθανότητα να είναι killer.
 - Δεύτερο investigation loop με επιπλέον δωμάτια, προσωπικές συζητήσεις, relationship-aware διάλογο, γρίφους και clues πριν συνεχίσει το attack.

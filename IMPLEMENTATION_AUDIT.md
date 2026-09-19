@@ -29,8 +29,6 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Extra investigations and character screen time | ✅ | After the first room the player can investigate more rooms, solve a randomized riddle or speak privately with living cast members for clues and relationship changes; ensemble cameos keep supporting characters visible. |
 | Unpredictable choice outcomes | ✅ | Rescue, abandonment and finale options use seeded probability plus earned advantages, so A/B/C does not map to a permanent fixed death result. |
 | Act III 0/N, partial or full discovery | ✅ | Reveal counts correct suspects and changes protagonist dialogue and finale survival logic. |
-| Controlled supernatural resurrection | ✅ | Ordinary deaths remain final unless the player finds the one-use Resurrection Crystal and explicitly spends it on a non-killer who died in the current movie; the revived character is restored to all later pools. |
-| Supernatural relic twists | ✅ | Every movie hides one of five cinematic relics: resurrection, ambiguous omen, favorable probability reroll, group-bond boost or protection with transferred danger. Totem/shadow-shield content is removed. |
 | Motive engine | ✅ | Revenge, family secret, past incident, obsession, jealousy, cover-up, notoriety, manipulation and history-driven motives. |
 | Motive connected to protagonist | ✅ | Every reveal includes a protagonist-directed motive line; Movie III can quote a past player choice. |
 | Movie II legacy survivors | ✅ | A limited set of real survivors returns alongside a majority of new characters; prior main-group survivors cannot be the immediate sequel opening kill but can die later. |
