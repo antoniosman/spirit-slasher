@@ -1022,7 +1022,7 @@ function generateMovie(number) {
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
   const priorCoreFriends = number === 1 ? [] : unique(current.history.at(-1)?.friends || [])
     .filter(name => priorSurvivors.includes(name));
-  const legacyPriority = unique([...linkedNames(protagonist), ...priorSurvivors])
+  const legacyPriority = unique([...players.flatMap(player => linkedNames(player)), ...priorSurvivors])
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
   const desired = number === 1 ? 11 : 12;
   const seenBefore = new Set(current.history.flatMap(record => record.cast || []));
