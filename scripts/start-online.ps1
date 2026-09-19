@@ -31,7 +31,14 @@ try {
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   $openedTunnelTab = $false
-  & cloudflared tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:8787 2>&1 | ForEach-Object {
+  $tunnelArguments = @("tunnel", "--no-autoupdate")
+  if ($env:SPIRIT_TUNNEL_PROTOCOL) {
+    $tunnelArguments += @("--protocol", $env:SPIRIT_TUNNEL_PROTOCOL)
+  }
+  $tunnelArguments += @("--url", "http://127.0.0.1:8787")
+  $transportLabel = if ($env:SPIRIT_TUNNEL_PROTOCOL) { $env:SPIRIT_TUNNEL_PROTOCOL } else { "default QUIC" }
+  Write-Host "Tunnel transport: $transportLabel" -ForegroundColor DarkGray
+  & cloudflared @tunnelArguments 2>&1 | ForEach-Object {
     $line = $_.ToString()
     Write-Host $line
     if (-not $openedTunnelTab -and $line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
