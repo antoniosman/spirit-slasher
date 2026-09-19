@@ -1,7 +1,6 @@
 /* Browser adapter for the local/LAN Online backend. */
 window.SpiritOnline = (() => {
   const TOKEN_KEY = "spirit-slasher-online-token-v1";
-  const SERVER_KEY = "spirit-slasher-online-server-v1";
   const SESSION_KEY = "spirit-slasher-online-session-v1";
   // GitHub Pages is the static client; the named Cloudflare hostname is the
   // public account/lobby origin. A user can still override it in the lobby
@@ -11,6 +10,8 @@ window.SpiritOnline = (() => {
   let pollTimer = null;
 
   function defaultServerUrl() {
+    const configured = String(window.SPIRIT_ONLINE_SERVER_URL || "").trim().replace(/\/+$/, "");
+    if (configured) return configured;
     const isGithubPages = location.hostname.endsWith("github.io");
     const isLocalServer = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname) && location.port === "8787";
     if (isLocalServer || (!isGithubPages && location.origin !== "null")) return location.origin;
@@ -19,18 +20,7 @@ window.SpiritOnline = (() => {
   }
 
   function getServerUrl() {
-    const stored = (localStorage.getItem(SERVER_KEY) || "").trim();
-    // Quick Tunnel URLs are ephemeral. Do not keep sending accounts to an old
-    // trycloudflare.com origin after the project moves to its named hostname.
-    if (/trycloudflare\.com$/i.test(stored)) localStorage.removeItem(SERVER_KEY);
-    return ((/trycloudflare\.com$/i.test(stored) ? "" : stored) || defaultServerUrl()).replace(/\/+$/, "");
-  }
-
-  function setServerUrl(value) {
-    const normalized = String(value || "").trim().replace(/\/+$/, "");
-    if (!normalized) localStorage.removeItem(SERVER_KEY);
-    else localStorage.setItem(SERVER_KEY, normalized);
-    return getServerUrl();
+    return defaultServerUrl().replace(/\/+$/, "");
   }
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -70,6 +60,8 @@ window.SpiritOnline = (() => {
     setToken(result.token);
     return result;
   }
+
+  function health() { return request("/api/health"); }
 
   function stopWatching() {
     activeController?.abort();
@@ -130,7 +122,7 @@ window.SpiritOnline = (() => {
 
   return {
     getServerUrl,
-    setServerUrl,
+    health,
     getToken,
     setToken,
     register: (username, password) => authenticate("/api/auth/register", username, password),

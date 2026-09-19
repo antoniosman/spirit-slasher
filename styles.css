@@ -574,6 +574,22 @@ button { -webkit-tap-highlight-color: transparent; }
 .online-field.full { grid-column: 1 / -1; }
 .online-field input { width: 100%; min-height: 48px; padding: 0 13px; color: var(--paper); border: 1px solid var(--line); border-radius: 0; outline: none; background: rgba(7,9,12,.85); }
 .online-field input:focus { border-color: var(--ice); box-shadow: 0 0 0 3px rgba(137,200,215,.11); }
+.online-server-status { position: relative; display: grid; grid-column: 1 / -1; gap: 7px; overflow: hidden; min-height: 118px; padding: 16px; border: 1px solid rgba(137,200,215,.34); background: linear-gradient(115deg, rgba(7,18,24,.94), rgba(7,9,13,.88)); isolation: isolate; }
+.online-server-status::before { content: ""; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 8% 0%, rgba(137,200,215,.18), transparent 44%), linear-gradient(120deg, transparent 0 43%, rgba(255,255,255,.05) 49%, transparent 55%); opacity: .75; }
+.online-server-status::after { content: ""; position: absolute; inset: 0 -20%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(137,200,215,.2), transparent); transform: translateX(-70%); opacity: 0; }
+.online-server-status.is-checking { border-color: rgba(137,200,215,.72); animation: server-heartbeat 1.2s ease-in-out infinite; }
+.online-server-status.is-checking::after { opacity: 1; animation: server-scan 1.05s linear infinite; }
+.online-server-status-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.online-server-status-top .eyebrow { margin: 0; color: var(--ice); }
+.server-status-pill { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .63rem; font-weight: 900; letter-spacing: .14em; }
+.server-status-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 0 currentColor; }
+.server-status-pill.online { color: #71e4ba; }
+.server-status-pill.online::before { animation: server-pulse 1.8s ease-out infinite; }
+.server-status-pill.offline { color: #ff6875; }
+.server-status-pill.checking { color: var(--ice); }
+.server-address { overflow: hidden; color: var(--paper); font-family: "Archivo Black", sans-serif; font-size: clamp(1.05rem, 3.4vw, 1.55rem); letter-spacing: .03em; text-overflow: ellipsis; white-space: nowrap; }
+.server-status-detail { color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.online-server-status .mini-btn { justify-self: start; min-height: 30px; padding: 0 10px; font-size: .62rem; }
 .online-server-note { margin: 16px 0 0 !important; color: var(--muted) !important; font-size: .75rem !important; line-height: 1.6 !important; }
 .online-code { display: inline-block; margin: 8px 0 0; color: var(--ice); font-family: "Archivo Black", sans-serif; font-size: clamp(2rem, 8vw, 4.4rem); letter-spacing: .18em; }
 .online-player-list { display: grid; gap: 10px; margin: 18px 0 0; }
@@ -786,6 +802,9 @@ button { -webkit-tap-highlight-color: transparent; }
 @keyframes killer-reveal { from { opacity: 0; transform: scale(1.08) rotate(.8deg); filter: blur(12px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes credit-name-in { from { opacity: 0; transform: translateX(42px); } to { opacity: 1; transform: none; } }
 @keyframes update-spin { to { transform: rotate(360deg); } }
+@keyframes server-heartbeat { 0%,100% { box-shadow: 0 0 0 0 rgba(137,200,215,0); } 50% { box-shadow: 0 0 0 4px rgba(137,200,215,.09); } }
+@keyframes server-scan { from { transform: translateX(-70%); } to { transform: translateX(70%); } }
+@keyframes server-pulse { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @keyframes update-ready { 0%,100% { box-shadow: 0 0 0 0 rgba(226,27,45,.4); } 50% { box-shadow: 0 0 0 8px rgba(226,27,45,0); } }
 @keyframes room-drift { from { background-size: cover, 205% 205%; } to { background-size: cover, 218% 218%; } }
 @keyframes portrait-enter { from { opacity: 0; transform: translateX(45px) rotate(2deg); filter: blur(8px); } to { opacity: 1; transform: rotate(.8deg); filter: none; } }

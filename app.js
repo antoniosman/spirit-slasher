@@ -888,6 +888,43 @@ function onlineField(label, type, value = "", placeholder = "") {
   return { wrapper, input };
 }
 
+function onlineServerStatus(client) {
+  const wrapper = el("article", "online-server-status");
+  wrapper.setAttribute("aria-live", "polite");
+  const top = el("div", "online-server-status-top");
+  top.append(el("span", "eyebrow", "HOSTED SERVER"));
+  const badge = el("span", "server-status-pill checking", "CHECKING");
+  top.append(badge);
+  const address = el("strong", "server-address", client.getServerUrl());
+  const detail = el("small", "server-status-detail", "Ελέγχεται η σύνδεση…");
+  const retry = button("Recheck", "ghost mini-btn", check);
+  wrapper.append(top, address, detail, retry);
+
+  async function check() {
+    wrapper.classList.add("is-checking");
+    badge.className = "server-status-pill checking";
+    badge.textContent = "CHECKING";
+    detail.textContent = "Το server ετοιμάζει το επόμενο cut…";
+    try {
+      const health = await client.health();
+      if (!wrapper.isConnected) return;
+      wrapper.classList.remove("is-checking");
+      badge.className = "server-status-pill online";
+      badge.textContent = "ONLINE";
+      detail.textContent = `Η σύνδεση είναι ενεργή${health?.version ? ` · server v${health.version}` : ""}.`;
+    } catch {
+      if (!wrapper.isConnected) return;
+      wrapper.classList.remove("is-checking");
+      badge.className = "server-status-pill offline";
+      badge.textContent = "OFFLINE";
+      detail.textContent = "Ο hosted server δεν απαντά τώρα. Δοκίμασε Recheck σε λίγο.";
+    }
+  }
+
+  check();
+  return wrapper;
+}
+
 function onlineWatch(code) {
   if (!code || onlineWatchingCode === code) return;
   window.SpiritOnline.stopWatching();
@@ -1141,16 +1178,16 @@ function renderOnlineLobby() {
   if (!client.getToken()) {
     content.append(el("p", "eyebrow", "ONLINE · ACCOUNT"), el("h1", "display", "Σύνδεση στον server."), el("p", "lead", "Δημιούργησε λογαριασμό στον local ή tunnel server. Ο κωδικός μένει μόνο σε αυτή τη συσκευή."));
     const panel = el("article", "panel");
-    const server = onlineField("SERVER URL", "url", client.getServerUrl(), "https://your-tunnel.example"); server.wrapper.classList.add("full");
+    const serverStatus = onlineServerStatus(client);
     const username = onlineField("USERNAME", "text", "", "billy");
     const password = onlineField("PASSWORD", "password", "", "8+ characters");
-    const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, username.wrapper, password.wrapper);
-    panel.append(fields, el("p", "online-server-note", "Default public server: https://slasher.spirituniverse.gr. Στο ίδιο PC μπορείς να χρησιμοποιήσεις http://localhost:8787, ενώ το πεδίο παραμένει διαθέσιμο για LAN/testing override."));
+    const fields = el("div", "online-auth-grid"); fields.append(serverStatus, username.wrapper, password.wrapper);
+    panel.append(fields, el("p", "online-server-note", "Το παιχνίδι είναι hosted στο παραπάνω address. Το URL είναι κλειδωμένο για τους players· για local development χρησιμοποίησε το αντίστοιχο local origin."));
     const actions = el("div", "actions");
     actions.append(button("Create account", "", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.register(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Account δημιουργήθηκε."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { const result = await client.register(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Account δημιουργήθηκε."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Sign in", "secondary", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.login(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Συνδέθηκες στον Online server."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { const result = await client.login(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Συνδέθηκες στον Online server."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Πίσω", "ghost", renderMultiplayerMode));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
@@ -1185,15 +1222,15 @@ function renderOnlineLobby() {
   if (!onlineSession) {
     content.append(el("p", "eyebrow", "ONLINE · LOBBY"), el("h1", "display", "Δημιούργησε ή μπες."), el("p", "lead", "Ο κάθε λογαριασμός είναι ξεχωριστός παίκτης. Ο host δεν αποφασίζει για τους άλλους."));
     const panel = el("article", "panel");
-    const server = onlineField("SERVER URL", "url", client.getServerUrl(), "https://your-tunnel.example"); server.wrapper.classList.add("full");
+    const serverStatus = onlineServerStatus(client);
     const joinCode = onlineField("JOIN CODE", "text", "", "ABC123");
-    const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, joinCode.wrapper);
-    panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Οι νέες συνδέσεις χρησιμοποιούν το named hostname· άλλαξε το URL μόνο για LAN/testing override.`));
+    const fields = el("div", "online-auth-grid"); fields.append(serverStatus, joinCode.wrapper);
+    panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Πληκτρολόγησε μόνο το lobby code· το hosted server address δεν αλλάζει από το UI.`));
     const actions = el("div", "actions");
     actions.append(button("Create 2–4 player session", "", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
@@ -1209,6 +1246,7 @@ function renderOnlineLobby() {
     row.append(el("strong", "", player.username), el("small", "", player.character || "Choosing character…")); players.append(row);
   });
   codePanel.append(players); content.append(codePanel);
+  content.append(onlineServerStatus(client));
 
   if (onlineSession.status === "lobby") {
     const characterPanel = el("article", "panel");

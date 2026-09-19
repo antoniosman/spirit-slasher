@@ -1,4 +1,4 @@
-const CACHE = "spirit-slasher-v1.11-build-11";
+const CACHE = "spirit-slasher-v1.11-build-12";
 const ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
 const CORE = [
   "./",
