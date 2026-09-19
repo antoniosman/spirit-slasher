@@ -210,6 +210,7 @@ let audioContext = null;
 let onlineSession = null;
 let onlineWatchingCode = null;
 let onlineSessionSignature = "";
+let onlineEngineStartedCode = null;
 let updateCheckInFlight = false;
 
 function loadJSON(key, fallback) {
@@ -721,6 +722,10 @@ function onlineWatch(code) {
     if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
     onlineSessionSignature = signature;
     onlineSession = session;
+    if (session.status === "playing") {
+      launchOnlinePreview(session);
+      return;
+    }
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
   };
   // Quick Tunnels can cancel long-lived HTTP streams when a tab sleeps or
@@ -730,6 +735,21 @@ function onlineWatch(code) {
 
 function onlineFailure(error) {
   toast(error?.message || "Δεν ολοκληρώθηκε η ενέργεια στον Online server.");
+}
+
+function launchOnlinePreview(session) {
+  if (!session?.code || session.status !== "playing" || onlineEngineStartedCode === session.code) return;
+  const player = session.players.find(entry => entry.username === session.me);
+  if (!player?.character) return;
+  onlineEngineStartedCode = session.code;
+  onlineSession = session;
+  toast("Το Online Preview ξεκινά με τον δικό σου χαρακτήρα.");
+  createUniverse(player.character, {
+    mode: "online",
+    playerCharacters: [player.character],
+    onlineSessionCode: session.code,
+    onlineUsername: session.me,
+  });
 }
 
 function renderOnlineLobby() {
@@ -769,10 +789,10 @@ function renderOnlineLobby() {
     panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Ο server μπορεί να είναι στο PC σου ή στο HTTPS tunnel URL.`));
     const actions = el("div", "actions");
     actions.append(button("Create 2–4 player session", "", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; renderOnlineLobby(); }));
+      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
@@ -798,9 +818,9 @@ function renderOnlineLobby() {
     characterPanel.append(characterGrid); content.append(characterPanel);
     const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
     const actions = el("div", "actions");
-    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); } }));
+    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; onlineSession = result.session; launchOnlinePreview(result.session); } catch (error) { onlineFailure(error); } }));
     else actions.append(el("p", "online-status", `Waiting for host ${onlineSession.host} to start…`));
-    actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; client.stopWatching(); renderOnlineLobby(); }));
+    actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; client.stopWatching(); renderOnlineLobby(); }));
     content.append(actions);
   } else {
     const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session ξεκίνησαν στο backend. Το επόμενο integration step είναι να ανοίγει εδώ το Movie I cinematic engine και να περνάει κάθε decision στον server.")); content.append(connected);
@@ -900,6 +920,8 @@ function createUniverse(protagonist, options = {}) {
     protagonist,
     playerCharacters: players,
     gameMode: mode,
+    onlineSessionCode: options.onlineSessionCode || null,
+    onlineUsername: options.onlineUsername || null,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1561,7 +1583,7 @@ function movieScreen(sceneName, progress) {
   bar.append(fill);
   const sceneTools = el("span", "movie-scene-tools");
   sceneTools.append(el("span", "", sceneName), button("Relationships", "ghost mini-btn", renderRelationshipBoard));
-  const playerLabel = isLocalMode() ? `${playerCharacters().join(" & ")} · LOCAL 2P` : `${current.protagonist} IS YOU`;
+  const playerLabel = current.gameMode === "online" ? `${current.protagonist} · ONLINE PREVIEW` : isLocalMode() ? `${playerCharacters().join(" & ")} · LOCAL 2P` : `${current.protagonist} IS YOU`;
   top.append(el("span", "", `${movieLabel(current.movie.number)} · ${current.movie.title} · ${playerLabel}`), bar, sceneTools);
   content.append(top);
   if (isLocalMode()) {
