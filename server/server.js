@@ -227,6 +227,7 @@ function publicSession(session, viewer) {
     pending[key] = {
       submittedBy: Object.keys(decision.submissions || {}),
       submittedByMe: Boolean(decision.submissions && decision.submissions[viewer]),
+      submissions: Object.fromEntries(Object.entries(decision.submissions || {}).map(([username, value]) => [username, value])),
     };
   }
   return {
@@ -239,6 +240,7 @@ function publicSession(session, viewer) {
     players: session.players,
     pendingDecisions: pending,
     history: session.history,
+    chat: (session.chat || []).slice(-80),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     me: viewer,
@@ -436,6 +438,7 @@ async function handleApi(request, response, url) {
       players: [{ username: user.username, character: null, joinedAt: now() }],
       pendingDecisions: {},
       history: [],
+      chat: [],
       createdAt: now(),
       updatedAt: now(),
     };
@@ -551,6 +554,23 @@ async function handleApi(request, response, url) {
       updateSession(session);
     }
     sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: everyoneSubmitted });
+    return;
+  }
+
+  const chatMatch = pathname.match(/^\/api\/sessions\/([A-Za-z0-9]+)\/chat$/);
+  if (method === "POST" && chatMatch) {
+    const membership = requireMember(request, response, chatMatch[1]);
+    if (!membership) return;
+    const { user, session } = membership;
+    if (session.status !== "playing") return sendError(request, response, 409, "Chat is available after the game starts.", "game_not_started");
+    const body = await parseBody(request);
+    const text = String(body.text || "").trim();
+    if (!text || text.length > 500) return sendError(request, response, 422, "Chat messages must be 1–500 characters.", "invalid_chat");
+    session.chat ||= [];
+    session.chat.push({ id: crypto.randomBytes(8).toString("hex"), username: user.username, text, createdAt: now() });
+    session.chat = session.chat.slice(-80);
+    updateSession(session);
+    sendJson(request, response, 201, { session: publicSession(session, user.username) });
     return;
   }
 

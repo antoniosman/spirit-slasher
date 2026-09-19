@@ -44,13 +44,20 @@ limits and a hosted database.
 - Authoritative lobby/start state and shared movie/scene stage.
 - Per-player decisions. A decision resolves only after every active player has
   submitted their own value, then the server broadcasts the resolved choices.
-- Server-Sent Events (`GET /api/sessions/:code/events`) for live lobby and game
-  updates.
+- Lightweight polling for lobby/avatar/pending-choice updates (the frontend uses
+  a 2.5-second interval during an active game, avoiding fragile long-lived tunnel
+  streams), plus a session-private chat endpoint.
+- Server-Sent Events (`GET /api/sessions/:code/events`) remain available for
+  compatible clients, but the browser test adapter intentionally uses polling.
 
 The existing Single Player and Local pass-the-phone modes remain client-only.
-The Online account/lobby UI now connects to these endpoints. The next
-integration step is routing the existing movie engine through the server's
-authoritative decision events.
+The Online account/lobby UI and the seeded Movie I/II/III preview engine connect
+to these endpoints. Each account runs its own action/outcome while the session
+shares the same seed, player group and decision barriers.
+
+Large portraits, maps, logo and audio are requested from the GitHub Pages asset
+base (`https://antoniosman.github.io/spirit-slasher/`) so the local/tunnel server
+handles mostly small API/session traffic.
 
 ## Useful environment variables
 

@@ -41,18 +41,18 @@
 - Responsive mobile/desktop design, touch controls, fullscreen, sound toggle και reduced-motion support.
 - Original Spirit Slasher mask-and-slash logo, cinematic room camera moves, animated dialogue, 3D-perspective action/death/rescue/killer beats, film scratches, depth layers, glitch cuts, haunted vignette, vibration και procedural Web Audio scare cues.
 - Startup auto-update checker με σαφές status panel για έλεγχο, τελευταία έκδοση, διαθέσιμη ενημέρωση, ολοκλήρωση και σφάλμα· περιλαμβάνει αριθμό έκδοσης και χειροκίνητο Update button.
-- Installable PWA για Android/iOS και offline cache μετά την πρώτη φόρτωση.
+- Installable PWA για Android/iOS με cached app shell· τα βαριά portraits, maps και audio φορτώνονται από το GitHub Pages asset base ώστε ο Online/tunnel server να μένει ελαφρύς.
 - GitHub Pages continuous deployment μέσω GitHub Actions.
 
 ## Local Online backend (initial foundation)
 
 Το Online mode έχει πλέον dependency-free local backend για testing σε PC/LAN.
 Τρέχει με `npm run server`, σερβίρει και το PWA στο `http://localhost:8787` και
-παρέχει accounts, sessions 2–4 παικτών, character lobby, authoritative stage,
-per-player decisions και live events. Οι λεπτομέρειες βρίσκονται στο
-[`server/README.md`](server/README.md). Το επόμενο βήμα είναι η σύνδεση του
-movie engine στα authoritative decisions· το Online account/lobby UI είναι ήδη
-συνδεδεμένο, ενώ τα Single Player και Local μένουν ανεπηρέαστα.
+παρέχει accounts, sessions 2–4 παικτών, character lobby, seeded shared cast,
+per-player decision barriers, live avatar/choice polling και session-private chat.
+Οι λεπτομέρειες βρίσκονται στο [`server/README.md`](server/README.md). Το Online
+preview engine κρατάει ξεχωριστές επιλογές/outcomes ανά account, ενώ τα Single
+Player και Local μένουν ανεπηρέαστα.
 
 Για δοκιμή με παίκτη εκτός του τοπικού δικτύου, τρέξε
 `powershell -ExecutionPolicy Bypass -File .\scripts\start-online.ps1`. Το script

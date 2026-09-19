@@ -22,6 +22,12 @@ const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
 const APP_VERSION = "1.10";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
+const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
+
+function assetUrl(path) {
+  const base = String(window.SPIRIT_ASSET_BASE || GITHUB_ASSET_BASE).replace(/\/+$/, "");
+  return `${base}/${String(path || "").replace(/^\/+/, "")}`;
+}
 
 const roster = [
   ["Alex", "char_alex.webp"], ["Billy", "char_billy.webp"],
@@ -57,7 +63,7 @@ const motives = [
 ];
 const movieWorlds = {
   1: {
-    asset: "assets/locations/movie-1-atlas.webp",
+    asset: assetUrl("assets/locations/movie-1-atlas.webp"),
     rooms: [
       { name: "Το γυάλινο foyer", hint: "Η βροχή έχει σβήσει τα ίχνη έξω από τη σπασμένη πόρτα.", position: "0% 0%" },
       { name: "Το υπόγειο πλυντήριο", hint: "Ο ηλεκτρικός πίνακας έκλεισε από ανθρώπινο χέρι.", position: "100% 0%" },
@@ -66,7 +72,7 @@ const movieWorlds = {
     ]
   },
   2: {
-    asset: "assets/locations/movie-2-atlas.webp",
+    asset: assetUrl("assets/locations/movie-2-atlas.webp"),
     rooms: [
       { name: "Το πανεπιστημιακό film archive", hint: "Έξι frames λείπουν ακριβώς πριν από τον πρώτο φόνο.", position: "0% 0%" },
       { name: "Η νεκρή αίθουσα προβολής", hint: "Ο προβολέας άναψε μόνος του στις 01:13.", position: "100% 0%" },
@@ -75,7 +81,7 @@ const movieWorlds = {
     ]
   },
   3: {
-    asset: "assets/locations/movie-3-atlas.webp",
+    asset: assetUrl("assets/locations/movie-3-atlas.webp"),
     rooms: [
       { name: "Η καμένη αίθουσα χορού", hint: "Στην τέφρα υπάρχει ένα φρέσκο αποτύπωμα που δεν έπρεπε να υπάρχει.", position: "0% 0%" },
       { name: "Το παρεκκλήσι στη χιονοθύελλα", hint: "Το κερί άναψε πριν φτάσει οποιοσδήποτε επιζών.", position: "100% 0%" },
@@ -211,6 +217,7 @@ let onlineSession = null;
 let onlineWatchingCode = null;
 let onlineSessionSignature = "";
 let onlineEngineStartedCode = null;
+let onlineLivePanel = null;
 let updateCheckInFlight = false;
 
 function loadJSON(key, fallback) {
@@ -313,10 +320,17 @@ function chooseSaveImport() {
 }
 
 function character(name) { return roster.find(item => item.name === name); }
-function imagePath(name) { return `assets/characters/${character(name)?.file || "char_billy.webp"}`; }
+function imagePath(name) { return assetUrl(`assets/characters/${character(name)?.file || "char_billy.webp"}`); }
 function allNames() { return roster.map(item => item.name); }
 function playerCharacters() { return unique(current?.playerCharacters?.length ? current.playerCharacters : [current?.protagonist].filter(Boolean)); }
-function isPlayerCharacter(name) { return playerCharacters().includes(name); }
+function onlineGroupCharacters() {
+  if (current?.gameMode !== "online") return [];
+  return unique(current.onlineGroupCharacters?.length ? current.onlineGroupCharacters : playerCharacters());
+}
+function castPlayerCharacters() {
+  return current?.gameMode === "online" ? onlineGroupCharacters() : playerCharacters();
+}
+function isPlayerCharacter(name) { return castPlayerCharacters().includes(name); }
 function isLocalMode() { return current?.gameMode === "local" && playerCharacters().length > 1; }
 function isMultiplayerMode() { return current?.gameMode !== "single" && playerCharacters().length > 1; }
 function activePlayerName() { return playerCharacters()[current?.activePlayerIndex || 0] || current?.protagonist; }
@@ -344,6 +358,10 @@ function describeLocalChoice(value) {
     return `${value.name || "Επιλογή"} · ${value.shared ? "Μοιράστηκε το στοιχείο" : "Κράτησε το στοιχείο κρυφό"}`;
   }
   return String(value);
+}
+function describeOnlineChoice(value) {
+  if (value && typeof value === "object" && value.label) return value.label;
+  return describeLocalChoice(value);
 }
 function localChoiceRecap(resolution) {
   if (!resolution?.choices) return "";
@@ -407,6 +425,7 @@ function finishOnlineDecision(key, player, action, session) {
   const resolved = onlineDecisionResolved(session, key, player);
   if (!resolved || current?.onlinePendingDecision?.key !== key) return false;
   current.onlinePendingDecision = null;
+  current.onlineDecisionNotice = { key, choices: resolved.choices || {}, player };
   action();
   return true;
 }
@@ -627,7 +646,7 @@ function renderHome() {
 
   const art = el("div", "home-art");
   const logo = el("img", "hero-logo");
-  logo.src = "assets/brand/spirit-slasher-logo.png";
+  logo.src = assetUrl("assets/brand/spirit-slasher-logo.png");
   logo.alt = "Spirit Slasher emblem";
   art.append(logo, el("div", "chapter-stamp", "THREE FILMS / ONE CANON"));
   content.append(copy, art);
@@ -769,10 +788,11 @@ function onlineWatch(code) {
   window.SpiritOnline.stopWatching();
   onlineWatchingCode = code;
   const applySession = session => {
-    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, players: session.players, history: session.history });
+    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
     if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
     onlineSessionSignature = signature;
     onlineSession = session;
+    updateOnlineLivePanel(session);
     if (session.status === "playing") {
       launchOnlinePreview(session);
       return;
@@ -781,11 +801,88 @@ function onlineWatch(code) {
   };
   // Quick Tunnels can cancel long-lived HTTP streams when a tab sleeps or
   // changes network. Polling is intentionally the reliable Online test path.
-  window.SpiritOnline.startPolling(code, applySession);
+  // A short poll keeps avatars and live choice labels responsive without the
+  // fragile long-lived SSE stream that Quick Tunnels can cancel.
+  window.SpiritOnline.startPolling(code, applySession, onlineFailure, 2500);
 }
 
 function onlineFailure(error) {
   toast(error?.message || "Δεν ολοκληρώθηκε η ενέργεια στον Online server.");
+}
+
+function onlinePendingChoice(session, username) {
+  const pending = Object.values(session?.pendingDecisions || {}).find(decision => decision?.submissions?.[username]);
+  const value = pending?.submissions?.[username];
+  return value ? describeOnlineChoice(value) : "";
+}
+
+function mountOnlineLivePanel() {
+  const panel = el("aside", "panel online-live-panel");
+  panel.dataset.onlineLive = "true";
+  const heading = el("div", "online-live-heading");
+  heading.append(el("span", "eyebrow", "ONLINE · LIVE SESSION"), el("small", "", "Οι επιλογές συγχρονίζονται ανά account."));
+  const players = el("div", "online-live-players");
+  const chatTitle = el("div", "online-live-chat-title");
+  chatTitle.append(el("span", "eyebrow", "PRIVATE SESSION CHAT"), el("small", "", "Μόνο οι παίκτες αυτού του session το βλέπουν."));
+  const messages = el("div", "online-live-chat-messages");
+  const form = el("form", "online-live-chat-form");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = 500;
+  input.placeholder = "Γράψε στον άλλο παίκτη…";
+  input.autocomplete = "off";
+  const send = el("button", "ghost mini-btn", "Send");
+  send.type = "submit";
+  form.append(input, send);
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (!text || !onlineSession?.code || !window.SpiritOnline?.sendChat) return;
+    send.disabled = true;
+    try {
+      const result = await window.SpiritOnline.sendChat(onlineSession.code, text);
+      onlineSession = result.session || onlineSession;
+      input.value = "";
+      updateOnlineLivePanel(onlineSession);
+    } catch (error) {
+      onlineFailure(error);
+    } finally {
+      send.disabled = false;
+    }
+  });
+  panel.append(heading, players, chatTitle, messages, form);
+  panel._onlinePlayers = players;
+  panel._onlineMessages = messages;
+  return panel;
+}
+
+function updateOnlineLivePanel(session = onlineSession) {
+  if (!onlineLivePanel?.isConnected || !session) return;
+  const players = onlineLivePanel._onlinePlayers;
+  const messages = onlineLivePanel._onlineMessages;
+  players.textContent = "";
+  (session.players || []).forEach(player => {
+    const row = el("article", "online-live-player");
+    const portrait = document.createElement("img");
+    portrait.src = imagePath(player.character || "Billy");
+    portrait.alt = "";
+    const copy = el("span", "online-live-player-copy");
+    const nameLine = el("span", "online-live-player-name");
+    nameLine.append(el("strong", "", player.username));
+    if (player.username === session.me) nameLine.append(el("small", "", "YOU"));
+    copy.append(nameLine, el("small", "", player.character || "Choosing character…"));
+    const choice = onlinePendingChoice(session, player.username);
+    const status = el("span", `online-live-player-status ${choice ? "has-choice" : ""}`, choice ? `LIVE · ${choice}` : "CONNECTED");
+    row.append(portrait, copy, status);
+    players.append(row);
+  });
+  messages.textContent = "";
+  (session.chat || []).slice(-40).forEach(message => {
+    const line = el("p", `online-chat-line ${message.username === session.me ? "mine" : ""}`);
+    line.append(el("strong", "", message.username), el("span", "", message.text));
+    messages.append(line);
+  });
+  messages.scrollTop = messages.scrollHeight;
 }
 
 function launchOnlinePreview(session) {
@@ -798,6 +895,7 @@ function launchOnlinePreview(session) {
   createUniverse(player.character, {
     mode: "online",
     playerCharacters: [player.character],
+    onlineGroupCharacters: session.players.map(entry => entry.character).filter(Boolean),
     seed: session.seed,
     onlineSessionCode: session.code,
     onlineUsername: session.me,
@@ -864,9 +962,25 @@ function renderOnlineLobby() {
     const characterPanel = el("article", "panel");
     characterPanel.append(el("p", "eyebrow", "YOUR CHARACTER"), el("h2", "headline", mine?.character || "Choose one"), el("p", "section-copy", "Ο χαρακτήρας σου είναι προσωπικός και δεν γίνεται killer. Οι canon σχέσεις του παραμένουν δικές του."));
     const characterGrid = el("div", "roster");
-    roster.forEach(item => characterGrid.append(characterButton(item.name, async () => {
-      try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }, mine?.character === item.name)));
+    roster.forEach(item => {
+      const selectedBy = onlineSession.players.find(player => player.character === item.name);
+      const selectedByMe = selectedBy?.username === onlineSession.me;
+      const lockedByOther = Boolean(selectedBy && !selectedByMe);
+      const card = characterButton(item.name, async () => {
+        if (lockedByOther) return;
+        try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      }, false, lockedByOther ? "online-locked" : selectedByMe ? "online-selected" : "");
+      if (selectedBy) {
+        const label = selectedByMe ? "SELECTED BY YOU" : `LOCKED · ${selectedBy.username}`;
+        card.append(el("span", "character-lock-label", label));
+        card.setAttribute("aria-label", `${item.name} · ${label}`);
+        if (lockedByOther) {
+          card.disabled = true;
+          card.setAttribute("aria-disabled", "true");
+        }
+      }
+      characterGrid.append(card);
+    });
     characterPanel.append(characterGrid); content.append(characterPanel);
     const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
     const actions = el("div", "actions");
@@ -875,7 +989,7 @@ function renderOnlineLobby() {
     actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; client.stopWatching(); renderOnlineLobby(); }));
     content.append(actions);
   } else {
-    const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session ξεκίνησαν στο backend. Το επόμενο integration step είναι να ανοίγει εδώ το Movie I cinematic engine και να περνάει κάθε decision στον server.")); content.append(connected);
+    const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το shared session είναι ενεργό: κάθε παίκτης βλέπει το ίδιο cast/κόσμο, κλειδώνει ξεχωριστές επιλογές και βλέπει live τις κινήσεις των άλλων.")); content.append(connected);
   }
   root.append(content);
 }
@@ -963,6 +1077,7 @@ function confirmProtagonist(name) {
 
 function createUniverse(protagonist, options = {}) {
   const players = unique(options.playerCharacters?.length ? options.playerCharacters : [protagonist]);
+  const onlineGroup = unique(options.onlineGroupCharacters?.length ? options.onlineGroupCharacters : players).filter(name => character(name));
   const mode = options.mode || "single";
   const seed = Number.isFinite(options.seed) ? Number(options.seed) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
   const relationshipsByPlayer = Object.fromEntries(players.map(player => [player, buildRelationshipBoard(player)]));
@@ -971,10 +1086,12 @@ function createUniverse(protagonist, options = {}) {
     seed,
     protagonist,
     playerCharacters: players,
+    onlineGroupCharacters: mode === "online" ? onlineGroup : [],
     gameMode: mode,
     onlineSessionCode: options.onlineSessionCode || null,
     onlineUsername: options.onlineUsername || null,
     onlinePendingDecision: null,
+    onlineDecisionNotice: null,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1285,35 +1402,48 @@ function distributeFriendGroups(names, preferred = []) {
 function startMovie(number) {
   current.movieNumber = number;
   current.movie = generateMovie(number);
+  if (current.gameMode === "online") {
+    current.onlineScenarioHistory ||= [];
+    current.onlineScenarioHistory[number - 1] = {
+      number,
+      cast: [...current.movie.cast],
+      killers: [...current.movie.killers],
+      survivors: current.movie.cast.filter(name => !current.movie.killers.includes(name)),
+      friends: unique(current.movie.friendOptions?.[0] || []).slice(0, 4),
+      saved: [],
+      statuses: Object.fromEntries(current.movie.killers.map(name => [name, "KILLER · PRESUMED DEAD"]))
+    };
+  }
   saveCurrent();
   if (number === 3 && current.history.length) renderRecap();
   else playCastIntro();
 }
 
 function generateMovie(number) {
-  const random = mulberry32((current.seed + number * 9973 + current.history.length * 1117) >>> 0);
+  const scenarioHistory = current.gameMode === "online" ? (current.onlineScenarioHistory || []) : current.history;
+  const random = mulberry32((current.seed + number * 9973 + scenarioHistory.length * 1117) >>> 0);
   const protagonist = current.protagonist;
-  const players = playerCharacters();
-  const oldKillers = unique(current.history.flatMap(movie => movie.killers || [])).filter(name => !players.includes(name));
-  const confirmedDead = new Set(unique(current.history.flatMap(record => [
+  const players = castPlayerCharacters();
+  const oldKillers = unique(scenarioHistory.flatMap(movie => movie.killers || [])).filter(name => !players.includes(name));
+  const confirmedDead = new Set(unique(scenarioHistory.flatMap(record => [
     ...(record.killers || []),
     ...Object.entries(record.statuses || {}).filter(([, status]) => status === "DEAD").map(([name]) => name)
   ])));
-  const priorSurvivors = number === 1 ? [] : unique(current.history.at(-1)?.survivors || [])
+  const priorSurvivors = number === 1 ? [] : unique(scenarioHistory.at(-1)?.survivors || [])
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
-  const priorCoreFriends = number === 1 ? [] : unique(current.history.at(-1)?.friends || [])
+  const priorCoreFriends = number === 1 ? [] : unique(scenarioHistory.at(-1)?.friends || [])
     .filter(name => priorSurvivors.includes(name));
   const legacyPriority = unique([...players.flatMap(player => linkedNames(player)), ...priorSurvivors])
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
   const desired = number === 1 ? 11 : 12;
-  const seenBefore = new Set(current.history.flatMap(record => record.cast || []));
+  const seenBefore = new Set(scenarioHistory.flatMap(record => record.cast || []));
   const returningLimit = number === 2 ? Math.max(4, priorCoreFriends.length) : 0;
   const returningSurvivors = number === 2
     ? unique([...priorCoreFriends, ...shuffle(legacyPriority.filter(name => !priorCoreFriends.includes(name)), random)]).slice(0, returningLimit)
     : [];
   const newcomers = shuffle(allNames().filter(name => !players.includes(name) && !seenBefore.has(name) && !confirmedDead.has(name)), random);
   const otherLiving = shuffle(allNames().filter(name => !players.includes(name) && !confirmedDead.has(name) && !returningSurvivors.includes(name) && !newcomers.includes(name)), random);
-  const allLegacySurvivors = unique(current.history.flatMap(record => record.survivors || []))
+  const allLegacySurvivors = unique(scenarioHistory.flatMap(record => record.survivors || []))
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
   let cast = number === 3
     ? unique([...players, ...newcomers, ...shuffle(allLegacySurvivors, random), ...otherLiving])
@@ -1341,19 +1471,19 @@ function generateMovie(number) {
 
   let eligibleKillers = shuffle(cast.filter(name => !players.includes(name)), random);
   if (number === 3 && !returningKiller) {
-    const wronglyAccusedBefore = unique(current.history.flatMap(record => record.wronglyAccused || []));
-    const legacyFriends = unique(current.history.flatMap(record => record.friends || []));
+    const wronglyAccusedBefore = unique(scenarioHistory.flatMap(record => record.wronglyAccused || []));
+    const legacyFriends = unique(scenarioHistory.flatMap(record => record.friends || []));
     const historyShapedCandidates = unique([...wronglyAccusedBefore, ...legacyFriends])
       .filter(name => cast.includes(name) && !players.includes(name));
     eligibleKillers = unique([...shuffle(historyShapedCandidates, random), ...eligibleKillers]);
   }
   const killers = returningKiller ? [returningKiller] : eligibleKillers.slice(0, killerCount);
   const victims = cast.filter(name => !players.includes(name) && !killers.includes(name));
-  const previousRecord = current.history.at(-1);
-  const survivingLegacyFriends = unique(current.history.flatMap(record =>
+  const previousRecord = scenarioHistory.at(-1);
+  const survivingLegacyFriends = unique(scenarioHistory.flatMap(record =>
     (record.friends || []).filter(name => (record.survivors || []).includes(name))
   ));
-  const legacySaved = unique(current.history.flatMap(record => record.saved || []));
+  const legacySaved = unique(scenarioHistory.flatMap(record => record.saved || []));
   const protectedLegacy = number > 1 ? unique([
     previousRecord?.closestFriend,
     previousRecord?.mostTrusted,
@@ -1578,7 +1708,8 @@ function playCastIntro() {
     backdrop.append(img);
     const copy = el("div", "cast-title");
     const legacyCore = current.history.some(record => (record.friends || []).includes(name) && (record.survivors || []).includes(name));
-    const label = isPlayerCharacter(name) ? `STARRING · PLAYER ${playerCharacters().indexOf(name) + 1}` : legacyCore ? "RETURNING · YOUR INNER CIRCLE" : index < 4 ? "ALSO STARRING" : "WITH";
+    const playerIndex = playerCharacters().indexOf(name);
+    const label = isPlayerCharacter(name) ? playerIndex >= 0 ? `STARRING · PLAYER ${playerIndex + 1}` : "STARRING · ONLINE PLAYER" : legacyCore ? "RETURNING · YOUR INNER CIRCLE" : index < 4 ? "ALSO STARRING" : "WITH";
     copy.append(el("div", "credit", label), el("h1", "", name), el("p", "", `${movieLabel(movie.number)} · ${movie.title}`));
     overlay.append(backdrop, copy);
     index += 1;
@@ -1628,6 +1759,7 @@ function renderMovie() {
 function movieScreen(sceneName, progress) {
   const root = screen("movie-shell");
   const content = el("div", "content");
+  onlineLivePanel = null;
   const top = el("div", "movie-topline");
   const bar = el("div", "progress");
   const fill = el("span");
@@ -1649,6 +1781,23 @@ function movieScreen(sceneName, progress) {
       handoff.append(el("span", "eyebrow", "CHOICE LOCKED · SHOWING THE OTHER PLAYER"), el("strong", "", `${notice.player} διάλεξε:`), el("p", "", describeLocalChoice(notice.choice)), el("small", "", `Τώρα είναι η σειρά του/της ${notice.nextPlayer}. Η δική του/της επιλογή θα εμφανιστεί αμέσως μετά στο recap.`));
       content.append(handoff);
     }
+  }
+  if (current.gameMode === "online") {
+    onlineLivePanel = mountOnlineLivePanel();
+    content.append(onlineLivePanel);
+    updateOnlineLivePanel(onlineSession);
+  }
+  if (current.gameMode === "online" && current.onlineDecisionNotice) {
+    const notice = current.onlineDecisionNotice;
+    const handoff = el("aside", "local-turn-notice online-choice-notice");
+    const otherChoices = Object.entries(notice.choices || {}).filter(([name]) => name !== notice.player);
+    handoff.append(
+      el("span", "eyebrow", otherChoices.length > 1 ? "ONLINE · OTHER PLAYERS ACTED" : "ONLINE · OTHER PLAYER ACTED"),
+      el("strong", "", "Η επιλογή σου συγχρονίστηκε με το session.")
+    );
+    otherChoices.forEach(([name, value]) => handoff.append(el("p", "", `${name}: ${describeOnlineChoice(value)}`)));
+    content.append(handoff);
+    current.onlineDecisionNotice = null;
   }
   const activeCanon = canonRelationshipLines(current.movie.cast).filter(pair => pair.active);
   const strip = el("div", "canon-strip");
@@ -3081,7 +3230,10 @@ function creditOrder() {
     ...movie.cast
   ]).map(name => {
     let role = "CAST";
-    if (isPlayerCharacter(name)) role = `FINAL SURVIVOR · PLAYER ${playerCharacters().indexOf(name) + 1}`;
+    if (isPlayerCharacter(name)) {
+      const playerIndex = playerCharacters().indexOf(name);
+      role = playerIndex >= 0 ? `FINAL SURVIVOR · PLAYER ${playerIndex + 1}` : "FINAL SURVIVOR · ONLINE PLAYER";
+    }
     else if (name === movie.killers[0]) role = "THE MASTERMIND";
     else if (movie.killers.includes(name)) role = "THE KILLER";
     else if (movie.friends.includes(name)) role = "YOUR INNER CIRCLE";

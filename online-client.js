@@ -55,7 +55,7 @@ window.SpiritOnline = (() => {
     pollTimer = null;
   }
 
-  function startPolling(code, onSession, onError) {
+  function startPolling(code, onSession, onError, intervalMs = 10000) {
     if (pollTimer) clearInterval(pollTimer);
     const poll = async () => {
       try {
@@ -66,7 +66,7 @@ window.SpiritOnline = (() => {
       }
     };
     poll();
-    pollTimer = setInterval(poll, 10000);
+    pollTimer = setInterval(poll, Math.max(1000, Number(intervalMs) || 10000));
   }
 
   async function watchSession(code, onSession, onError) {
@@ -120,6 +120,7 @@ window.SpiritOnline = (() => {
     startSession: code => request(`/api/sessions/${encodeURIComponent(code)}/start`, { method: "POST" }),
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),
     sendDecision: (code, key, value) => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value }) }),
+    sendChat: (code, text) => request(`/api/sessions/${encodeURIComponent(code)}/chat`, { method: "POST", body: JSON.stringify({ text }) }),
     stopWatching,
     startPolling,
     watchSession,
