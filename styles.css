@@ -453,8 +453,22 @@ button { -webkit-tap-highlight-color: transparent; }
 .grief-reactions { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 7px; margin-top: 14px; }
 .grief-line { border-color: rgba(226,27,45,.3); background: rgba(226,27,45,.06); }
 .movie-scene-tools { display: flex; align-items: center; justify-content: end; gap: 10px; white-space: nowrap; }
+.canon-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin: 12px 0 18px; padding: 10px 12px; border: 1px solid rgba(105,231,168,.26); background: linear-gradient(90deg, rgba(28,131,93,.12), rgba(7,9,12,.5)); }
+.canon-strip .eyebrow { margin: 0; color: #8ee6a4; font-size: .59rem; }
+.canon-strip strong { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.canon-strip small { color: var(--muted); font-size: .64rem; text-align: right; }
 .mini-btn { min-height: 34px; padding: 0 10px; font-size: .62rem; letter-spacing: .06em; }
 .relationship-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 10px; }
+.canon-relationship-panel { margin-bottom: 18px; padding: clamp(18px, 3vw, 30px); border-left: 3px solid var(--ice); background: linear-gradient(135deg, rgba(137,200,215,.08), rgba(7,9,12,.84)); }
+.canon-relationship-list { display: grid; gap: 1px; margin-top: 18px; background: rgba(255,255,255,.09); }
+.canon-relationship-row { display: grid; grid-template-columns: minmax(125px, .8fr) minmax(170px, 1fr) auto; align-items: center; gap: 12px; padding: 12px; background: rgba(6,8,11,.92); }
+.canon-relationship-row strong { font-size: .78rem; letter-spacing: .04em; }
+.canon-relationship-row span { color: var(--ice); font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.canon-relationship-row small { color: var(--muted); font-size: .59rem; font-weight: 800; letter-spacing: .08em; text-align: right; }
+.canon-relationship-row.active { border-left: 3px solid #69e7a8; background: rgba(28,131,93,.11); }
+.canon-relationship-row.active small { color: #8ee6a4; }
+.canon-relationship-row.partial { border-left: 3px solid #d6b855; }
+.canon-relationship-row.absent { opacity: .58; }
 .relationship-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 15px; min-height: 220px; padding: 12px; overflow: hidden; background: linear-gradient(145deg, rgba(20,29,32,.96), rgba(7,9,12,.98)); }
 .relationship-card.dead { opacity: .62; filter: grayscale(.72); }
 .relationship-card > img { width: 92px; height: 100%; min-height: 194px; object-fit: cover; border: 1px solid rgba(255,255,255,.16); }
@@ -516,6 +530,14 @@ button { -webkit-tap-highlight-color: transparent; }
 .skip { position: fixed; z-index: 32; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); color: white; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); padding: 12px 16px; cursor: pointer; }
 
 .suspect-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 26px; }
+.accusation-debate { margin-top: 22px; padding: clamp(18px, 3vw, 28px); border-left: 3px solid var(--blood); background: linear-gradient(135deg, rgba(226,27,45,.1), rgba(7,9,12,.88)); }
+.accusation-debate .headline { margin: 7px 0 0; font-size: clamp(1.8rem, 4vw, 2.8rem); }
+.accusation-debate-lines { display: grid; gap: 7px; margin-top: 18px; }
+.accusation-debate-line { display: grid; grid-template-columns: 46px minmax(0, 1fr); align-items: center; gap: 11px; padding: 9px; border: 1px solid rgba(226,27,45,.25); background: rgba(3,4,6,.64); animation: dialogue-in .45s ease both; }
+.accusation-debate-line img { width: 46px; height: 46px; object-fit: cover; filter: grayscale(.25) contrast(1.15); }
+.accusation-debate-line strong, .accusation-debate-line small { display: block; }
+.accusation-debate-line strong { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
+.accusation-debate-line small { margin-top: 3px; color: #d1d5d8; font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.05rem; line-height: 1.22; }
 .suspect-card { min-height: 174px; }
 .suspect-card img { height: 174px; }
 .selection-footer { position: sticky; z-index: 5; bottom: max(12px, env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 14px; border: 1px solid var(--line); background: rgba(7,9,12,.92); backdrop-filter: blur(14px); }
@@ -545,6 +567,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .recap-line { display: grid; grid-template-columns: 70px 1fr; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); opacity: 0; animation: fade-up .55s both; }
 .recap-line span { color: var(--blood); font-size: .72rem; font-weight: 800; letter-spacing: .13em; }
 .recap-line p { margin: 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.4rem; }
+.recap-movie-list { display: grid; gap: 20px; margin-top: 30px; }
+.recap-movie { padding: clamp(18px, 4vw, 34px); }
+.recap-movie .headline { margin: 8px 0 0; }
+.recap-choices { margin-top: 18px; padding: 16px; border-left: 2px solid var(--ice); background: rgba(137,200,215,.06); }
+.recap-choices .section-copy { margin: 8px 0 0; line-height: 1.6; }
+.recap-last-line { margin: 4px 0 0; color: var(--blood); font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(1.5rem, 3vw, 2.2rem); font-style: italic; text-align: center; }
 
 .reveal-stage { min-height: calc(100svh - 120px); display: grid; align-content: center; }
 .killer-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 28px; }
@@ -601,6 +629,17 @@ button { -webkit-tap-highlight-color: transparent; }
 .funeral-witnesses { max-width: 66ch; margin: 12px 0 0; color: #aab4b9; font-size: .78rem; line-height: 1.5; }
 .funeral-heading { position: fixed; z-index: 4; top: max(20px, env(safe-area-inset-top)); left: 50%; color: rgba(222,231,235,.56); font-family: "Cormorant Garamond", Georgia, serif; font-size: .8rem; letter-spacing: .32em; transform: translateX(-50%); white-space: nowrap; }
 .funeral-controls { position: fixed; z-index: 5; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+.killer-memorial-screen { min-height: 100svh; padding: 0; overflow: hidden; background: radial-gradient(circle at 50% 42%, #260c12, #030405 69%); perspective: 1200px; }
+.killer-memorial-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+.killer-memorial-card { position: relative; display: grid; grid-template-columns: minmax(240px, .72fr) minmax(280px, 1fr); width: min(1120px, calc(100% - 36px)); min-height: min(640px, calc(100svh - 130px)); overflow: hidden; border: 1px solid rgba(226,27,45,.55); background: #090406; box-shadow: 0 36px 100px rgba(0,0,0,.72), 0 0 80px rgba(226,27,45,.1); animation: killer-reveal .85s cubic-bezier(.16,.82,.2,1) both; }
+.killer-memorial-visual { position: relative; overflow: hidden; }
+.killer-memorial-visual img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.15) sepia(.34) saturate(1.7) hue-rotate(318deg) contrast(1.24) brightness(.52); transform: scale(1.08); animation: credit-pan 5.2s ease-out both; }
+.killer-memorial-visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 30%, #090406), linear-gradient(0deg, rgba(9,4,6,.8), transparent 56%); }
+.killer-memorial-scanline { position: absolute; z-index: 1; inset: 0; opacity: .25; background: repeating-linear-gradient(0deg, transparent 0 7px, rgba(255,255,255,.08) 8px, transparent 9px); animation: grain-shift .22s steps(2) infinite; pointer-events: none; }
+.killer-memorial-copy { position: relative; z-index: 2; align-self: center; padding: clamp(26px, 6vw, 78px); }
+.killer-memorial-role { margin: 18px 0 0; color: var(--blood); font-size: .75rem; font-weight: 900; letter-spacing: .25em; }
+.killer-memorial-copy .display { margin: 10px 0 18px; font-size: clamp(4rem, 10vw, 9rem); line-height: .78; }
+.killer-memorial-line { max-width: 520px; color: #d1c5c8; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(1.25rem, 2.4vw, 1.8rem); font-style: italic; line-height: 1.25; }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 28px; }
 .stat { padding: 20px; border-top: 2px solid var(--blood); }
@@ -759,6 +798,11 @@ button { -webkit-tap-highlight-color: transparent; }
   .vault-save-card .save-actions { grid-column: 1 / -1; justify-content: start; }
   .relic-hero { grid-template-columns: 1fr; }
   .relic-large { min-height: 390px; }
+  .canon-relationship-row { grid-template-columns: 1fr; gap: 4px; }
+  .canon-relationship-row small { text-align: left; }
+  .killer-memorial-card { grid-template-columns: 1fr; grid-template-rows: 46svh 1fr; width: min(100% - 20px, 640px); min-height: calc(100svh - 104px); }
+  .killer-memorial-copy { align-self: end; padding: 22px 20px 82px; background: linear-gradient(transparent, #090406 18%); }
+  .killer-memorial-copy .display { font-size: clamp(3.5rem, 17vw, 6rem); }
 }
 
 @media (max-width: 520px) {
@@ -778,6 +822,8 @@ button { -webkit-tap-highlight-color: transparent; }
   .movie-scene-tools { gap: 6px; }
   .movie-scene-tools > span { display: none; }
   .mini-btn { min-height: 32px; }
+  .canon-strip { grid-template-columns: 1fr; gap: 4px; }
+  .canon-strip strong, .canon-strip small { white-space: normal; text-align: left; }
   .scene-visual { min-height: 45svh; }
   .speaker-portrait { width: 42%; height: 60%; top: 11%; }
   .visual-caption strong { font-size: 2.4rem; }
