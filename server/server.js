@@ -194,7 +194,12 @@ function generateSessionCode() {
 }
 
 function findSession(code) {
-  return db.sessions[String(code || "").toUpperCase()];
+  const session = db.sessions[String(code || "").toUpperCase()];
+  if (session && !session.seed) {
+    session.seed = crypto.randomInt(1, 0x7fffffff);
+    persistDb();
+  }
+  return session;
 }
 
 function sessionMember(session, username) {
@@ -229,6 +234,7 @@ function publicSession(session, viewer) {
     host: session.host,
     maxPlayers: session.maxPlayers,
     status: session.status,
+    seed: session.seed || 0,
     stage: session.stage,
     players: session.players,
     pendingDecisions: pending,
@@ -424,6 +430,7 @@ async function handleApi(request, response, url) {
       code,
       host: user.username,
       maxPlayers,
+      seed: crypto.randomInt(1, 0x7fffffff),
       status: "lobby",
       stage: { movie: 1, scene: "lobby" },
       players: [{ username: user.username, character: null, joinedAt: now() }],

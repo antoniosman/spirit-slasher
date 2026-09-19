@@ -390,6 +390,57 @@ function localDecision(key, value, resolver = values => values.at(-1)) {
   return resolver(values);
 }
 
+function isOnlineEngine() {
+  return current?.gameMode === "online" && Boolean(current.onlineSessionCode) && Boolean(window.SpiritOnline);
+}
+
+function onlineDecisionKey() {
+  const movie = current.movie;
+  return `movie-${movie.number}-stage-${movie.stage}-choice-${movie.choices.length}`;
+}
+
+function onlineDecisionResolved(session, key, player) {
+  return session?.history?.find(event => event.type === "decision-resolved" && event.key === key && event.choices?.[player] !== undefined) || null;
+}
+
+function finishOnlineDecision(key, player, action, session) {
+  const resolved = onlineDecisionResolved(session, key, player);
+  if (!resolved || current?.onlinePendingDecision?.key !== key) return false;
+  current.onlinePendingDecision = null;
+  action();
+  return true;
+}
+
+function onlineDecisionGate(label, action) {
+  if (!isOnlineEngine()) return action();
+  const key = onlineDecisionKey();
+  if (current.onlinePendingDecision?.key === key) return;
+  const player = current.onlineUsername || current.protagonist;
+  current.onlinePendingDecision = { key, label, player };
+  document.querySelectorAll("[data-story-choice]").forEach(node => { node.disabled = true; });
+  const waitForResolution = async () => {
+    if (!current?.onlinePendingDecision || current.onlinePendingDecision.key !== key) return;
+    try {
+      const result = await window.SpiritOnline.getSession(current.onlineSessionCode);
+      if (finishOnlineDecision(key, player, action, result.session)) return;
+      current.onlineDecisionTimer = setTimeout(waitForResolution, 600);
+    } catch {
+      current.onlineDecisionTimer = setTimeout(waitForResolution, 1500);
+    }
+  };
+  window.SpiritOnline.sendDecision(current.onlineSessionCode, key, { label, player })
+    .then(result => {
+      if (result.resolved && finishOnlineDecision(key, player, action, result.session)) return;
+      current.onlineDecisionTimer = setTimeout(waitForResolution, 600);
+      toast(`Κλείδωσες: ${label}. Περιμένουμε τον άλλο παίκτη.`);
+    })
+    .catch(error => {
+      current.onlinePendingDecision = null;
+      renderMovie();
+      onlineFailure(error);
+    });
+}
+
 function mulberry32(seed) {
   return function random() {
     let value = seed += 0x6D2B79F5;
@@ -424,7 +475,7 @@ function button(text, className, onClick, dataChoice = false) {
   const node = el("button", `btn ${className}`.trim(), text);
   node.type = "button";
   if (dataChoice) node.dataset.storyChoice = "true";
-  node.addEventListener("click", onClick);
+  node.addEventListener("click", () => dataChoice ? onlineDecisionGate(text, onClick) : onClick());
   return node;
 }
 
@@ -747,6 +798,7 @@ function launchOnlinePreview(session) {
   createUniverse(player.character, {
     mode: "online",
     playerCharacters: [player.character],
+    seed: session.seed,
     onlineSessionCode: session.code,
     onlineUsername: session.me,
   });
@@ -912,7 +964,7 @@ function confirmProtagonist(name) {
 function createUniverse(protagonist, options = {}) {
   const players = unique(options.playerCharacters?.length ? options.playerCharacters : [protagonist]);
   const mode = options.mode || "single";
-  const seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+  const seed = Number.isFinite(options.seed) ? Number(options.seed) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
   const relationshipsByPlayer = Object.fromEntries(players.map(player => [player, buildRelationshipBoard(player)]));
   current = {
     id: `cut-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
@@ -922,6 +974,7 @@ function createUniverse(protagonist, options = {}) {
     gameMode: mode,
     onlineSessionCode: options.onlineSessionCode || null,
     onlineUsername: options.onlineUsername || null,
+    onlinePendingDecision: null,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1683,7 +1736,7 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
     item.type = "button";
     item.dataset.storyChoice = "true";
     item.append(el("b", "", String.fromCharCode(65 + index)), el("span", "", choice.label));
-    item.addEventListener("click", choice.action);
+    item.addEventListener("click", () => onlineDecisionGate(choice.label, choice.action));
     list.append(item);
   });
   copy.append(list);
