@@ -139,6 +139,7 @@ window.SpiritOnline = (() => {
     createSession: maxPlayers => request("/api/sessions", { method: "POST", body: JSON.stringify({ maxPlayers }) }),
     joinSession: code => request(`/api/sessions/${encodeURIComponent(code)}/join`, { method: "POST" }),
     getSession: code => request(`/api/sessions/${encodeURIComponent(code)}`),
+    leaveSession: code => request(`/api/sessions/${encodeURIComponent(code)}/leave`, { method: "POST" }),
     setCharacter: (code, character) => request(`/api/sessions/${encodeURIComponent(code)}/character`, { method: "POST", body: JSON.stringify({ character }) }),
     startSession: code => request(`/api/sessions/${encodeURIComponent(code)}/start`, { method: "POST" }),
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),

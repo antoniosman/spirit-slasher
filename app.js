@@ -217,7 +217,6 @@ let onlineSession = null;
 let onlineWatchingCode = null;
 let onlineSessionSignature = "";
 let onlineEngineStartedCode = null;
-let onlineResumeAttempted = false;
 let onlineLivePanel = null;
 let updateCheckInFlight = false;
 
@@ -869,7 +868,7 @@ function renderMultiplayerMode() {
   content.append(el("p", "eyebrow", "MULTIPLAYER CUT"), el("h1", "display", "Διάλεξε τρόπο σύνδεσης."), el("p", "lead", "Το Online mode συνδέεται τώρα σε local/LAN server από το PC σου. Το Local mode παραμένει pass-the-phone σε μία συσκευή."));
   const grid = el("div", "mode-grid");
   const online = el("article", "panel mode-card");
-  online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", renderOnlineLobby));
+  online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", openOnlineLobby));
   const local = el("article", "panel mode-card");
   local.append(el("p", "eyebrow", "LOCAL · 2 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Δύο καλοί χαρακτήρες, ποτέ killers και ποτέ μόνιμα νεκροί. Όλοι οι υπόλοιποι είναι NPCs και οι σχέσεις συνεχίζουν κανονικά."), button("Local 2 Players", "", () => renderLocalSetup()));
   grid.append(online, local); content.append(grid);
@@ -921,7 +920,6 @@ function onlineFailure(error) {
     onlineSession = null;
     onlineWatchingCode = null;
     onlineSessionSignature = "";
-    onlineResumeAttempted = false;
     window.SpiritOnline?.stopWatching?.();
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
   }
@@ -934,25 +932,41 @@ function rememberOnlineSession(session) {
   return onlineSession;
 }
 
-function autoResumeOnlineSession(client) {
-  const savedCode = client?.getSavedSessionCode?.();
-  if (onlineResumeAttempted || onlineSession || !savedCode || !client?.getToken) return;
-  onlineResumeAttempted = true;
-  client.getSession(savedCode).then(result => {
-    if (!result?.session) throw new Error("Το αποθηκευμένο session δεν είναι διαθέσιμο.");
+function openOnlineLobby() {
+  // Entering Multiplayer is a clean chooser now. An old active session is
+  // never opened silently; the player must press Reconnect or type a code.
+  onlineSession = null;
+  onlineWatchingCode = null;
+  onlineSessionSignature = "";
+  onlineEngineStartedCode = null;
+  window.SpiritOnline?.stopWatching?.();
+  renderOnlineLobby();
+}
+
+async function leaveOnlineSession() {
+  const client = window.SpiritOnline;
+  const code = current?.onlineSessionCode || onlineSession?.code;
+  if (!window.confirm("Να φύγεις από αυτό το online session; Θα επιστρέψεις στο lobby και θα χρειαστείς νέο code για σύνδεση.")) return;
+  try {
+    if (code && client?.leaveSession) await client.leaveSession(code);
+  } catch (error) {
+    if (error?.status !== 404 && error?.status !== 403) toast(error?.message || "Το session δεν απάντησε. Έγινε τοπική έξοδος.");
+  } finally {
+    client?.clearSavedSessionCode?.();
+    client?.stopWatching?.();
+    onlineSession = null;
+    onlineWatchingCode = null;
     onlineSessionSignature = "";
-    rememberOnlineSession(result.session);
-    renderOnlineLobby();
-    if (result.session.status === "playing") launchOnlinePreview(result.session);
-  }).catch(error => {
-    onlineResumeAttempted = false;
-    if (error?.status === 404 || error?.code === "session_not_found") {
-      client.clearSavedSessionCode?.();
-      if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
-      return;
+    onlineEngineStartedCode = null;
+    if (current?.gameMode === "online") {
+      current.gameMode = "single";
+      current.onlineSessionCode = null;
+      current.onlineUsername = null;
+      current.onlineGroupCharacters = [];
+      saveCurrent();
     }
-    toast(error?.message || "Δεν έγινε reconnect στο αποθηκευμένο session. Μπορείς να δοκιμάσεις ξανά.");
-  });
+    renderOnlineLobby();
+  }
 }
 
 function onlinePendingChoice(session, username) {
@@ -965,7 +979,9 @@ function mountOnlineLivePanel() {
   const panel = el("aside", "panel online-live-panel");
   panel.dataset.onlineLive = "true";
   const heading = el("div", "online-live-heading");
-  heading.append(el("span", "eyebrow", "ONLINE · LIVE SESSION"), el("small", "", "Οι επιλογές συγχρονίζονται ανά account."));
+  const headingCopy = el("div", "online-live-heading-copy");
+  headingCopy.append(el("span", "eyebrow", "ONLINE · LIVE SESSION"), el("small", "", "Οι επιλογές συγχρονίζονται ανά account."));
+  heading.append(headingCopy, button("Leave session", "ghost mini-btn", leaveOnlineSession));
   const sharedScene = el("div", "online-shared-scene");
   const players = el("div", "online-live-players");
   const chatTitle = el("div", "online-live-chat-title");
@@ -1139,17 +1155,12 @@ function renderOnlineLobby() {
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
-  // Re-entering the Online screen after a refresh should restore an active
-  // lobby/game automatically.  The saved-code panel below remains as an
-  // explicit fallback when the server is temporarily unreachable.
-  autoResumeOnlineSession(client);
-
   if (!onlineSession && client.getSavedSessionCode?.()) {
     const resumePanel = el("article", "panel online-resume-panel");
     resumePanel.append(
       el("p", "eyebrow", "SAVED ONLINE SESSION"),
       el("h2", "headline", `Βρέθηκε το session ${client.getSavedSessionCode()}`),
-      el("p", "section-copy", "Το session αποθηκεύτηκε στον server. Μπορείς να κάνεις reconnect μετά από refresh, κλείσιμο του tab ή προσωρινή αποσύνδεση του host.")
+      el("p", "section-copy", "Βρέθηκε αποθηκευμένο session, αλλά δεν θα ανοίξει αυτόματα. Πάτησε reconnect μόνο αν θέλεις να επιστρέψεις εκεί· αλλιώς βάλε χειροκίνητα νέο code.")
     );
     const resumeActions = el("div", "actions");
     resumeActions.append(
@@ -1158,14 +1169,12 @@ function renderOnlineLobby() {
           const result = await client.getSession(client.getSavedSessionCode());
           rememberOnlineSession(result.session);
           onlineSessionSignature = "";
-          onlineResumeAttempted = true;
           renderOnlineLobby();
           if (result.session.status === "playing") launchOnlinePreview(result.session);
         } catch (error) { onlineFailure(error); }
       }),
       button("Forget saved session", "ghost", () => {
         client.clearSavedSessionCode?.();
-        onlineResumeAttempted = false;
         renderOnlineLobby();
       })
     );
@@ -1185,7 +1194,7 @@ function renderOnlineLobby() {
       try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
       try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; onlineResumeAttempted = false; renderOnlineLobby(); }));
+    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
