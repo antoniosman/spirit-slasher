@@ -723,7 +723,8 @@ function onlineWatch(code) {
     onlineSession = session;
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
   };
-  window.SpiritOnline.watchSession(code, applySession, error => toast(error.message || "Το live session stream σταμάτησε."));
+  // Quick Tunnels can cancel long-lived HTTP streams when a tab sleeps or
+  // changes network. Polling is intentionally the reliable Online test path.
   window.SpiritOnline.startPolling(code, applySession);
 }
 
@@ -798,11 +799,11 @@ function renderOnlineLobby() {
     const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
     const actions = el("div", "actions");
     if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); } }));
-    else actions.append(el("p", "online-status", "Waiting for the host to start…"));
+    else actions.append(el("p", "online-status", `Waiting for host ${onlineSession.host} to start…`));
     actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; client.stopWatching(); renderOnlineLobby(); }));
     content.append(actions);
   } else {
-    const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session είναι συνδεδεμένα. Η επόμενη φάση περνάει το Movie I engine στα shared server decisions.")); content.append(connected);
+    const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session ξεκίνησαν στο backend. Το επόμενο integration step είναι να ανοίγει εδώ το Movie I cinematic engine και να περνάει κάθε decision στον server.")); content.append(connected);
   }
   root.append(content);
 }
