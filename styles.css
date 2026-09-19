@@ -590,7 +590,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .funeral-candle::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 10px; height: 21px; border-radius: 70% 35% 65% 35%; background: #ffd693; filter: blur(.3px); transform: translateX(-50%); animation: candle-flicker .7s ease-in-out infinite alternate; box-shadow: 0 0 22px #ffad55; }
 .candle-left { left: 7%; transform: translateZ(70px); }
 .candle-right { right: 8%; height: 42px; transform: translateZ(-30px); }
-.funeral-portrait { position: relative; z-index: 1; justify-self: end; width: min(38vw, 430px); aspect-ratio: .74; overflow: hidden; border: 1px solid rgba(215,230,234,.34); background: #080a0c; box-shadow: 0 36px 90px rgba(0,0,0,.7), 0 0 0 12px rgba(255,255,255,.018); transform-style: preserve-3d; animation: funeral-portrait-3d 4.6s ease-out both; }
+.funeral-portrait { position: absolute; z-index: 1; top: clamp(78px, 12vh, 120px); right: clamp(24px, 9vw, 150px); width: min(38vw, 430px); aspect-ratio: .74; overflow: hidden; border: 1px solid rgba(215,230,234,.34); background: #080a0c; box-shadow: 0 36px 90px rgba(0,0,0,.7), 0 0 0 12px rgba(255,255,255,.018); transform-style: preserve-3d; animation: funeral-portrait-3d 4.6s ease-out both; }
 .funeral-portrait::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(3,4,6,.88), transparent 55%), radial-gradient(circle at 50% 32%, transparent, rgba(2,3,5,.48)); }
 .funeral-portrait img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.9) contrast(1.13) brightness(.66); transform: scale(1.07); animation: funeral-photo-drift 4.6s ease-out both; }
 .mourning-ribbon { position: absolute; z-index: 2; right: -43px; bottom: 34px; width: 190px; padding: 8px; color: #dce4e7; background: rgba(7,9,12,.86); border-top: 1px solid rgba(255,255,255,.22); border-bottom: 1px solid rgba(255,255,255,.22); font-size: .62rem; font-weight: 900; letter-spacing: .2em; text-align: center; transform: rotate(-42deg); }
@@ -794,6 +794,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .bet-controls { align-items: stretch; }
   .bet-input { width: 100%; }
   .memorial-grid { grid-template-columns: repeat(2, 1fr); }
+  .funeral-portrait { top: 12vh; right: 10vw; width: min(55vw, 260px); }
   .funeral-copy { right: 14px; bottom: 104px; left: 14px; max-width: none; padding: 16px; text-align: left; transform: none; }
   .funeral-copy .display { margin: 7px 0; font-size: clamp(3.1rem, 17vw, 5.5rem); }
   .funeral-line { margin-bottom: 10px; font-size: 1.05rem; }

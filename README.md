@@ -37,7 +37,7 @@
 - Movie III “Previously…” recap φτιαγμένο από τις πραγματικές επιλογές του save.
 - Dynamic outro με το supplied outro track και σειρά: player, φίλοι, killers, υπόλοιπο cast.
 - End credits statistics, cast status, αναλυτική λίστα νεκρών και πλήρες trilogy In Memoriam archive.
-- Μετά το Movie III παίζει πραγματικό raw-WebGL funeral για κάθε επιβεβαιωμένο νεκρό: τρισδιάστατος τάφος, headstone portrait, ζωντανοί attendees που πλησιάζουν κλαίγοντας, αναμμένα 3D κεριά και λουλούδια που πετούν στον τάφο, με το supplied `funeral_music.mp3`.
+- Μετά το Movie III παίζει portrait memorial για κάθε επιβεβαιωμένο μη-killer νεκρό, αυστηρά με τη σειρά του πρώτου θανάτου και με το supplied `funeral_music.mp3`. Οι killers δεν εμφανίζονται στο In Memoriam.
 - Προαιρετικό fictional betting: ο παίκτης ποντάρει Slasher Credits στη final theory, κερδίζει 2× μόνο με ακριβή πλήρη πρόβλεψη ή παίρνει αναλογική επιστροφή για μερική επιτυχία. Δεν χρησιμοποιούνται πραγματικά χρήματα ή πληρωμές.
 - Responsive mobile/desktop design, touch controls, fullscreen, sound toggle και reduced-motion support.
 - Original Spirit Slasher mask-and-slash logo, cinematic room camera moves, animated dialogue, 3D-perspective action/death/rescue/killer beats, film scratches, depth layers, glitch cuts, haunted vignette, vibration και procedural Web Audio scare cues.
