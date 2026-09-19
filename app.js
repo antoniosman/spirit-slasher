@@ -3939,6 +3939,20 @@ async function checkForUpdate(manual = false) {
   updateButton.setAttribute("aria-label", "Γίνεται έλεγχος για ενημέρωση");
   showUpdateStatus("checking", "Έλεγχος για ενημέρωση…", `Σύγκριση της έκδοσης v${APP_VERSION} με το GitHub Pages.`, 0);
   try {
+    // Read the published version outside the service-worker cache. This is
+    // important for players who are still controlled by the previous worker:
+    // an old cached app must be able to discover v1.12 before it can install
+    // the new worker.
+    let publishedVersion = "";
+    try {
+      const response = await fetch(`${GITHUB_ASSET_BASE}version.json?update=${Date.now()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      if (response.ok) publishedVersion = String((await response.json())?.version || "");
+    } catch {
+      // The service-worker update check below remains useful while offline.
+    }
     await swRegistration.update();
     if (swRegistration.waiting) {
       prepareUpdateResume();
@@ -3947,9 +3961,26 @@ async function checkForUpdate(manual = false) {
       swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
     } else if (swRegistration.installing) {
       showUpdateStatus("available", "Κατεβαίνει η νέα έκδοση", current?.movie ? "Μπορείς να συνεχίσεις να παίζεις. Το τρέχον save θα διατηρηθεί και η τριλογία θα συνεχιστεί μετά την ανανέωση." : "Μην κλείσεις το παιχνίδι — θα ανανεωθεί αυτόματα μόλις είναι έτοιμη.", 0);
+    } else if (isNewerVersion(publishedVersion, APP_VERSION)) {
+      // A cached v1.11 page can have a service-worker registration whose
+      // script URL is also cached. Registering a versioned, cache-busting
+      // script URL forces the browser to fetch the current worker.
+      prepareUpdateResume();
+      updateButton.classList.add("ready");
+      showUpdateStatus("available", `Βρέθηκε νέα έκδοση v${publishedVersion}`, current?.movie ? "Το save της τρέχουσας σκηνής είναι ασφαλές. Εφαρμόζεται τώρα και η τριλογία συνεχίζεται αυτόματα." : "Εφαρμόζεται τώρα και το παιχνίδι θα ανοίξει ξανά αυτόματα.", 0);
+      const versionedRegistration = await navigator.serviceWorker.register(`./service-worker.js?v=${encodeURIComponent(publishedVersion)}&force=${Date.now()}`, { updateViaCache: "none" });
+      swRegistration = versionedRegistration;
+      if (versionedRegistration.waiting) versionedRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+      else if (versionedRegistration.installing) {
+        const installing = versionedRegistration.installing;
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed") installing.postMessage({ type: "SKIP_WAITING" });
+        });
+      } else await forceReloadForUpdate(publishedVersion);
     } else {
       updateButton.classList.remove("ready");
-      showUpdateStatus("latest", "Είσαι ενημερωμένος", `Έχεις ήδη την τελευταία έκδοση v${APP_VERSION}.`);
+      const visibleVersion = publishedVersion || APP_VERSION;
+      showUpdateStatus("latest", "Είσαι ενημερωμένος", `Έχεις ήδη την τελευταία έκδοση v${visibleVersion}.`);
     }
   } catch {
     showUpdateStatus("error", "Δεν ολοκληρώθηκε ο έλεγχος", `Η έκδοση v${APP_VERSION} παραμένει ενεργή. Έλεγξε τη σύνδεσή σου και πάτησε ξανά ↻.`);
@@ -3960,8 +3991,47 @@ async function checkForUpdate(manual = false) {
   }
 }
 
+function versionParts(value) {
+  return String(value || "0")
+    .split(".")
+    .map(part => Number.parseInt(part, 10))
+    .map(part => Number.isFinite(part) ? part : 0);
+}
+
+function isNewerVersion(candidate, currentVersion) {
+  const candidateParts = versionParts(candidate);
+  const currentParts = versionParts(currentVersion);
+  for (let index = 0; index < Math.max(candidateParts.length, currentParts.length); index += 1) {
+    const candidatePart = candidateParts[index] || 0;
+    const currentPart = currentParts[index] || 0;
+    if (candidatePart !== currentPart) return candidatePart > currentPart;
+  }
+  return false;
+}
+
+async function forceReloadForUpdate(version) {
+  prepareUpdateResume();
+  sessionStorage.setItem(UPDATE_COMPLETE_KEY, String(version || APP_VERSION));
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations
+      .filter(registration => registration.scope.startsWith(location.origin))
+      .map(registration => registration.unregister()));
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys
+        .filter(key => key.startsWith("spirit-slasher-"))
+        .map(key => caches.delete(key)));
+    }
+  } catch {
+    // A cache cleanup failure should never trap the player in the old build.
+  }
+  const separator = location.search ? "&" : "?";
+  location.replace(`${location.pathname}${separator}update=${encodeURIComponent(version || APP_VERSION)}&t=${Date.now()}${location.hash || ""}`);
+}
+
 function automaticUpdatesEnabled() {
-  return location.hostname.endsWith("github.io");
+  return location.hostname.endsWith("github.io") || location.hostname === "slasher.spirituniverse.gr";
 }
 
 function prepareUpdateResume() {
@@ -3996,7 +4066,7 @@ async function setupServiceWorker() {
     location.reload();
   });
   try {
-    swRegistration = await navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" });
+    swRegistration = await navigator.serviceWorker.register(`./service-worker.js?v=${encodeURIComponent(APP_VERSION)}`, { updateViaCache: "none" });
     swRegistration.addEventListener("updatefound", () => {
       const installing = swRegistration.installing;
       if (!installing) return;
