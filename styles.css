@@ -589,6 +589,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .server-status-pill.checking { color: var(--ice); }
 .server-address { overflow: hidden; color: var(--paper); font-family: "Archivo Black", sans-serif; font-size: clamp(1.05rem, 3.4vw, 1.55rem); letter-spacing: .03em; text-overflow: ellipsis; white-space: nowrap; }
 .server-status-detail { color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.server-status-countdown { color: var(--ice); font-size: .66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .online-server-status .mini-btn { justify-self: start; min-height: 30px; padding: 0 10px; font-size: .62rem; }
 .online-server-note { margin: 16px 0 0 !important; color: var(--muted) !important; font-size: .75rem !important; line-height: 1.6 !important; }
 .online-code { display: inline-block; margin: 8px 0 0; color: var(--ice); font-family: "Archivo Black", sans-serif; font-size: clamp(2rem, 8vw, 4.4rem); letter-spacing: .18em; }

@@ -19,7 +19,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.12";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -897,10 +897,17 @@ function onlineServerStatus(client) {
   top.append(badge);
   const address = el("strong", "server-address", client.getServerUrl());
   const detail = el("small", "server-status-detail", "Ελέγχεται η σύνδεση…");
+  const countdown = el("small", "server-status-countdown", "Επόμενος έλεγχος σε 10″");
   const retry = button("Recheck", "ghost mini-btn", check);
-  wrapper.append(top, address, detail, retry);
+  wrapper.append(top, address, detail, countdown, retry);
+  let secondsUntilCheck = 10;
+  let checkInFlight = false;
 
   async function check() {
+    if (checkInFlight || !wrapper.isConnected) return;
+    checkInFlight = true;
+    secondsUntilCheck = 10;
+    countdown.textContent = "Έλεγχος τώρα…";
     wrapper.classList.add("is-checking");
     badge.className = "server-status-pill checking";
     badge.textContent = "CHECKING";
@@ -918,9 +925,25 @@ function onlineServerStatus(client) {
       badge.className = "server-status-pill offline";
       badge.textContent = "OFFLINE";
       detail.textContent = "Ο hosted server δεν απαντά τώρα. Δοκίμασε Recheck σε λίγο.";
+    } finally {
+      checkInFlight = false;
+      if (wrapper.isConnected) {
+        secondsUntilCheck = 10;
+        countdown.textContent = "Επόμενος έλεγχος σε 10″";
+      }
     }
   }
 
+  const countdownTimer = setInterval(() => {
+    if (!wrapper.isConnected) {
+      clearInterval(countdownTimer);
+      return;
+    }
+    if (checkInFlight) return;
+    secondsUntilCheck = Math.max(0, secondsUntilCheck - 1);
+    countdown.textContent = `Επόμενος έλεγχος σε ${secondsUntilCheck}″`;
+    if (secondsUntilCheck === 0) check();
+  }, 1000);
   check();
   return wrapper;
 }
