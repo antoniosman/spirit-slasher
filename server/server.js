@@ -137,8 +137,8 @@ function sendError(request, response, status, message, code = "error") {
 
 function corsHeaders(request) {
   const requestOrigin = request.headers.origin;
-  const configuredOrigin = process.env.ALLOW_ORIGIN || "*";
-  const allowOrigin = configuredOrigin === "*" ? "*" : requestOrigin === configuredOrigin ? configuredOrigin : "null";
+  const configuredOrigins = (process.env.ALLOW_ORIGIN || "*").split(",").map(origin => origin.trim()).filter(Boolean);
+  const allowOrigin = configuredOrigins.includes("*") ? "*" : configuredOrigins.includes(requestOrigin) ? requestOrigin : "null";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
@@ -363,7 +363,7 @@ async function handleApi(request, response, url) {
   const method = request.method || "GET";
 
   if (method === "GET" && pathname === "/api/health") {
-    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.0.0", time: now() });
+    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.10.0", time: now() });
     return;
   }
 

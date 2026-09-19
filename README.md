@@ -55,10 +55,19 @@ per-player decision barriers, live avatar/choice polling και session-private 
 preview engine κρατάει ξεχωριστές επιλογές/outcomes ανά account, ενώ τα Single
 Player και Local μένουν ανεπηρέαστα.
 
-Για δοκιμή με παίκτη εκτός του τοπικού δικτύου, τρέξε
-`powershell -ExecutionPolicy Bypass -File .\scripts\start-online.ps1`. Το script
-ξεκινά server και προσωρινό HTTPS Cloudflare Quick Tunnel και το Online client
-συνδέεται αυτόματα όταν ανοίξεις το tunnel URL.
+Για δοκιμή με παίκτη εκτός του τοπικού δικτύου, χρησιμοποίησε το named tunnel
+`https://slasher.spirituniverse.gr` που έχεις ρυθμίσει στο Cloudflare. Αφού
+εγκαταστήσεις μία φορά το `cloudflared` Windows service από το Cloudflare
+dashboard, τοπικά ξεκινάς το game server με:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-named-tunnel.ps1
+```
+
+Το script δεν περιέχει και δεν αποθηκεύει tunnel token. Το Online adapter
+χρησιμοποιεί αυτόματα το named hostname όταν το παιχνίδι ανοίγει από GitHub
+Pages, ενώ όταν ανοίγει από `slasher.spirituniverse.gr` χρησιμοποιεί το ίδιο
+origin. Το Quick Tunnel script παραμένει διαθέσιμο μόνο για προσωρινά tests.
 
 ## Run locally
 

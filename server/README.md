@@ -31,9 +31,19 @@ app is served from that same URL, its Online client auto-connects to the correct
 server; no Server URL typing is needed. The URL changes each time the script
 starts and is for testing only. Stop it with `Ctrl+C` when finished.
 
-Do not use a Quick Tunnel for production accounts or persistent sessions. Later
-we can move the same API behind a named Cloudflare Tunnel, authentication rate
-limits and a hosted database.
+Do not use a Quick Tunnel for production accounts or persistent sessions. The
+repository is also ready for the configured named hostname
+`https://slasher.spirituniverse.gr`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-named-tunnel.ps1
+```
+
+That helper starts only `server/server.js`, checks `/api/health`, and starts the
+already-installed `cloudflared` service if needed. It never stores a tunnel token
+in Git or in the app. The GitHub Pages client defaults its Online account/lobby
+requests to the named hostname; the URL can still be overridden in the lobby for
+LAN or another test server.
 
 ## What is implemented
 
@@ -66,10 +76,13 @@ handles mostly small API/session traffic.
 ```bash
 set PORT=8787
 set HOST=0.0.0.0
-set ALLOW_ORIGIN=http://192.168.1.20:8787
+set ALLOW_ORIGIN=https://slasher.spirituniverse.gr,https://antoniosman.github.io
 npm run server
 ```
 
+`ALLOW_ORIGIN` accepts a comma-separated list. Leave it unset during a quick
+local test if you need the permissive `*` default.
+
 Do not expose this development server directly to the public internet. For
-remote testing we will add HTTPS/auth hardening and a hosted deployment or a
-secure tunnel after the LAN flow is verified.
+remote testing, keep the Cloudflare named tunnel in front of it and rotate the
+tunnel token immediately if it is ever pasted into chat, a screenshot or Git.

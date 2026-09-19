@@ -336,7 +336,8 @@ function isMultiplayerMode() { return current?.gameMode !== "single" && playerCh
 function activePlayerName() { return playerCharacters()[current?.activePlayerIndex || 0] || current?.protagonist; }
 function passLocalTurn() {
   if (!isLocalMode()) return;
-  current.activePlayerIndex = (current.activePlayerIndex + 1) % playerCharacters().length;
+  const currentIndex = Number.isInteger(current.activePlayerIndex) ? current.activePlayerIndex : 0;
+  current.activePlayerIndex = (currentIndex + 1) % playerCharacters().length;
   saveCurrent();
   toast(`Σειρά: ${activePlayerName()}`);
   renderMovie();
@@ -366,6 +367,34 @@ function describeOnlineChoice(value) {
 function localChoiceRecap(resolution) {
   if (!resolution?.choices) return "";
   return playerCharacters().map(player => `${player}: ${describeLocalChoice(resolution.choices[player])}`).join(" · ");
+}
+function localDecisionTitle(key) {
+  return String(key || "story decision")
+    .replace(/^movie-\d+-/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+function renderLocalActionLog() {
+  if (!isLocalMode()) return null;
+  const history = current?.movie?.localDecisionHistory || [];
+  if (!history.length) return null;
+  const panel = el("section", "panel local-action-log");
+  const heading = el("div", "local-action-log-heading");
+  heading.append(el("span", "eyebrow", "LOCAL 2P · SHARED ACTION LOG"), el("small", "", "Οι επιλογές και τα αποτελέσματα μένουν ορατά και στους δύο παίκτες."));
+  panel.append(heading);
+  const entries = el("div", "local-action-log-list");
+  history.slice(-4).forEach((entry, index) => {
+    const row = el("article", "local-action-entry");
+    row.append(el("strong", "", `${history.length - history.slice(-4).length + index + 1}. ${localDecisionTitle(entry.key)}`));
+    playerCharacters().forEach(player => {
+      const choice = el("span", "local-action-choice");
+      choice.append(el("b", "", player), el("small", "", describeLocalChoice(entry.choices?.[player])));
+      row.append(choice);
+    });
+    entries.append(row);
+  });
+  panel.append(entries);
+  return panel;
 }
 function buildRelationshipBoard(player, source = null) {
   const board = Object.fromEntries(allNames().map(name => [name, {
@@ -965,7 +994,7 @@ function renderOnlineLobby() {
     const username = onlineField("USERNAME", "text", "", "billy");
     const password = onlineField("PASSWORD", "password", "", "8+ characters");
     const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, username.wrapper, password.wrapper);
-    panel.append(fields, el("p", "online-server-note", "Στο ίδιο PC χρησιμοποίησε http://localhost:8787. Για παίκτη εκτός Wi‑Fi βάλε το HTTPS tunnel URL."));
+    panel.append(fields, el("p", "online-server-note", "Default public server: https://slasher.spirituniverse.gr. Στο ίδιο PC μπορείς να χρησιμοποιήσεις http://localhost:8787, ενώ το πεδίο παραμένει διαθέσιμο για LAN/testing override."));
     const actions = el("div", "actions");
     actions.append(button("Create account", "", async () => {
       try { client.setServerUrl(server.input.value); const result = await client.register(username.input.value, password.input.value); localStorage.setItem("spirit-slasher-online-user-v1", result.user.username); toast("Account δημιουργήθηκε."); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
@@ -981,7 +1010,7 @@ function renderOnlineLobby() {
     const server = onlineField("SERVER URL", "url", client.getServerUrl(), "https://your-tunnel.example"); server.wrapper.classList.add("full");
     const joinCode = onlineField("JOIN CODE", "text", "", "ABC123");
     const fields = el("div", "online-auth-grid"); fields.append(server.wrapper, joinCode.wrapper);
-    panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Ο server μπορεί να είναι στο PC σου ή στο HTTPS tunnel URL.`));
+    panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Οι νέες συνδέσεις χρησιμοποιούν το named hostname· άλλαξε το URL μόνο για LAN/testing override.`));
     const actions = el("div", "actions");
     actions.append(button("Create 2–4 player session", "", async () => {
       try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
@@ -1827,6 +1856,8 @@ function movieScreen(sceneName, progress) {
       handoff.append(el("span", "eyebrow", "CHOICE LOCKED · SHOWING THE OTHER PLAYER"), el("strong", "", `${notice.player} διάλεξε:`), el("p", "", describeLocalChoice(notice.choice)), el("small", "", `Τώρα είναι η σειρά του/της ${notice.nextPlayer}. Η δική του/της επιλογή θα εμφανιστεί αμέσως μετά στο recap.`));
       content.append(handoff);
     }
+    const actionLog = renderLocalActionLog();
+    if (actionLog) content.append(actionLog);
   }
   if (current.gameMode === "online") {
     publishOnlineSceneState(sceneName);

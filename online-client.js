@@ -2,6 +2,10 @@
 window.SpiritOnline = (() => {
   const TOKEN_KEY = "spirit-slasher-online-token-v1";
   const SERVER_KEY = "spirit-slasher-online-server-v1";
+  // GitHub Pages is the static client; the named Cloudflare hostname is the
+  // public account/lobby origin. A user can still override it in the lobby
+  // or by setting window.SPIRIT_ONLINE_SERVER_URL before this adapter loads.
+  const PUBLIC_SERVER_URL = "https://slasher.spirituniverse.gr";
   let activeController = null;
   let pollTimer = null;
 
@@ -9,11 +13,16 @@ window.SpiritOnline = (() => {
     const isGithubPages = location.hostname.endsWith("github.io");
     const isLocalServer = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname) && location.port === "8787";
     if (isLocalServer || (!isGithubPages && location.origin !== "null")) return location.origin;
-    return "http://localhost:8787";
+    if (isGithubPages) return window.SPIRIT_ONLINE_SERVER_URL || PUBLIC_SERVER_URL;
+    return PUBLIC_SERVER_URL;
   }
 
   function getServerUrl() {
-    return (localStorage.getItem(SERVER_KEY) || defaultServerUrl()).replace(/\/+$/, "");
+    const stored = (localStorage.getItem(SERVER_KEY) || "").trim();
+    // Quick Tunnel URLs are ephemeral. Do not keep sending accounts to an old
+    // trycloudflare.com origin after the project moves to its named hostname.
+    if (/trycloudflare\.com$/i.test(stored)) localStorage.removeItem(SERVER_KEY);
+    return ((/trycloudflare\.com$/i.test(stored) ? "" : stored) || defaultServerUrl()).replace(/\/+$/, "");
   }
 
   function setServerUrl(value) {

@@ -3,3 +3,6 @@ Thumbs.db
 *.log
 .playwright-cli/
 server/data/*.json
+# Local Cloudflare credentials/config must never be committed.
+.cloudflared/
+cloudflared*.log
