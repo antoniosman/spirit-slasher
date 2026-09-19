@@ -44,6 +44,16 @@
 - Installable PWA για Android/iOS και offline cache μετά την πρώτη φόρτωση.
 - GitHub Pages continuous deployment μέσω GitHub Actions.
 
+## Local Online backend (initial foundation)
+
+Το Online mode έχει πλέον dependency-free local backend για testing σε PC/LAN.
+Τρέχει με `npm run server`, σερβίρει και το PWA στο `http://localhost:8787` και
+παρέχει accounts, sessions 2–4 παικτών, character lobby, authoritative stage,
+per-player decisions και live events. Οι λεπτομέρειες βρίσκονται στο
+[`server/README.md`](server/README.md). Το επόμενο βήμα είναι η σύνδεση του
+Online UI και του movie engine στα endpoints, ενώ τα Single Player και Local
+μένουν ανεπηρέαστα.
+
 ## Run locally
 
 Serve the folder through any static HTTP server. Service workers do not run from `file://` URLs.
