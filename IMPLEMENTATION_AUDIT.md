@@ -1,6 +1,6 @@
 # Spirit Slasher — Implementation Audit
 
-Audit source: `game_idea.txt` supplied by the user. Checked against the implemented PWA on 18 September 2026.
+Audit source: `game_idea.txt` supplied by the user. Checked against the implemented PWA on 19 September 2026.
 
 | Requirement | Status | Implemented behavior |
 |---|---:|---|
@@ -27,7 +27,8 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Extra investigations and character screen time | ✅ | After the first room the player can investigate more rooms, solve a randomized riddle or speak privately with living cast members for clues and relationship changes; ensemble cameos keep supporting characters visible. |
 | Unpredictable choice outcomes | ✅ | Rescue, abandonment and finale options use seeded probability plus earned advantages, so A/B/C does not map to a permanent fixed death result. |
 | Act III 0/N, partial or full discovery | ✅ | Reveal counts correct suspects and changes protagonist dialogue and finale survival logic. |
-| No resurrection of ordinary dead | ✅ | Any non-killer marked Dead is permanently excluded from later casts, scenes, dialogue and choices. |
+| Controlled supernatural resurrection | ✅ | Ordinary deaths remain final unless the player finds the one-use Resurrection Crystal and explicitly spends it on a non-killer who died in the current movie; the revived character is restored to all later pools. |
+| Supernatural relic twists | ✅ | Every movie hides one of six cinematic relics: resurrection, fatal-hit shield, ambiguous omen, favorable probability reroll, group-bond boost or protection with transferred danger. |
 | Motive engine | ✅ | Revenge, family secret, past incident, obsession, jealousy, cover-up, notoriety, manipulation and history-driven motives. |
 | Motive connected to protagonist | ✅ | Every reveal includes a protagonist-directed motive line; Movie III can quote a past player choice. |
 | Movie II legacy survivors | ✅ | A limited set of real survivors returns alongside a majority of new characters; prior main-group survivors cannot be the immediate sequel opening kill but can die later. |
@@ -36,7 +37,7 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | Movie III mastermind chosen after Movies I/II | ✅ | Non-returning mastermind candidates prioritize wrongly accused legacy characters and old friends. |
 | Movie III killer distribution | ✅ | Approximately equal thirds: one killer; two/three killers; one returning presumed-dead killer. |
 | Returning killer hidden from Movie III intro | ✅ | Exactly one old killer may return; they are removed from cast, intro, dialogue, suspect lists and choices until the Act III reveal. |
-| Movie III evidence never leaks the legacy twist | ✅ | Final-film real clues use an unknown identity in both returning and non-returning branches, so the branch cannot be inferred from evidence before the reveal. |
+| Movie III evidence never leaks the legacy twist | ✅ | Final-film clues may name a prior killer as an `ARCHIVE ECHO`, but the engine produces the same “return, copy or trap” language in both branches. When no one returned it still chooses a decoy echo, so evidence cannot reveal the hidden branch. |
 | Legacy killers resolved after the trilogy | ✅ | Presumed Dead remains unresolved through Movies I/II; after Movie III every prior killer, including those who did not return, is archived as officially confirmed dead. |
 | Cinematic animated actions | ✅ | Choices cut to perspective-driven animated beats with depth layers and distinct 3D motion for deaths, rescues, active movement, killers, clues, relationship scenes, sabotage, theories and finale casualties. |
 | “Previously…” before Movie III | ✅ | Generates a recap from the player’s actual trust, rescue, accusation, killer and survivor history. |
@@ -46,6 +47,7 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 | End Credits Statistics | ✅ | Final survivor, killers, survivors, named deaths, identified killers, saved people, wrong accusations, relationships, theories, clues, item saves, fictional bet result, balance, prevented deaths and choices. |
 | WebGL funeral for every death | ✅ | Completing Movie III launches a raw-WebGL cemetery for every confirmed death with a grave, textured headstone, survivor procession, crying animation, lit candles, thrown flowers, rain and the supplied funeral music. |
 | Unlimited organized saves | ✅ | The previous three-slot limit is removed; the Save Vault supports names, rename, search, sorting and a scrollable list while preserving each universe locally. |
+| Cross-device save transfer | ✅ | One save or the whole Vault exports as a versioned JSON file through the iPhone share sheet or browser download, then imports with validation and collision-safe IDs on another device. |
 | Fictional killer betting | ✅ | Players may wager any available Slasher Credits on the final theory. Exact complete identification pays 2×; partial correct identification returns the matching fraction; no real money or payment exists. |
 | Cast Status | ✅ | Every participant is listed with their final state and killer status. |
 | 26 Spirits and clean character art | ✅ | All 26 named assets from the existing Spirits game are packaged and cached offline. |
@@ -59,4 +61,4 @@ Audit source: `game_idea.txt` supplied by the user. Checked against the implemen
 ## Verification summary
 
 - Static JavaScript/JSON/asset checks are performed before deployment.
-- Manual gameplay and balance testing of version 1.6.0 is intentionally left to the owner, as requested.
+- Manual gameplay and balance testing of version 1.7.0 is intentionally left to the owner, as requested.

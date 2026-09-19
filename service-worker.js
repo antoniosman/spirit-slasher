@@ -1,4 +1,4 @@
-const CACHE = "spirit-slasher-v1.6.0";
+const CACHE = "spirit-slasher-v1.7.0";
 const CORE = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const CORE = [
   "./assets/audio/outro.mp3",
   "./assets/audio/funeral.mp3",
   "./assets/brand/spirit-slasher-logo.png",
+  "./assets/items/relic-atlas.png",
   "./assets/locations/movie-1-atlas.webp",
   "./assets/locations/movie-2-atlas.webp",
   "./assets/locations/movie-3-atlas.webp",

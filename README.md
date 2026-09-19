@@ -5,6 +5,7 @@
 ## Implemented features
 
 - Unlimited local Save Vault με ονομασία, μετονομασία, αναζήτηση, ταξινόμηση και scrollable επιλογή universe χωρίς αυτόματη διαγραφή παλιού slot.
+- Cross-device save transfer: export/share ενός save ή ολόκληρου του Vault σε `.json` και ασφαλές import σε άλλη συσκευή, με native iPhone share sheet όπου υποστηρίζεται.
 - Επιλογή main character από τους 26 υπάρχοντες Spirits χαρακτήρες.
 - Και οι 26 καθαρές character εικόνες από τα προηγούμενα Spirits games.
 - Προκαθορισμένες συγγένειες και σχέσεις: Luna–Hope, Demarin–Irene, Catherine–Evaggelia, Rino–Pauline, Rino–Billy, Luna–Vincent, Hope–Paul, Tony–Ian.
@@ -14,7 +15,7 @@
 - Procedural cast 11–12 χαρακτήρων στα Movie I/II και διευρυμένο Movie III ensemble που φέρνει υποχρεωτικά κάθε ζωντανό χαρακτήρα που δεν είχε screen time, μαζί με όλους τους διαθέσιμους legacy survivors.
 - Οι killers των Movie I/II καταγράφονται ως `KILLER · PRESUMED DEAD`, αποκλείονται από κάθε επόμενο κανονικό cast και μόνο ένας μπορεί να επιστρέψει κρυφά στο Movie III.
 - Returning killer του Movie III κρύβεται από intro, cast, διάλογο, suspect list και επιλογές και εμφανίζεται μόνο στο reveal/outro.
-- Όλα τα πραγματικά στοιχεία του Movie III παραμένουν identity-neutral μέχρι το reveal, είτε υπάρχει returning killer είτε όχι. Μετά το τέλος, κάθε παλιός killer που δεν επέστρεψε κλείνει επίσημα ως confirmed dead.
+- Τα πραγματικά στοιχεία του Movie III μπορούν να δείξουν ένα ονομαστικό `ARCHIVE ECHO` — «σαν να ήταν εδώ» — αλλά χρησιμοποιούν ακριβώς την ίδια αμφίσημη γλώσσα είτε υπάρχει returning killer είτε όχι. Επιστροφή, αντιγραφή και παγίδα παραμένουν ισότιμες εξηγήσεις μέχρι το reveal.
 - Procedural engine 100 διαφορετικών opening scenarios με κάμερες, projector, alarms, elevator, radio, livestream, sensors, lockdown, generator και παγιδευμένα δωμάτια.
 - 120 διαφορετικά sub-room variants σε τρία ξεχωριστά cinematic map atlases, με randomized routes, crops, clues και scene order.
 - Μηχανισμός επιλογής βασικής παρέας που αλλάζει trust, friendship και loyalty. Οι σημαντικοί survivors προστατεύονται μόνο από το επόμενο opening kill — όχι από τους κινδύνους της ταινίας.
@@ -23,7 +24,8 @@
 - Randomized relationship events με καβγάδες, πένθος, κατηγορίες, confessions, rivalry και όρκους προστασίας· ακόμη και ένας killer μπορεί να κλαίει ή να χειραγωγεί χωρίς να αποκαλύπτεται.
 - Real clues, red herrings και character secrets χωρίς να αποκαλύπτεται ο τύπος της σωστής ερμηνείας.
 - Midpoint και final accusation 1–4 υπόπτων, με αποθήκευση πρώτης και τελικής θεωρίας.
-- Δυναμικές καταστάσεις Alive, Saved, Dead και Killer · Presumed Dead. Οι κανονικοί νεκροί δεν επιστρέφουν ποτέ.
+- Δυναμικές καταστάσεις Alive, Saved, Dead και Killer · Presumed Dead. Κανονικός νεκρός μπορεί να επιστρέψει μόνο μέσω του εξαιρετικά συγκεκριμένου, one-use Κρυστάλλου Αναζωογόνησης που βρέθηκε και ενεργοποιήθηκε στην ίδια ταινία.
+- Έξι cinematic supernatural relics με διαφορετικές λειτουργίες: resurrection crystal, shadow shield, ambiguous echo mirror, probability-reroll hourglass, relationship talisman και protective black rose με τίμημα.
 - Παλαιότερες αποφάσεις (π.χ. survival item) αλλάζουν πραγματικά τις πιθανότητες επιβίωσης και μπορούν να σώσουν τον κάτοχό τους σε attack, rooms ή finale.
 - Τα openings μπορούν να σκοτώσουν τον στόχο, τον σύντροφό του ή και τους δύο. Ο opening survivor χωρίς θέση στην παρέα μπαίνει ισότιμα στα επόμενα death pools και έχει μικρή κρυφή πιθανότητα να είναι killer.
 - Δεύτερο investigation loop με επιπλέον δωμάτια, προσωπικές συζητήσεις, relationship-aware διάλογο, γρίφους και clues πριν συνεχίσει το attack.
