@@ -3,6 +3,7 @@ window.SpiritOnline = (() => {
   const TOKEN_KEY = "spirit-slasher-online-token-v1";
   const SERVER_KEY = "spirit-slasher-online-server-v1";
   let activeController = null;
+  let pollTimer = null;
 
   function defaultServerUrl() {
     const isGithubPages = location.hostname.endsWith("github.io");
@@ -50,6 +51,22 @@ window.SpiritOnline = (() => {
   function stopWatching() {
     activeController?.abort();
     activeController = null;
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  function startPolling(code, onSession, onError) {
+    if (pollTimer) clearInterval(pollTimer);
+    const poll = async () => {
+      try {
+        const result = await request(`/api/sessions/${encodeURIComponent(code)}`);
+        if (result.session) onSession(result.session);
+      } catch (error) {
+        onError?.(error);
+      }
+    };
+    poll();
+    pollTimer = setInterval(poll, 10000);
   }
 
   async function watchSession(code, onSession, onError) {
@@ -104,6 +121,7 @@ window.SpiritOnline = (() => {
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),
     sendDecision: (code, key, value) => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value }) }),
     stopWatching,
+    startPolling,
     watchSession,
   };
 })();

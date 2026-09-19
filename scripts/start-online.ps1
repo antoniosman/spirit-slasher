@@ -30,11 +30,13 @@ try {
   # allow those logs through without treating them as a failed tunnel.
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
+  $openedTunnelTab = $false
   & cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8787 2>&1 | ForEach-Object {
     $line = $_.ToString()
     Write-Host $line
-    if ($line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
+    if (-not $openedTunnelTab -and $line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
       $publicUrl = $Matches[0]
+      $openedTunnelTab = $true
       Write-Host "Open this URL on the host and send it to Billy: $publicUrl" -ForegroundColor Yellow
       Start-Process $publicUrl
     }

@@ -209,6 +209,8 @@ let swRegistration = null;
 let audioContext = null;
 let onlineSession = null;
 let onlineWatchingCode = null;
+let onlineSessionSignature = "";
+let updateCheckInFlight = false;
 
 function loadJSON(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -714,10 +716,15 @@ function onlineWatch(code) {
   if (!code || onlineWatchingCode === code) return;
   window.SpiritOnline.stopWatching();
   onlineWatchingCode = code;
-  window.SpiritOnline.watchSession(code, session => {
+  const applySession = session => {
+    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, players: session.players, history: session.history });
+    if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
+    onlineSessionSignature = signature;
     onlineSession = session;
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
-  }, error => toast(error.message || "Το live session stream σταμάτησε."));
+  };
+  window.SpiritOnline.watchSession(code, applySession, error => toast(error.message || "Το live session stream σταμάτησε."));
+  window.SpiritOnline.startPolling(code, applySession);
 }
 
 function onlineFailure(error) {
@@ -761,10 +768,10 @@ function renderOnlineLobby() {
     panel.append(fields, el("p", "online-server-note", `Signed in as ${localStorage.getItem("spirit-slasher-online-user-v1") || "player"}. Ο server μπορεί να είναι στο PC σου ή στο HTTPS tunnel URL.`));
     const actions = el("div", "actions");
     actions.append(button("Create 2–4 player session", "", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
-      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }), button("Sign out", "ghost", async () => { await client.logout(); onlineSession = null; onlineWatchingCode = null; renderOnlineLobby(); }));
+      try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
@@ -785,14 +792,14 @@ function renderOnlineLobby() {
     characterPanel.append(el("p", "eyebrow", "YOUR CHARACTER"), el("h2", "headline", mine?.character || "Choose one"), el("p", "section-copy", "Ο χαρακτήρας σου είναι προσωπικός και δεν γίνεται killer. Οι canon σχέσεις του παραμένουν δικές του."));
     const characterGrid = el("div", "roster");
     roster.forEach(item => characterGrid.append(characterButton(item.name, async () => {
-      try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
+      try { const result = await client.setCharacter(onlineSession.code, item.name); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }, mine?.character === item.name)));
     characterPanel.append(characterGrid); content.append(characterPanel);
     const ready = onlineSession.players.length >= 2 && onlineSession.players.every(player => player.character);
     const actions = el("div", "actions");
-    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); } }));
+    if (onlineSession.host === onlineSession.me) actions.append(button(ready ? "Start online game" : "Waiting for all characters", "", async () => { if (!ready) return; try { const result = await client.startSession(onlineSession.code); onlineSessionSignature = ""; onlineSession = result.session; renderOnlineLobby(); } catch (error) { onlineFailure(error); } }));
     else actions.append(el("p", "online-status", "Waiting for the host to start…"));
-    actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; client.stopWatching(); renderOnlineLobby(); }));
+    actions.append(button("Leave lobby", "ghost", () => { onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; client.stopWatching(); renderOnlineLobby(); }));
     content.append(actions);
   } else {
     const connected = el("article", "panel"); connected.append(el("p", "online-status", "ONLINE SESSION CONNECTED"), el("p", "section-copy", "Το lobby και το authoritative session είναι συνδεδεμένα. Η επόμενη φάση περνάει το Movie I engine στα shared server decisions.")); content.append(connected);
@@ -3353,6 +3360,8 @@ async function checkForUpdate(manual = false) {
     if (manual) showUpdateStatus("info", "Ο έλεγχος ετοιμάζεται", `Τρέχεις την έκδοση v${APP_VERSION}. Δοκίμασε ξανά σε λίγα δευτερόλεπτα.`);
     return;
   }
+  if (updateCheckInFlight) return;
+  updateCheckInFlight = true;
   updateButton.classList.add("checking");
   updateButton.setAttribute("aria-label", "Γίνεται έλεγχος για ενημέρωση");
   showUpdateStatus("checking", "Έλεγχος για ενημέρωση…", `Σύγκριση της έκδοσης v${APP_VERSION} με το GitHub Pages.`, 0);
@@ -3374,7 +3383,12 @@ async function checkForUpdate(manual = false) {
   } finally {
     updateButton.classList.remove("checking");
     updateButton.setAttribute("aria-label", "Έλεγχος για ενημέρωση");
+    updateCheckInFlight = false;
   }
+}
+
+function automaticUpdatesEnabled() {
+  return location.hostname.endsWith("github.io");
 }
 
 function prepareUpdateResume() {
@@ -3422,8 +3436,10 @@ async function setupServiceWorker() {
         }
       });
     });
-    if (!completedUpdate) await checkForUpdate(false);
-    setInterval(() => checkForUpdate(false), 15 * 60 * 1000);
+    if (automaticUpdatesEnabled()) {
+      if (!completedUpdate) await checkForUpdate(false);
+      setInterval(() => checkForUpdate(false), 15 * 60 * 1000);
+    }
   } catch {
     showUpdateStatus("error", "Το update system δεν συνδέθηκε", `Η έκδοση v${APP_VERSION} λειτουργεί κανονικά. Πάτησε ↻ όταν είσαι online.`);
   }
