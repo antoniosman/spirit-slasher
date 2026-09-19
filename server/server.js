@@ -301,11 +301,47 @@ function serveStatic(request, response, pathname) {
     ".webmanifest": "application/manifest+json; charset=utf-8",
     ".woff2": "font/woff2",
   };
-  response.writeHead(200, {
+  const isStreamableMedia = extension === ".mp3" || extension === ".mp4";
+  const cacheControl = extension === ".html" || extension === ".js" || extension === ".css"
+    ? "no-cache"
+    : "public, max-age=86400";
+  const commonHeaders = {
     "Content-Type": contentTypes[extension] || "application/octet-stream",
-    "Cache-Control": extension === ".html" ? "no-cache" : "public, max-age=3600",
+    "Cache-Control": cacheControl,
+    "Content-Length": stat.size,
+    ...(isStreamableMedia ? { "Accept-Ranges": "bytes" } : {}),
     ...corsHeaders(request),
-  });
+  };
+  if (request.method === "HEAD") {
+    response.writeHead(200, commonHeaders);
+    response.end();
+    return;
+  }
+  const range = request.headers.range;
+  if (isStreamableMedia && range) {
+    const match = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match) {
+      response.writeHead(416, { ...commonHeaders, "Content-Range": `bytes */${stat.size}` });
+      response.end();
+      return;
+    }
+    const start = match[1] ? Number(match[1]) : Math.max(0, stat.size - Number(match[2] || 0));
+    const requestedEnd = match[2] ? Number(match[2]) : stat.size - 1;
+    const end = Math.min(requestedEnd, stat.size - 1);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || start > end || start >= stat.size) {
+      response.writeHead(416, { ...commonHeaders, "Content-Range": `bytes */${stat.size}` });
+      response.end();
+      return;
+    }
+    response.writeHead(206, {
+      ...commonHeaders,
+      "Content-Length": end - start + 1,
+      "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+    });
+    fs.createReadStream(filePath, { start, end }).pipe(response);
+    return;
+  }
+  response.writeHead(200, commonHeaders);
   fs.createReadStream(filePath).pipe(response);
 }
 

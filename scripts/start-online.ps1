@@ -31,7 +31,7 @@ try {
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   $openedTunnelTab = $false
-  & cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8787 2>&1 | ForEach-Object {
+  & cloudflared tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:8787 2>&1 | ForEach-Object {
     $line = $_.ToString()
     Write-Host $line
     if (-not $openedTunnelTab -and $line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
