@@ -835,6 +835,7 @@ function loadUniverse(id) {
   movie.newcomers ||= [];
   movie.itemKept ??= false;
   movie.itemUsed ??= false;
+  movie.itemHolders ||= movie.keyHolder ? String(movie.keyHolder).split(" & ").filter(Boolean) : [];
   movie.finalKiller ||= null;
   movie.canonMoments ||= [];
   movie.fatalityTarget ||= 4;
@@ -1243,7 +1244,7 @@ function generateMovie(number) {
     number, title: movieTitles[number], stage: 0, cast, introCast: cast.filter(name => name !== returningKiller),
     killers, returningKiller, legacyEcho, mainKiller, motive, motiveLine, status,
     openingTarget, openingPartner, dangerA, dangerB, secondTarget,
-    friendOptions, continuityFriends, newcomers: [...newcomers], friends: [], playerFriends: {}, keyHolder: null, itemKept: false, itemUsed: false, survivalItem: pick(survivalItems[number], random),
+    friendOptions, continuityFriends, newcomers: [...newcomers], friends: [], playerFriends: {}, keyHolder: null, itemHolders: [], itemKept: false, itemUsed: false, survivalItem: pick(survivalItems[number], random),
     locationChoices, locationClues, rooms, worldAsset: world.asset, protectedLegacy, fatalityTarget, openingScenario, openingKillerRoll,
     cluesFound: [], choices: [], firstSuspicion: [], midpointTheory: [], finalTheory: [], pendingTheory: [],
     pendingBet: 0, betAmount: 0, betPayout: 0, betResult: "NO BET", betSettled: false, localDecisions: {}, localDecisionHistory: [], localTurnNotice: null, lastLocalResolution: null, localTheories: { midpoint: {}, final: {} }, localBets: {},
@@ -1307,7 +1308,7 @@ function rankMovieThreeDeaths(names, random) {
 }
 function itemHeldBy(name) {
   const movie = current.movie;
-  return movie.keyHolder === name || (movie.itemKept && isPlayerCharacter(name));
+  return (movie.itemHolders || []).includes(name) || movie.keyHolder === name || (movie.itemKept && isPlayerCharacter(name));
 }
 function playerHasItem() {
   const movie = current.movie;
@@ -1995,6 +1996,7 @@ function finalizeKeptItem() {
   if (keepDecision === LOCAL_PENDING) return;
   movie.itemReassigning = false;
   movie.keyHolder = null;
+  movie.itemHolders = [];
   movie.itemKept = true;
   movie.itemUsed = false;
   remember(`Δεν έδωσες το ${movie.survivalItem} σε κανέναν.`, "Το κράτησες μέχρι την επίθεση και οι στόχοι μετακινήθηκαν έξω από την κεντρική παρέα.");
@@ -2010,23 +2012,39 @@ function giveKey(name) {
   const movie = current.movie;
   name = localDecision(`item-${movie.number}`, name);
   if (name === LOCAL_PENDING) return;
-  movie.keyHolder = name;
-  movie.itemKept = !name;
+  const localItemVotes = isLocalMode() ? movie.lastLocalResolution?.choices : null;
+  const recipients = localItemVotes
+    ? unique(Object.values(localItemVotes).filter(Boolean))
+    : (name ? [name] : []);
+  movie.itemHolders = recipients;
+  movie.keyHolder = recipients.length ? recipients.join(" & ") : null;
+  movie.itemKept = recipients.length === 0;
   movie.itemReassigning = false;
   movie.itemUsed = false;
-  if (name) {
-    relationshipState(name).trust += 18;
-    remember(`Έδωσες το ${movie.survivalItem} στον/στην ${name}.`, "The item now changes the rescue odds, the identity of the next target and the finale.");
+  if (recipients.length) {
+    if (localItemVotes) {
+      Object.entries(localItemVotes).forEach(([player, recipient]) => {
+        if (recipient) relationshipState(recipient, player).trust += 18;
+      });
+      remember(`Οι παίκτες έδωσαν το ${movie.survivalItem} στους/στις ${recipients.join(" και ")}.`, "Κάθε local επιλογή καταγράφηκε· οι δύο παραλήπτες έχουν ξεχωριστό item protection.");
+    } else {
+      relationshipState(recipients[0]).trust += 18;
+      remember(`Έδωσες το ${movie.survivalItem} στον/στην ${recipients[0]}.`, "The item now changes the rescue odds, the identity of the next target and the finale.");
+    }
   } else remember(`Κράτησες το ${movie.survivalItem}.`, "Θα σου προσφερθεί αμέσως δεύτερη επιλογή παραλήπτη εκτός της πρώτης παρέας.");
   refreshSceneTargets();
-  if (!name) movie.itemReassigning = true;
+  if (!recipients.length) movie.itemReassigning = true;
   queueBeat({
     kind: "action",
     eyebrow: "OBJECT IN PLAY",
-    title: name ? `${name} παίρνει το ${movie.survivalItem}.` : `Το ${movie.survivalItem} μένει πάνω σου.`,
-    body: name ? `Το αντικείμενο αλλάζει χέρια. Ο/Η ${name} θυμάται ότι τον/την εμπιστεύτηκες — και μπορεί να το χρησιμοποιήσει όταν εσύ δεν θα είσαι εκεί.` : "Το κράτησες πάνω σου. Μόλις τελειώσει αυτή η στιγμή, θα διαλέξεις αμέσως άλλον ζωντανό άνθρωπο για να του το εμπιστευτείς — ή θα το κρατήσεις μέχρι την επίθεση.",
-    names: name ? [name] : [current.protagonist], statuses: [name ? "TRUST +18 · ITEM HOLDER" : "ITEM KEPT · NEW RESCUE TARGETS"], roomOffset: 1
-  }, name ? 4 : "item-reassign");
+    title: recipients.length > 1 ? `${recipients.join(" και ")} παίρνουν το ${movie.survivalItem}.` : recipients.length ? `${recipients[0]} παίρνει το ${movie.survivalItem}.` : `Το ${movie.survivalItem} μένει πάνω σου.`,
+    body: recipients.length > 1
+      ? `Ο Player 1 και ο Player 2 επέλεξαν διαφορετικούς παραλήπτες. Στο Local 2P το αντικείμενο γίνεται κοινό protection: ${recipients.join(" και ")} κρατούν ξεχωριστό survival bonus και η σκηνή καταγράφει και τις δύο αποφάσεις.`
+      : recipients.length
+        ? `Το αντικείμενο αλλάζει χέρια. Ο/Η ${recipients[0]} θυμάται ότι τον/την εμπιστεύτηκες — και μπορεί να το χρησιμοποιήσει όταν εσύ δεν θα είσαι εκεί.`
+        : "Το κράτησες πάνω σου. Μόλις τελειώσει αυτή η στιγμή, θα διαλέξεις αμέσως άλλον ζωντανό άνθρωπο για να του το εμπιστευτείς — ή θα το κρατήσεις μέχρι την επίθεση.",
+    names: recipients.length ? recipients : [current.protagonist], statuses: recipients.length ? recipients.map(() => "ITEM HOLDER · TRUST +18") : ["ITEM KEPT · NEW RESCUE TARGETS"], roomOffset: 1
+  }, recipients.length ? 4 : "item-reassign");
 }
 
 function renderInvestigation() {
@@ -2813,7 +2831,7 @@ function createMovieRecord() {
     wronglyAccused, firstSuspicion: movie.firstSuspicion, midpointTheory: movie.midpointTheory,
     finalTheory: movie.finalTheory, identified: correct.length, cluesFound: movie.cluesFound.length,
     peopleSaved: movie.peopleSaved, deathsPrevented: movie.deathsPrevented,
-    survivalItem: movie.survivalItem, itemHolder: movie.keyHolder || (movie.itemKept ? playerCharacters().join(" & ") : null), itemKept: movie.itemKept, itemUsed: movie.itemUsed,
+    survivalItem: movie.survivalItem, itemHolder: (movie.itemHolders || []).join(" & ") || movie.keyHolder || (movie.itemKept ? playerCharacters().join(" & ") : null), itemHolders: [...(movie.itemHolders || [])], itemKept: movie.itemKept, itemUsed: movie.itemUsed,
     confirmedLegacyDeaths: unique(movie.resolvedLegacyKillers || []),
     victimCount: ordinaryDeaths.length, itemSaved: unique(movie.itemSaved), puzzleSolved: movie.puzzleSolved, puzzleAdvantage: movie.puzzleAdvantage,
     betAmount: movie.betAmount, betPayout: movie.betPayout, betResult: movie.betResult,
