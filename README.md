@@ -35,6 +35,7 @@
 - Νέοι χαρακτήρες σε κάθε sequel, μαζί με περιορισμένο αριθμό πραγματικών survivors. Οι πιο σημαντικές σχέσεις προστατεύονται από άδικο opening kill, όχι από όλη την ταινία.
 - Movie III “Previously…” recap φτιαγμένο από τις πραγματικές επιλογές του save.
 - Dynamic outro με το supplied outro track και σειρά: player, φίλοι, killers, υπόλοιπο cast.
+- Online sessions με server-defined κοινό scene state, monotonic stage/revision, live avatars, pending choices και ξεχωριστά per-player consequences.
 - End credits statistics, cast status, αναλυτική λίστα νεκρών και πλήρες trilogy In Memoriam archive.
 - Μετά το Movie III παίζει portrait memorial για κάθε επιβεβαιωμένο μη-killer νεκρό, αυστηρά με τη σειρά του πρώτου θανάτου και με το supplied `funeral_music.mp3`. Οι killers δεν εμφανίζονται στο In Memoriam.
 - Προαιρετικό fictional betting: ο παίκτης ποντάρει Slasher Credits στη final theory, κερδίζει 2× μόνο με ακριβή πλήρη πρόβλεψη ή παίρνει αναλογική επιστροφή για μερική επιτυχία. Δεν χρησιμοποιούνται πραγματικά χρήματα ή πληρωμές.

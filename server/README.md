@@ -42,6 +42,8 @@ limits and a hosted database.
   Git and created on first run).
 - Host-created sessions for 2–4 players, join codes and character selection.
 - Authoritative lobby/start state and shared movie/scene stage.
+- Server-defined `sceneState` with monotonic movie/stage/revision and the last
+  resolved decision, published by the active clients as they enter a scene.
 - Per-player decisions. A decision resolves only after every active player has
   submitted their own value, then the server broadcasts the resolved choices.
 - Lightweight polling for lobby/avatar/pending-choice updates (the frontend uses

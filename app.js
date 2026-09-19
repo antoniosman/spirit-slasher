@@ -788,7 +788,7 @@ function onlineWatch(code) {
   window.SpiritOnline.stopWatching();
   onlineWatchingCode = code;
   const applySession = session => {
-    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
+    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, sceneState: session.sceneState, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
     if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
     onlineSessionSignature = signature;
     onlineSession = session;
@@ -821,6 +821,7 @@ function mountOnlineLivePanel() {
   panel.dataset.onlineLive = "true";
   const heading = el("div", "online-live-heading");
   heading.append(el("span", "eyebrow", "ONLINE · LIVE SESSION"), el("small", "", "Οι επιλογές συγχρονίζονται ανά account."));
+  const sharedScene = el("div", "online-shared-scene");
   const players = el("div", "online-live-players");
   const chatTitle = el("div", "online-live-chat-title");
   chatTitle.append(el("span", "eyebrow", "PRIVATE SESSION CHAT"), el("small", "", "Μόνο οι παίκτες αυτού του session το βλέπουν."));
@@ -850,7 +851,8 @@ function mountOnlineLivePanel() {
       send.disabled = false;
     }
   });
-  panel.append(heading, players, chatTitle, messages, form);
+  panel.append(heading, sharedScene, players, chatTitle, messages, form);
+  panel._onlineSharedScene = sharedScene;
   panel._onlinePlayers = players;
   panel._onlineMessages = messages;
   return panel;
@@ -858,8 +860,23 @@ function mountOnlineLivePanel() {
 
 function updateOnlineLivePanel(session = onlineSession) {
   if (!onlineLivePanel?.isConnected || !session) return;
+  const sharedScene = onlineLivePanel._onlineSharedScene;
   const players = onlineLivePanel._onlinePlayers;
   const messages = onlineLivePanel._onlineMessages;
+  const scene = session.sceneState;
+  sharedScene.textContent = "";
+  if (scene) {
+    sharedScene.append(
+      el("span", "eyebrow", "SERVER SCENE STATE"),
+      el("strong", "", `${movieLabel(scene.movie)} · STAGE ${scene.stage} · ${scene.scene}`)
+    );
+    if (scene.lastDecision?.choices) {
+      const decisions = Object.entries(scene.lastDecision.choices).map(([username, value]) => `${username}: ${describeOnlineChoice(value)}`);
+      sharedScene.append(el("small", "", `LAST RESOLVED · ${decisions.join(" · ")}`));
+    }
+  } else {
+    sharedScene.append(el("span", "eyebrow", "SERVER SCENE STATE"), el("small", "", "Waiting for the shared scene…"));
+  }
   players.textContent = "";
   (session.players || []).forEach(player => {
     const row = el("article", "online-live-player");
@@ -883,6 +900,34 @@ function updateOnlineLivePanel(session = onlineSession) {
     messages.append(line);
   });
   messages.scrollTop = messages.scrollHeight;
+}
+
+function publishOnlineSceneState(sceneName) {
+  if (!isOnlineEngine() || !current.movie || !window.SpiritOnline.updateSceneState) return;
+  const movie = current.movie;
+  const normalizedScene = String(sceneName || `stage-${movie.stage}`).trim().slice(0, 140);
+  const publishKey = `${movie.number}:${movie.stage}:${normalizedScene}`;
+  if (current.onlineScenePublishKey === publishKey) return;
+  current.onlineScenePublishKey = publishKey;
+  const decisionKey = current.onlineDecisionNotice?.key || "";
+  window.SpiritOnline.updateSceneState(current.onlineSessionCode, movie.number, movie.stage, normalizedScene, decisionKey)
+    .then(result => {
+      if (!result.session) return;
+      onlineSession = result.session;
+      onlineSessionSignature = "";
+      updateOnlineLivePanel(onlineSession);
+    })
+    .catch(error => {
+      if (error.session) {
+        onlineSession = error.session;
+        onlineSessionSignature = "";
+        updateOnlineLivePanel(onlineSession);
+      }
+      if (error.status !== 409) {
+        current.onlineScenePublishKey = null;
+        onlineFailure(error);
+      }
+    });
 }
 
 function launchOnlinePreview(session) {
@@ -1092,6 +1137,7 @@ function createUniverse(protagonist, options = {}) {
     onlineUsername: options.onlineUsername || null,
     onlinePendingDecision: null,
     onlineDecisionNotice: null,
+    onlineScenePublishKey: null,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1783,6 +1829,7 @@ function movieScreen(sceneName, progress) {
     }
   }
   if (current.gameMode === "online") {
+    publishOnlineSceneState(sceneName);
     onlineLivePanel = mountOnlineLivePanel();
     content.append(onlineLivePanel);
     updateOnlineLivePanel(onlineSession);

@@ -38,7 +38,13 @@ window.SpiritOnline = (() => {
     }
     const contentType = response.headers.get("content-type") || "";
     const payload = contentType.includes("application/json") ? await response.json() : await response.text();
-    if (!response.ok) throw new Error(payload?.message || "Ο server απέρριψε το αίτημα.");
+    if (!response.ok) {
+      const error = new Error(payload?.message || "Ο server απέρριψε το αίτημα.");
+      error.status = response.status;
+      error.code = payload?.code;
+      error.session = payload?.session;
+      throw error;
+    }
     return payload;
   }
 
@@ -119,6 +125,7 @@ window.SpiritOnline = (() => {
     setCharacter: (code, character) => request(`/api/sessions/${encodeURIComponent(code)}/character`, { method: "POST", body: JSON.stringify({ character }) }),
     startSession: code => request(`/api/sessions/${encodeURIComponent(code)}/start`, { method: "POST" }),
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),
+    updateSceneState: (code, movie, stage, scene, decisionKey = "") => request(`/api/sessions/${encodeURIComponent(code)}/scene-state`, { method: "POST", body: JSON.stringify({ movie, stage, scene, decisionKey }) }),
     sendDecision: (code, key, value) => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value }) }),
     sendChat: (code, text) => request(`/api/sessions/${encodeURIComponent(code)}/chat`, { method: "POST", body: JSON.stringify({ text }) }),
     stopWatching,

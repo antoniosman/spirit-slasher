@@ -206,6 +206,10 @@ function sessionMember(session, username) {
   return session.players.find((player) => player.username === username);
 }
 
+function scenePosition(state) {
+  return (Number(state?.movie) || 0) * 100 + (Number(state?.stage) || 0);
+}
+
 function requireMember(request, response, code) {
   const user = requireUser(request, response);
   if (!user) return null;
@@ -237,6 +241,7 @@ function publicSession(session, viewer) {
     status: session.status,
     seed: session.seed || 0,
     stage: session.stage,
+    sceneState: session.sceneState || null,
     players: session.players,
     pendingDecisions: pending,
     history: session.history,
@@ -435,6 +440,7 @@ async function handleApi(request, response, url) {
       seed: crypto.randomInt(1, 0x7fffffff),
       status: "lobby",
       stage: { movie: 1, scene: "lobby" },
+      sceneState: { movie: 1, stage: 0, scene: "lobby", revision: 0, lastDecision: null, updatedAt: now() },
       players: [{ username: user.username, character: null, joinedAt: now() }],
       pendingDecisions: {},
       history: [],
@@ -499,6 +505,7 @@ async function handleApi(request, response, url) {
     if (session.players.some((player) => !player.character)) return sendError(request, response, 422, "Every player must choose a character.", "missing_character");
     session.status = "playing";
     session.stage = { movie: 1, scene: "opening" };
+    session.sceneState = { movie: 1, stage: 1, scene: "opening", revision: Number(session.sceneState?.revision || 0) + 1, lastDecision: null, updatedAt: now(), by: user.username };
     updateSession(session);
     sendJson(request, response, 200, { session: publicSession(session, user.username) });
     return;
@@ -537,7 +544,7 @@ async function handleApi(request, response, url) {
     pending.submissions[user.username] = body.value;
     session.pendingDecisions[key] = pending;
     const everyoneSubmitted = session.players.every((player) => Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
-    if (everyoneSubmitted) {
+      if (everyoneSubmitted) {
       const resolved = {
         type: "decision-resolved",
         key,
@@ -546,6 +553,9 @@ async function handleApi(request, response, url) {
         resolvedAt: now(),
       };
       session.history.push(resolved);
+      session.sceneState ||= { movie: session.stage.movie, stage: 0, scene: session.stage.scene || "lobby", revision: 0, lastDecision: null, updatedAt: now() };
+      session.sceneState.lastDecision = { key, choices: pending.submissions, resolvedAt: resolved.resolvedAt };
+      session.sceneState.updatedAt = resolved.resolvedAt;
       delete session.pendingDecisions[key];
       session.updatedAt = now();
       persistDb();
@@ -554,6 +564,38 @@ async function handleApi(request, response, url) {
       updateSession(session);
     }
     sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: everyoneSubmitted });
+    return;
+  }
+
+  const sceneStateMatch = pathname.match(/^\/api\/sessions\/([A-Za-z0-9]+)\/scene-state$/);
+  if (method === "POST" && sceneStateMatch) {
+    const membership = requireMember(request, response, sceneStateMatch[1]);
+    if (!membership) return;
+    const { user, session } = membership;
+    if (session.status !== "playing") return sendError(request, response, 409, "The game has not started.", "game_not_started");
+    const body = await parseBody(request);
+    const movie = Number(body.movie);
+    const stage = Number(body.stage);
+    const scene = String(body.scene || "").trim();
+    const decisionKey = String(body.decisionKey || "").trim();
+    if (![1, 2, 3].includes(movie) || !Number.isInteger(stage) || stage < 0 || stage > 30 || !scene || scene.length > 140) {
+      return sendError(request, response, 422, "Invalid shared scene state.", "invalid_scene_state");
+    }
+    const previous = session.sceneState || { movie: session.stage.movie, stage: 0, scene: session.stage.scene || "lobby", revision: 0, lastDecision: null };
+    const candidate = { movie, stage, scene, revision: Number(previous.revision || 0), lastDecision: previous.lastDecision || null, updatedAt: now(), by: user.username };
+    if (scenePosition(candidate) < scenePosition(previous)) {
+      return sendJson(request, response, 409, { message: "The shared scene has already advanced.", code: "scene_already_ahead", session: publicSession(session, user.username) });
+    }
+    const changed = candidate.movie !== previous.movie || candidate.stage !== previous.stage || candidate.scene !== previous.scene;
+    if (changed) candidate.revision += 1;
+    if (decisionKey) {
+      const resolved = session.history.find(event => event.type === "decision-resolved" && event.key === decisionKey);
+      if (resolved) candidate.lastDecision = { key: resolved.key, choices: resolved.choices, resolvedAt: resolved.resolvedAt };
+    }
+    session.sceneState = candidate;
+    session.stage = { movie, scene };
+    updateSession(session);
+    sendJson(request, response, 200, { session: publicSession(session, user.username) });
     return;
   }
 

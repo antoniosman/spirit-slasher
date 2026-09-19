@@ -583,6 +583,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .online-live-panel { display: grid; gap: 14px; margin: 0 0 16px; border-color: rgba(137,200,215,.3); background: linear-gradient(135deg, rgba(8,17,24,.92), rgba(9,11,16,.9)); }
 .online-live-heading, .online-live-chat-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .online-live-heading small, .online-live-chat-title small { color: var(--muted); font-size: .72rem; }
+.online-shared-scene { display: grid; gap: 4px; padding: 9px 11px; border-left: 2px solid var(--ice); background: rgba(137,200,215,.08); }
+.online-shared-scene .eyebrow { margin: 0; color: var(--ice); font-size: .58rem; }
+.online-shared-scene strong { overflow: hidden; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.online-shared-scene small { overflow: hidden; color: var(--muted); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
 .online-live-players { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
 .online-live-player { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 9px; min-width: 0; padding: 8px; border: 1px solid rgba(137,200,215,.22); background: rgba(255,255,255,.025); }
 .online-live-player img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(222,216,196,.38); }
