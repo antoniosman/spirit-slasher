@@ -4,6 +4,7 @@ const transitionNode = document.querySelector("#transition");
 const introAudio = document.querySelector("#introAudio");
 const outroAudio = document.querySelector("#outroAudio");
 const funeralAudio = document.querySelector("#funeralAudio");
+const killerMemorialAudio = document.querySelector("#killerMemorialAudio");
 const soundButton = document.querySelector("#soundButton");
 const fullscreenButton = document.querySelector("#fullscreenButton");
 const homeButton = document.querySelector("#homeButton");
@@ -16,7 +17,7 @@ const updateStatusDetail = document.querySelector("#updateStatusDetail");
 const STORAGE_KEY = "spirit-slasher-trilogies-v1";
 const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.10";
 const SAVE_TRANSFER_VERSION = 1;
 
 const roster = [
@@ -179,6 +180,8 @@ const featureCopy = [
   ["Real clues & red herrings", "Τα στοιχεία είναι αληθινά, αλλά η ερμηνεία τους μπορεί να σε οδηγήσει στον λάθος άνθρωπο."],
   ["120 room variants", "Τρία cinematic map atlases γίνονται 120 διαφορετικά sub-rooms, routes, clues και scene orders σε κάθε canon."],
   ["Accusation history", "Το παιχνίδι θυμάται την πρώτη, τη μεσαία και την τελική θεωρία σου και μετρά τι πρόβλεψες."],
+  ["Independent NPC minds", "Κάθε NPC χτίζει δική του υποψία από προσωπικές παρατηρήσεις, μπορεί να μπλοφάρει και δεν επαναλαμβάνει μηχανικά τα ίδια λόγια ή τη θεωρία του παίκτη."],
+  ["Local 2P pass-the-phone", "Διάλεξε δύο καλούς χαρακτήρες, άφησε τον Player 2 να πάρει opening turns και κάνε pass turn χωρίς να αλλάξει το canon των σχέσεων."],
   ["Legacy survivors", "Οι σημαντικές σχέσεις και οι επιζώντες επιστρέφουν. Οι πιο πιστοί δεν πετιούνται άδικα στο opening kill του sequel."],
   ["Movie III mastermind", "Μόνο στο Final Chapter υπάρχει πιθανότητα να κρύβεται ακριβώς ένας παλιός killer — ποτέ στο intro και ποτέ ως κανονικός χαρακτήρας."],
   ["Fictional killer betting", "Πόνταρε Slasher Credits στη final theory: 2× για πλήρη ακριβή πρόβλεψη ή αναλογική επιστροφή για μερική επιτυχία — χωρίς πραγματικά χρήματα."],
@@ -258,7 +261,7 @@ async function transferSaves(selectedSaves, label = "spirit-slasher-saves") {
 }
 
 function isValidImportedSave(save) {
-  return save && typeof save === "object" && character(save.protagonist) && Number.isFinite(Number(save.seed)) && Array.isArray(save.history) && save.relationships && typeof save.relationships === "object";
+  return save && typeof save === "object" && character(save.protagonist) && (!save.playerCharacters || save.playerCharacters.every(character)) && Number.isFinite(Number(save.seed)) && Array.isArray(save.history) && save.relationships && typeof save.relationships === "object";
 }
 
 async function importSaveFile(file) {
@@ -304,6 +307,19 @@ function chooseSaveImport() {
 function character(name) { return roster.find(item => item.name === name); }
 function imagePath(name) { return `assets/characters/${character(name)?.file || "char_billy.webp"}`; }
 function allNames() { return roster.map(item => item.name); }
+function playerCharacters() { return unique(current?.playerCharacters?.length ? current.playerCharacters : [current?.protagonist].filter(Boolean)); }
+function isPlayerCharacter(name) { return playerCharacters().includes(name); }
+function isLocalMode() { return current?.gameMode === "local" && playerCharacters().length > 1; }
+function activePlayerName() { return playerCharacters()[current?.activePlayerIndex || 0] || current?.protagonist; }
+function passLocalTurn() {
+  if (!isLocalMode()) return;
+  current.activePlayerIndex = (current.activePlayerIndex + 1) % playerCharacters().length;
+  saveCurrent();
+  toast(`Σειρά: ${activePlayerName()}`);
+  renderMovie();
+}
+function isWeaponItem(item) { return ["bolt cutter", "flare gun"].includes(item); }
+function playerHasWeapon() { return isWeaponItem(current?.movie?.survivalItem) && Boolean(current?.movie?.itemKept); }
 
 function mulberry32(seed) {
   return function random() {
@@ -369,7 +385,7 @@ function stopTimers() {
 }
 
 function stopMusic() {
-  [introAudio, outroAudio, funeralAudio].forEach(audio => {
+  [introAudio, outroAudio, funeralAudio, killerMemorialAudio].forEach(audio => {
     audio.pause();
     audio.currentTime = 0;
   });
@@ -385,6 +401,13 @@ function playMemorialScore() {
   stopMemorialScore();
   funeralAudio.volume = .72;
   funeralAudio.play().catch(() => {});
+}
+
+function playKillerMemorialScore() {
+  if (!settings.sound) return;
+  killerMemorialAudio.currentTime = 0;
+  killerMemorialAudio.volume = .78;
+  killerMemorialAudio.play().catch(() => {});
 }
 
 function playMusic(audio, restart = true) {
@@ -475,7 +498,7 @@ function renderHome() {
   copy.append(el("p", "lead", "Μια κινηματογραφική procedural slasher τριλογία. Διάλεξε ποιον εμπιστεύεσαι, διάβασε τα στοιχεία και ζήσε με ό,τι προκάλεσαν οι αποφάσεις σου."));
   const actions = el("div", "actions");
   actions.append(
-    button("Νέα τριλογία", "", renderProtagonist),
+    button("Νέα τριλογία", "", renderModeSelect),
     ...(saves.length ? [button(`Save Vault · ${saves.length}`, "secondary", renderSaveVault)] : []),
     button("Όλα τα features", "ghost", renderFeatures)
   );
@@ -501,7 +524,7 @@ function renderSaveVault() {
   title.append(el("p", "eyebrow", "UNLIMITED · PORTABLE SAVE VAULT"), el("h1", "headline", "Διάλεξε ή μετέφερε το canon σου."), el("p", "section-copy", `${saves.length} αποθηκευμένες τριλογίες στη συσκευή. Μπορείς να τις στείλεις σε iPhone, υπολογιστή ή άλλη συσκευή χωρίς λογαριασμό.`));
   const headActions = el("div", "actions compact");
   headActions.append(
-    button("Νέο save", "", renderProtagonist),
+    button("Νέο save", "", renderModeSelect),
     button("Import", "secondary", chooseSaveImport),
     button("Export όλα", "secondary", () => transferSaves(saves, "spirit-slasher-all-saves")),
     button("Πίσω", "ghost", renderHome)
@@ -532,7 +555,7 @@ function renderSaveVault() {
   const draw = () => {
     list.textContent = "";
     const query = search.value.trim().toLocaleLowerCase("el");
-    const ordered = [...saves].filter(save => `${save.label || ""} ${save.protagonist}`.toLocaleLowerCase("el").includes(query));
+    const ordered = [...saves].filter(save => `${save.label || ""} ${save.protagonist} ${(save.playerCharacters || []).join(" ")}`.toLocaleLowerCase("el").includes(query));
     ordered.sort((a, b) => sort.value === "name"
       ? (a.label || `${a.protagonist}’s Cut`).localeCompare(b.label || `${b.protagonist}’s Cut`, "el")
       : sort.value === "created" ? (a.createdAt || 0) - (b.createdAt || 0) : (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -545,7 +568,7 @@ function renderSaveVault() {
       info.append(
         el("span", "vault-index", `SAVE ${String(index + 1).padStart(3, "0")} · ${status}`),
         el("h2", "save-name", save.label || `${save.protagonist}’s Cut`),
-        el("p", "vault-save-meta", `${save.protagonist} · ${formatDate(save.updatedAt || save.createdAt)} · ${save.history?.length || 0}/3 movies · ${deaths} deaths`)
+        el("p", "vault-save-meta", `${(save.playerCharacters || [save.protagonist]).join(" & ")} · ${formatDate(save.updatedAt || save.createdAt)} · ${save.history?.length || 0}/3 movies · ${deaths} deaths`)
       );
       const cardActions = el("div", "save-actions");
       cardActions.append(
@@ -576,9 +599,68 @@ function renderFeatures() {
   });
   content.append(grid);
   const actions = el("div", "actions");
-  actions.append(button("Πίσω", "ghost", renderHome), button("Δημιούργησε το canon σου", "", renderProtagonist));
+  actions.append(button("Πίσω", "ghost", renderHome), button("Δημιούργησε το canon σου", "", renderModeSelect));
   content.append(actions);
   root.append(content);
+}
+
+function renderModeSelect() {
+  const root = screen();
+  const content = el("div", "content narrow");
+  content.append(el("p", "eyebrow", "NEW TRILOGY · CHOOSE YOUR CUT"), el("h1", "display", "Πώς θέλεις να παίξεις;"), el("p", "lead", "Οι επιλογές, οι σχέσεις και τα saves λειτουργούν σε κάθε mode. Το Local 2P είναι pass-the-phone / share-screen και κρατάει και τους δύο επιλεγμένους χαρακτήρες ζωντανούς."));
+  const grid = el("div", "mode-grid");
+  const single = el("article", "panel mode-card");
+  single.append(el("p", "eyebrow", "SINGLE PLAYER"), el("h2", "headline", "Μόνος/η στο cut"), el("p", "section-copy", "Ένας πρωταγωνιστής, procedural τριλογία και όλο το canon στα χέρια σου."), button("Single Player", "", () => renderProtagonist("single")));
+  const multi = el("article", "panel mode-card");
+  multi.append(el("p", "eyebrow", "MULTIPLAYER"), el("h2", "headline", "Παίξε μαζί"), el("p", "section-copy", "Online έρχεται αργότερα. Local υποστηρίζει μέχρι δύο παίκτες με κοινή οθόνη ή pass-the-phone."), button("Multiplayer", "secondary", renderMultiplayerMode));
+  grid.append(single, multi); content.append(grid);
+  const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderHome)); content.append(actions);
+  root.append(content);
+}
+
+function renderMultiplayerMode() {
+  const root = screen();
+  const content = el("div", "content narrow");
+  content.append(el("p", "eyebrow", "MULTIPLAYER CUT"), el("h1", "display", "Διάλεξε τρόπο σύνδεσης."), el("p", "lead", "Το Online mode είναι Coming Soon. Το Local mode παίζεται τώρα σε μία συσκευή με δύο ανθρώπινους χαρακτήρες."));
+  const grid = el("div", "mode-grid");
+  const online = el("article", "panel mode-card disabled");
+  online.append(el("p", "eyebrow", "ONLINE"), el("h2", "headline", "COMING SOON"), el("p", "section-copy", "Απαιτεί server/account υποδομή και θα ενεργοποιηθεί σε επόμενη έκδοση."), button("Coming soon", "ghost", () => toast("Το Online multiplayer έρχεται σύντομα.")));
+  const local = el("article", "panel mode-card");
+  local.append(el("p", "eyebrow", "LOCAL · 2 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Δύο καλοί χαρακτήρες, ποτέ killers και ποτέ μόνιμα νεκροί. Όλοι οι υπόλοιποι είναι NPCs και οι σχέσεις συνεχίζουν κανονικά."), button("Local 2 Players", "", () => renderLocalSetup()));
+  grid.append(online, local); content.append(grid);
+  const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderModeSelect)); content.append(actions);
+  root.append(content);
+}
+
+function renderLocalSetup(firstName = null) {
+  const root = screen();
+  const content = el("div", "content");
+  const head = el("div", "section-head");
+  const title = el("div");
+  title.append(el("p", "eyebrow", "LOCAL 2P · CASTING"), el("h1", "headline", firstName ? "Διάλεξε τον/την Player 2" : "Διάλεξε δύο χαρακτήρες"));
+  head.append(title, el("p", "section-copy", firstName ? `Player 1: ${firstName}. Ο Player 2 παίρνει δικό του/της turn και οι δύο παραμένουν καλοί, ζωντανοί και έξω από τη λίστα killers.` : "Οι δύο επιλογές είναι ανθρώπινοι players. Όλοι οι άλλοι ρόλοι μένουν NPCs και οι σχέσεις μετράνε κανονικά."));
+  content.append(head);
+  const grid = el("div", "roster");
+  roster.filter(item => item.name !== firstName).forEach(item => grid.append(characterButton(item.name, () => firstName ? confirmLocalPlayers(firstName, item.name) : renderLocalSetup(item.name), false, firstName ? "local-player-two" : "")));
+  content.append(grid);
+  const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", firstName ? () => renderLocalSetup() : renderMultiplayerMode)); content.append(actions);
+  root.append(content);
+}
+
+function confirmLocalPlayers(firstName, secondName) {
+  const root = screen();
+  const content = el("div", "content narrow");
+  content.append(el("p", "eyebrow", "LOCAL 2P · READY"), el("h1", "display", `${firstName} & ${secondName}`), el("p", "lead", "Ο Player 1 ξεκινά με μία extra επιλογή. Ο Player 2 μπορεί να πάρει το opening decision, να πατήσει pass turn και να σώσετε διαφορετικούς χαρακτήρες."));
+  const pair = el("div", "local-player-pair");
+  [firstName, secondName].forEach((name, index) => {
+    const card = el("article", "panel local-player-card");
+    const img = el("img"); img.src = imagePath(name); img.alt = "";
+    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
+  });
+  content.append(pair);
+  const actions = el("div", "actions");
+  actions.append(button("Έναρξη Local 2P", "", () => createUniverse(firstName, { mode: "local", playerCharacters: [firstName, secondName] })), button("Άλλαξε χαρακτήρες", "ghost", renderLocalSetup));
+  content.append(actions); root.append(content);
 }
 
 function renderProtagonist() {
@@ -631,13 +713,18 @@ function confirmProtagonist(name) {
   root.append(content);
 }
 
-function createUniverse(protagonist) {
+function createUniverse(protagonist, options = {}) {
+  const players = unique(options.playerCharacters?.length ? options.playerCharacters : [protagonist]);
+  const mode = options.mode || "single";
   const seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
   current = {
     id: `cut-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
     seed,
     protagonist,
-    label: `${protagonist}’s Cut · ${new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`,
+    playerCharacters: players,
+    gameMode: mode,
+    activePlayerIndex: 0,
+    label: `${players.join(" & ")}’s ${mode === "local" ? "Local Cut" : "Cut"} · ${new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`,
     credits: 1000,
     movieNumber: 1,
     createdAt: Date.now(),
@@ -645,15 +732,17 @@ function createUniverse(protagonist) {
     completed: false,
     history: [],
     relationships: Object.fromEntries(allNames().map(name => [name, {
-      trust: name === protagonist ? 100 : 0,
-      friendship: name === protagonist ? 100 : 0,
+      trust: players.includes(name) ? 100 : 0,
+      friendship: players.includes(name) ? 100 : 0,
       suspicion: 0, fear: 0, loyalty: 0, knowledge: 0
     }])),
     movie: null
   };
   relations.forEach(([a, b]) => {
-    if (a === protagonist && current.relationships[b]) Object.assign(current.relationships[b], { trust: 30, friendship: 42, loyalty: 34 });
-    if (b === protagonist && current.relationships[a]) Object.assign(current.relationships[a], { trust: 30, friendship: 42, loyalty: 34 });
+    players.forEach(player => {
+      if (a === player && current.relationships[b]) Object.assign(current.relationships[b], { trust: 30, friendship: 42, loyalty: 34 });
+      if (b === player && current.relationships[a]) Object.assign(current.relationships[a], { trust: 30, friendship: 42, loyalty: 34 });
+    });
   });
   startMovie(1);
 }
@@ -662,6 +751,9 @@ function loadUniverse(id) {
   current = saves.find(save => save.id === id);
   if (!current) return renderHome();
   current.credits ??= 1000;
+  current.playerCharacters = unique(current.playerCharacters?.length ? current.playerCharacters.filter(name => character(name)) : [current.protagonist]);
+  current.gameMode ||= current.playerCharacters.length > 1 ? "local" : "single";
+  current.activePlayerIndex ??= 0;
   if (current.completed) return renderTrilogyArchive();
   if (!current.movie) return startMovie(current.movieNumber || 1);
   const movie = current.movie;
@@ -715,6 +807,7 @@ function loadUniverse(id) {
   movie.betSettled ||= false;
   movie.pendingBeat ||= null;
   movie.pendingNextStage ||= null;
+  playerCharacters().forEach(name => { movie.status[name] = "ALIVE"; });
   Object.entries(movie.status || {}).forEach(([name, status]) => {
     if (status === "PRESUMED DEAD" && !(movie.killers || []).includes(name)) movie.status[name] = "DEAD";
   });
@@ -808,7 +901,7 @@ function renderRelationshipBoard() {
   canonPanel.append(canonList);
   content.append(canonPanel);
   const grid = el("div", "relationship-grid");
-  unique([...movie.friends, ...linkedNames(current.protagonist), ...movie.cast.filter(name => name !== current.protagonist)]).forEach(name => {
+  unique([...movie.friends, ...linkedNames(current.protagonist), ...movie.cast.filter(name => !isPlayerCharacter(name))]).forEach(name => {
     const state = current.relationships[name];
     if (!state) return;
     const card = el("article", `panel relationship-card ${movie.status[name] === "DEAD" ? "dead" : ""}`);
@@ -831,7 +924,7 @@ function renderRelationshipBoard() {
 
 function supportingVoices(exclude = [], count = 2) {
   const movie = current.movie;
-  const available = movie.cast.filter(name => name !== current.protagonist && !exclude.includes(name) && isAlive(name));
+  const available = movie.cast.filter(name => !isPlayerCharacter(name) && !exclude.includes(name) && isAlive(name));
   if (!available.length) return [];
   const offset = ((movie.stage || 0) * 2 + (movie.openingScenario?.id || 0)) % available.length;
   return [...available.slice(offset), ...available.slice(0, offset)].slice(0, count);
@@ -919,30 +1012,31 @@ function startMovie(number) {
 function generateMovie(number) {
   const random = mulberry32((current.seed + number * 9973 + current.history.length * 1117) >>> 0);
   const protagonist = current.protagonist;
-  const oldKillers = unique(current.history.flatMap(movie => movie.killers || [])).filter(name => name !== protagonist);
+  const players = playerCharacters();
+  const oldKillers = unique(current.history.flatMap(movie => movie.killers || [])).filter(name => !players.includes(name));
   const confirmedDead = new Set(unique(current.history.flatMap(record => [
     ...(record.killers || []),
     ...Object.entries(record.statuses || {}).filter(([, status]) => status === "DEAD").map(([name]) => name)
   ])));
   const priorSurvivors = number === 1 ? [] : unique(current.history.at(-1)?.survivors || [])
-    .filter(name => name !== protagonist && !confirmedDead.has(name));
+    .filter(name => !players.includes(name) && !confirmedDead.has(name));
   const priorCoreFriends = number === 1 ? [] : unique(current.history.at(-1)?.friends || [])
     .filter(name => priorSurvivors.includes(name));
   const legacyPriority = unique([...linkedNames(protagonist), ...priorSurvivors])
-    .filter(name => !confirmedDead.has(name));
+    .filter(name => !players.includes(name) && !confirmedDead.has(name));
   const desired = number === 1 ? 11 : 12;
   const seenBefore = new Set(current.history.flatMap(record => record.cast || []));
   const returningLimit = number === 2 ? Math.max(4, priorCoreFriends.length) : 0;
   const returningSurvivors = number === 2
     ? unique([...priorCoreFriends, ...shuffle(legacyPriority.filter(name => !priorCoreFriends.includes(name)), random)]).slice(0, returningLimit)
     : [];
-  const newcomers = shuffle(allNames().filter(name => name !== protagonist && !seenBefore.has(name) && !confirmedDead.has(name)), random);
-  const otherLiving = shuffle(allNames().filter(name => name !== protagonist && !confirmedDead.has(name) && !returningSurvivors.includes(name) && !newcomers.includes(name)), random);
+  const newcomers = shuffle(allNames().filter(name => !players.includes(name) && !seenBefore.has(name) && !confirmedDead.has(name)), random);
+  const otherLiving = shuffle(allNames().filter(name => !players.includes(name) && !confirmedDead.has(name) && !returningSurvivors.includes(name) && !newcomers.includes(name)), random);
   const allLegacySurvivors = unique(current.history.flatMap(record => record.survivors || []))
-    .filter(name => name !== protagonist && !confirmedDead.has(name));
+    .filter(name => !players.includes(name) && !confirmedDead.has(name));
   let cast = number === 3
-    ? unique([protagonist, ...newcomers, ...shuffle(allLegacySurvivors, random), ...otherLiving])
-    : unique([protagonist, ...returningSurvivors, ...newcomers, ...otherLiving]).slice(0, desired);
+    ? unique([...players, ...newcomers, ...shuffle(allLegacySurvivors, random), ...otherLiving])
+    : unique([...players, ...returningSurvivors, ...newcomers, ...otherLiving]).slice(0, desired + players.length - 1);
 
   let returningKiller = null;
   let killerCount;
@@ -960,20 +1054,20 @@ function generateMovie(number) {
 
   if (returningKiller && cast.includes(returningKiller)) {
     cast = cast.filter(name => name !== returningKiller);
-    const replacement = shuffle(allNames().filter(name => !cast.includes(name) && name !== returningKiller && !confirmedDead.has(name)), random)[0];
+    const replacement = shuffle(allNames().filter(name => !cast.includes(name) && !players.includes(name) && name !== returningKiller && !confirmedDead.has(name)), random)[0];
     if (replacement) cast.push(replacement);
   }
 
-  let eligibleKillers = shuffle(cast.filter(name => name !== protagonist), random);
+  let eligibleKillers = shuffle(cast.filter(name => !players.includes(name)), random);
   if (number === 3 && !returningKiller) {
     const wronglyAccusedBefore = unique(current.history.flatMap(record => record.wronglyAccused || []));
     const legacyFriends = unique(current.history.flatMap(record => record.friends || []));
     const historyShapedCandidates = unique([...wronglyAccusedBefore, ...legacyFriends])
-      .filter(name => cast.includes(name) && name !== protagonist);
+      .filter(name => cast.includes(name) && !players.includes(name));
     eligibleKillers = unique([...shuffle(historyShapedCandidates, random), ...eligibleKillers]);
   }
   const killers = returningKiller ? [returningKiller] : eligibleKillers.slice(0, killerCount);
-  const victims = cast.filter(name => name !== protagonist && !killers.includes(name));
+  const victims = cast.filter(name => !players.includes(name) && !killers.includes(name));
   const previousRecord = current.history.at(-1);
   const survivingLegacyFriends = unique(current.history.flatMap(record =>
     (record.friends || []).filter(name => (record.survivors || []).includes(name))
@@ -992,8 +1086,8 @@ function generateMovie(number) {
   const dangerA = pick(remainingVictims, random);
   const dangerB = pick(remainingVictims.filter(name => name !== dangerA), random);
   const secondTarget = pick(remainingVictims.filter(name => ![dangerA, dangerB].includes(name)), random);
-  const innocent = pick(cast.filter(name => name !== protagonist && !killers.includes(name)), random);
-  const secretHolder = pick(cast.filter(name => name !== protagonist && name !== innocent), random);
+  const innocent = pick(cast.filter(name => !players.includes(name) && !killers.includes(name)), random);
+  const secretHolder = pick(cast.filter(name => !players.includes(name) && name !== innocent), random);
   const mainKiller = killers[0];
   const mysteryFinalClue = number === 3;
   const legacyEcho = mysteryFinalClue && oldKillers.length ? (returningKiller || pick(oldKillers, random)) : null;
@@ -1004,8 +1098,8 @@ function generateMovie(number) {
   const continuityFriends = number === 1 ? [] : unique([
     ...(previousRecord?.friends || []),
     ...priorCoreFriends
-  ]).filter(name => cast.includes(name) && name !== protagonist);
-  const shuffledFriends = shuffle(cast.filter(name => name !== protagonist), random);
+  ]).filter(name => cast.includes(name) && !players.includes(name));
+  const shuffledFriends = shuffle(cast.filter(name => !players.includes(name)), random);
   const friendOptions = distributeFriendGroups(shuffledFriends, continuityFriends);
   const world = movieWorlds[number];
   const rooms = shuffle(expandedRooms(number), random).slice(0, 12);
@@ -1045,7 +1139,7 @@ function generateMovie(number) {
   const status = Object.fromEntries(unique([...cast, ...killers]).map(name => [name, "ALIVE"]));
   const historicalChoice = current.history.flatMap(movie => movie.pivotal || [])[0];
   let motive = pick(motives, random);
-  let motiveLine = `Όλα οδηγούν σε εσένα, ${protagonist}. Όχι επειδή τα ξεκίνησες — επειδή ήσουν πάντα το τέλος.`;
+  let motiveLine = `Όλα οδηγούν σε εσένα, ${players.join(" και ")}. Όχι επειδή τα ξεκινήσατε — επειδή ήσασταν πάντα το τέλος.`;
   if (number === 3 && returningKiller) {
     motive = "Επιστροφή για εκδίκηση";
     motiveLine = `Με είδες να πέφτω και έγραψες το τέλος μου. Εγώ έγραφα το δικό σου.`;
@@ -1064,6 +1158,7 @@ function generateMovie(number) {
     pendingBet: 0, betAmount: 0, betPayout: 0, betResult: "NO BET", betSettled: false,
     stageResult: null, saved: [], offscreenDeaths: [], lateDeaths: [], deathOrder: [], canonMoments: [], deathsPrevented: 0, peopleSaved: 0,
     investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {},
+    openingPlayerIndex: isLocalMode() ? (Math.floor(random() * players.length)) : 0,
     sceneIndex: 0, completed: false, recordCreated: false, pendingBeat: null, pendingNextStage: null
   };
 }
@@ -1076,7 +1171,7 @@ function remember(text, consequence = "") {
 
 function setStatus(name, status) {
   const movie = current.movie;
-  if (!name || name === current.protagonist) return;
+  if (!name || isPlayerCharacter(name)) return;
   const previous = movie.status[name];
   movie.status[name] = status;
   if (status === "DEAD" && previous !== "DEAD") {
@@ -1089,7 +1184,7 @@ function isAlive(name) { return current.movie.status[name] === "ALIVE" || curren
 function isKiller(name) { return current.movie.killers.includes(name); }
 function itemHeldBy(name) {
   const movie = current.movie;
-  return movie.keyHolder === name || (movie.itemKept && name === current.protagonist);
+  return movie.keyHolder === name || (movie.itemKept && isPlayerCharacter(name));
 }
 function playerHasItem() {
   const movie = current.movie;
@@ -1166,7 +1261,7 @@ function playCastIntro() {
     backdrop.append(img);
     const copy = el("div", "cast-title");
     const legacyCore = current.history.some(record => (record.friends || []).includes(name) && (record.survivors || []).includes(name));
-    const label = name === current.protagonist ? "STARRING · YOU" : legacyCore ? "RETURNING · YOUR INNER CIRCLE" : index < 4 ? "ALSO STARRING" : "WITH";
+    const label = isPlayerCharacter(name) ? `STARRING · PLAYER ${playerCharacters().indexOf(name) + 1}` : legacyCore ? "RETURNING · YOUR INNER CIRCLE" : index < 4 ? "ALSO STARRING" : "WITH";
     copy.append(el("div", "credit", label), el("h1", "", name), el("p", "", `${movieLabel(movie.number)} · ${movie.title}`));
     overlay.append(backdrop, copy);
     index += 1;
@@ -1224,8 +1319,14 @@ function movieScreen(sceneName, progress) {
   bar.append(fill);
   const sceneTools = el("span", "movie-scene-tools");
   sceneTools.append(el("span", "", sceneName), button("Relationships", "ghost mini-btn", renderRelationshipBoard));
-  top.append(el("span", "", `${movieLabel(current.movie.number)} · ${current.movie.title} · ${current.protagonist} IS YOU`), bar, sceneTools);
+  const playerLabel = isLocalMode() ? `${playerCharacters().join(" & ")} · LOCAL 2P` : `${current.protagonist} IS YOU`;
+  top.append(el("span", "", `${movieLabel(current.movie.number)} · ${current.movie.title} · ${playerLabel}`), bar, sceneTools);
   content.append(top);
+  if (isLocalMode()) {
+    const turn = el("div", "turn-strip");
+    turn.append(el("span", "eyebrow", "PASS-THE-PHONE"), el("strong", "", `Σειρά: ${activePlayerName()}`), el("small", "", "Ο Player 1 έχει μία extra επιλογή στην έρευνα."), button("Pass turn", "ghost mini-btn", passLocalTurn));
+    content.append(turn);
+  }
   const activeCanon = canonRelationshipLines(current.movie.cast).filter(pair => pair.active);
   const strip = el("div", "canon-strip");
   strip.append(
@@ -1290,7 +1391,7 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
     });
     copy.append(dialogue);
   }
-  const bondNames = unique([image, ...voiceNames]).filter(voiceName => character(voiceName) && voiceName !== current.protagonist).slice(0, 3);
+  const bondNames = unique([image, ...voiceNames]).filter(voiceName => character(voiceName) && !isPlayerCharacter(voiceName)).slice(0, 3);
   if (bondNames.length) {
     const hud = el("div", "scene-bond-hud");
     bondNames.forEach(voiceName => {
@@ -1391,9 +1492,10 @@ function renderOpening() {
   const content = movieScreen("OPENING SCENE", 8);
   const person = movie.openingTarget;
   const scenario = movie.openingScenario;
+  const decisionPlayer = playerCharacters()[movie.openingPlayerIndex || 0] || current.protagonist;
   content.append(scenePanel({
-    name: person, time: scenario.time, image: person, tone: "red", eyebrow: scenario.eyebrow, title: scenario.title,
-    body: scenario.body,
+    name: person, time: scenario.time, image: person, tone: "red", eyebrow: `${scenario.eyebrow}${isLocalMode() ? ` · TURN: ${decisionPlayer}` : ""}`, title: scenario.title,
+    body: `${scenario.body}${isLocalMode() ? ` Ο/Η ${decisionPlayer} παίρνει την πρώτη απόφαση· μετά κάντε pass turn.` : ""}`,
     cameos: [movie.openingPartner],
     choices: [
       { label: scenario.choices[0], action: () => openingChoice("warn") },
@@ -1448,7 +1550,7 @@ function openingChoice(choice) {
 function rebuildFriendOptions() {
   const movie = current.movie;
   const random = mulberry32((current.seed + movie.number * 1459 + 44) >>> 0);
-  const available = shuffle(movie.cast.filter(name => name !== current.protagonist && isAlive(name)), random);
+  const available = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name)), random);
   const continuity = (movie.continuityFriends || []).filter(name => available.includes(name));
   movie.friendOptions = distributeFriendGroups(available, continuity);
 }
@@ -1456,7 +1558,7 @@ function rebuildFriendOptions() {
 function refreshSceneTargets() {
   const movie = current.movie;
   const random = mulberry32((current.seed + movie.number * 1877 + movie.choices.length * 239) >>> 0);
-  const available = movie.cast.filter(name => name !== current.protagonist && isAlive(name) && !isKiller(name));
+  const available = movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name) && !isKiller(name));
   const preferredPool = movie.itemKept
     ? available.filter(name => !movie.friends.includes(name))
     : movie.keyHolder
@@ -1476,7 +1578,7 @@ function renderFriendChoice() {
     ["A SCREENING WITHOUT A FILM", "Ποιον θέλεις δίπλα σου στο σκοτάδι;", "Ο projector ανάβει και όλοι αλλάζουν θέσεις. Η παρέα που θα διαλέξεις γίνεται το main group της νύχτας."],
     ["THE BUILDING SPLITS", "Ποιο group θα ακολουθήσεις;", "Τρεις διαδρομές ανοίγουν ταυτόχρονα. Όσοι δεν πάρεις μαζί σου συνεχίζουν μόνοι και μπορεί να μη γυρίσουν όλοι."],
     ["WHISPERS AFTER MIDNIGHT", "Ποιον πιστεύεις όταν όλοι λένε ψέματα;", "Οι επιζώντες ανταλλάσσουν διαφορετικές εκδοχές του opening. Η επιλογή παρέας χτίζει πίστη — και απομονώνει τους άλλους."],
-    ["LOCKDOWN", "Διάλεξε ποιοι θα μπουν στο safe room.", "Ο χώρος δεν χωράει όλο το cast. Οι υπόλοιποι πρέπει να ψάξουν άλλη διαδρομή μέσα στον τυχαιοποιημένο χάρτη."]
+    ["FIND YOUR GROUP", "Βρες το group σου.", "Ο χώρος δεν χωράει όλο το cast. Οι υπόλοιποι πρέπει να ψάξουν άλλη διαδρομή μέσα στον τυχαιοποιημένο χάρτη."]
   ];
   const gathering = gatherings[movie.openingScenario.id % gatherings.length];
   const content = movieScreen(gathering[0], 18);
@@ -1523,7 +1625,7 @@ function chooseFriends(group) {
   const random = mulberry32((current.seed + movie.number * 7121 + movie.choices.length * 83) >>> 0);
   movie.relationshipEvent = createRelationshipEvent(group, random);
   movie.relationshipEventShown = false;
-  const extras = shuffle(movie.cast.filter(name => name !== current.protagonist && !group.includes(name) && !isKiller(name) && isAlive(name)), random);
+  const extras = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && !group.includes(name) && !isKiller(name) && isAlive(name)), random);
   const quietNewcomers = extras.filter(name => movie.newcomers?.includes(name));
   const establishedExtras = extras.filter(name => !movie.newcomers?.includes(name));
   const orderedExtras = [...quietNewcomers, ...establishedExtras];
@@ -1682,7 +1784,7 @@ function resolveRelationshipEvent(choiceIndex) {
 function renderKeyChoice() {
   const movie = current.movie;
   if (movie.relationshipEvent && !movie.relationshipEventShown) return renderRelationshipEvent();
-  const candidates = movie.friends.filter(name => isAlive(name) && !isKiller(name));
+  const candidates = movie.friends.filter(name => !isPlayerCharacter(name) && isAlive(name) && !isKiller(name));
   const focus = candidates[0] || movie.dangerA;
   const content = movieScreen("A QUIET MOMENT", 28);
   content.append(scenePanel({
@@ -1698,7 +1800,7 @@ function renderKeyChoice() {
 function renderItemReassignment() {
   const movie = current.movie;
   const candidates = movie.cast
-    .filter(name => name !== current.protagonist && isAlive(name))
+    .filter(name => !isPlayerCharacter(name) && isAlive(name))
     .sort((a, b) => (movie.friends.includes(b) ? 1 : 0) - (movie.friends.includes(a) ? 1 : 0));
   const focus = candidates[0] || current.protagonist;
   const content = movieScreen("THE OBJECT CHANGES HANDS", 31);
@@ -1770,11 +1872,10 @@ function renderInvestigation() {
 function findClue(location) {
   const movie = current.movie;
   const clue = movie.locationClues[location];
-  const isExtraRoom = movie.investigatedRooms.length > 0;
   if (!movie.investigatedRooms.includes(location)) movie.investigatedRooms.push(location);
   if (!movie.cluesFound.includes(clue)) movie.cluesFound.push(clue);
-  if (isExtraRoom) movie.investigationActions += 1;
-  movie.investigationPhase = movie.investigationActions >= 2 ? "done" : "followup";
+  movie.investigationActions += 1;
+  movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
   current.relationships[clue.title.split(":")[0]] && (current.relationships[clue.title.split(":")[0]].suspicion += 18);
   remember(`Έψαξες: ${location}.`, `Found ${clue.type}: ${clue.title}.`);
   queueBeat({
@@ -1783,28 +1884,28 @@ function findClue(location) {
     title: clue.title,
     body: `${clue.text} Το στοιχείο μπαίνει στο προσωπικό σου case file — αλλά η ερμηνεία του μπορεί ακόμη να σε οδηγήσει στον λάθος άνθρωπο.`,
     names: [clue.title.split(":")[0]], statuses: [clue.type],
-    room: movie.rooms.find(item => item.name === location), cta: movie.investigationActions >= 2 ? "Προχώρησε στην επίθεση" : "Διάλεξε την επόμενη κίνηση"
-  }, movie.investigationActions >= 2 ? 5 : 4);
+    room: movie.rooms.find(item => item.name === location), cta: movie.investigationActions >= 3 ? "Προχώρησε στην επίθεση" : "Διάλεξε την επόμενη κίνηση"
+  }, movie.investigationActions >= 3 ? 5 : 4);
 }
 
 function renderInvestigationFollowup() {
   const movie = current.movie;
   const unsearched = movie.locationChoices.filter(([location]) => !movie.investigatedRooms.includes(location));
   const dialogueCandidates = movie.cast
-    .filter(name => name !== current.protagonist && isAlive(name) && !movie.dialoguedWith.includes(name))
+    .filter(name => !isPlayerCharacter(name) && name !== movie.legacyEcho && name !== "LEGACY GHOST" && isAlive(name) && !movie.dialoguedWith.includes(name))
     .sort((a, b) => (protagonistRelationship(b) ? 1 : 0) - (protagonistRelationship(a) ? 1 : 0))
-    .slice(0, 2);
+    .slice(0, isLocalMode() && (current.activePlayerIndex || 0) === 0 ? 3 : 2);
   const focus = dialogueCandidates[0] || supportingVoices([], 1)[0] || current.protagonist;
   const choices = [];
   if (unsearched[0]) choices.push({ label: `Ερεύνησε και το «${unsearched[0][0]}».`, action: () => { movie.investigationPhase = "rooms"; saveCurrent(); renderMovie(); } });
   dialogueCandidates.forEach(name => choices.push({ label: `Μίλησε ιδιωτικά με τον/την ${name}${protagonistRelationship(name) ? ` — ${protagonistRelationship(name)}` : ""}.`, action: () => talkAfterInvestigation(name) }));
   if (!movie.puzzleSolved) choices.push({ label: `Λύσε το puzzle: «${movie.puzzle.title}».`, action: () => { movie.investigationPhase = "puzzle"; saveCurrent(); renderMovie(); } });
-  choices.push({ label: "Σταμάτα την έρευνα και συγκέντρωσε την ομάδα.", action: () => { movie.investigationPhase = "done"; advance(5); } });
+  choices.push({ label: "Προχώρα τώρα χωρίς άλλη έρευνα · SKIP", action: () => { movie.investigationPhase = "done"; advance(5); } });
   const content = movieScreen("INVESTIGATE OR TALK", 43);
   content.append(scenePanel({
     name: focus, time: "12:44 AM", image: focus, room: roomFor(2), tone: "cold",
-    eyebrow: "THE CASE OPENS UP", title: "Έχεις χρόνο για μία ακόμη κίνηση.",
-    body: "Μπορείς να ψάξεις δεύτερο δωμάτιο, να λύσεις τον μηχανισμό του χάρτη ή να μιλήσεις με κάποιον χαρακτήρα για έξτρα στοιχείο. Κάθε συζήτηση αλλάζει trust, suspicion και μελλοντική επιβίωση.",
+    eyebrow: `THE CASE OPENS UP · ${movie.investigationActions}/3 ACTIONS`, title: "Διάλεξε την επόμενη κίνηση.",
+    body: "Έχεις έως τρεις actions συνολικά: δωμάτιο, puzzle ή συζήτηση. Μπορείς να τα συνδυάσεις όπως θέλεις ή να πατήσεις SKIP και να προχωρήσεις.",
     choices, cameos: dialogueCandidates
   }));
 }
@@ -1813,7 +1914,7 @@ function talkAfterInvestigation(name) {
   const movie = current.movie;
   movie.dialoguedWith.push(name);
   movie.investigationActions += 1;
-  movie.investigationPhase = movie.investigationActions >= 2 ? "done" : "followup";
+  movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
   const relation = protagonistRelationship(name);
   current.relationships[name].trust += relation ? 18 : 10;
   current.relationships[name].friendship += relation ? 14 : 8;
@@ -1826,7 +1927,7 @@ function talkAfterInvestigation(name) {
     title: sabotage ? `${name} σου δίνει ένα στοιχείο που μοιάζει υπερβολικά τέλειο.` : `${name} αποφασίζει να σε εμπιστευτεί.`,
     body: sabotage ? "Η πληροφορία ανοίγει νέα διαδρομή, αλλά μετακινεί αθόρυβα την υποψία μακριά από τον πραγματικό killer." : `Ο/Η ${name} αποκαλύπτει τι είδε ανάμεσα στα δωμάτια. Η συζήτηση αυξάνει τις πιθανότητες να συνεργαστεί — και να επιζήσει — αργότερα.`,
     names: [name], statuses: [sabotage ? "UNRELIABLE CLUE" : "TRUST INCREASED"], roomOffset: 2
-  }, movie.investigationActions >= 2 ? 5 : 4);
+  }, movie.investigationActions >= 3 ? 5 : 4);
 }
 
 function renderPuzzle() {
@@ -1845,14 +1946,14 @@ function solvePuzzle(answerIndex) {
   movie.puzzleSolved = true;
   movie.puzzleAdvantage = correct;
   movie.investigationActions += 1;
-  movie.investigationPhase = movie.investigationActions >= 2 ? "done" : "followup";
+  movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
   remember(`Puzzle: ${movie.puzzle.title} — ${movie.puzzle.answers[answerIndex]}.`, correct ? "Solved correctly." : "Wrong route opened.");
   queueBeat({
     kind: correct ? "clue" : "twist", eyebrow: correct ? "PUZZLE SOLVED" : "WRONG ANSWER · NEW DANGER",
     title: correct ? "Ο κρυφός μηχανισμός ανοίγει." : "Ο χάρτης σε οδηγεί σε παγίδα.",
     body: correct ? `${movie.puzzle.clue} Το πλεονέκτημα θα αυξήσει τις πιθανότητες διάσωσης αργότερα.` : "Η λάθος επιλογή δεν τελειώνει το παιχνίδι, αλλά ο killer αποκτά καλύτερη θέση για την επόμενη επίθεση.",
     names: supportingVoices([], 2), statuses: supportingVoices([], 2).map(() => correct ? "ROUTE FOUND" : "EXPOSED"), roomOffset: 3
-  }, movie.investigationActions >= 2 ? 5 : 4);
+  }, movie.investigationActions >= 3 ? 5 : 4);
 }
 
 function renderDanger() {
@@ -1885,9 +1986,10 @@ function rescueChoice(savedName, leftName) {
   const canonBondBonus = relationshipBetween(savedName, leftName) ? .10 : 0;
   const chosenItemBonus = !isKiller(savedName) && (itemHeldBy(savedName) ? .34 : movie.itemKept ? .24 : 0);
   const leftItemBonus = !isKiller(leftName) && (itemHeldBy(leftName) ? .76 : movie.itemKept ? .18 : 0);
+  const weaponBonus = playerHasWeapon() ? .12 : 0;
   const puzzleBonus = movie.puzzleAdvantage ? .12 : 0;
-  const chosenLives = survivalRoll(savedName, Math.min(.98, .66 + chosenTrust + chosenItemBonus + puzzleBonus + canonBondBonus), random);
-  const leftLives = survivalRoll(leftName, Math.min(.96, .12 + leftLoyalty + leftItemBonus + puzzleBonus / 2 + canonBondBonus / 2), random);
+  const chosenLives = survivalRoll(savedName, Math.min(.98, .66 + chosenTrust + chosenItemBonus + puzzleBonus + canonBondBonus + weaponBonus), random);
+  const leftLives = survivalRoll(leftName, Math.min(.96, .12 + leftLoyalty + leftItemBonus + puzzleBonus / 2 + canonBondBonus / 2 + weaponBonus), random);
   const outcomes = [[savedName, chosenLives], [leftName, leftLives]];
   outcomes.forEach(([name, lives]) => {
     if (lives) {
@@ -1925,23 +2027,37 @@ function createAccusationDebate(kind) {
   movie.accusationDebates ||= {};
   if (movie.accusationDebates[kind]) return movie.accusationDebates[kind];
   const random = mulberry32((current.seed + movie.number * 6197 + (kind === "final" ? 911 : 421)) >>> 0);
-  const speakers = shuffle(movie.cast.filter(name => name !== current.protagonist && isAlive(name)), random).slice(0, 4);
+  const speakers = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name) && name !== movie.legacyEcho), random).slice(0, 4);
   const visibleKillers = movie.killers.filter(name => movie.cast.includes(name) && isAlive(name));
-  const innocents = movie.cast.filter(name => name !== current.protagonist && isAlive(name) && !movie.killers.includes(name));
-  const clues = movie.cluesFound.map(clue => clue.title).filter(Boolean);
-  const fallbackClues = ["το timeline που δεν ταιριάζει", "το ίχνος στην πόρτα", "τη φωνή στο radio", "το βλέμμα που απέφυγε την κάμερα"];
+  const innocents = movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name) && !movie.killers.includes(name));
+  const observations = [
+    "είδε μια σκιά να βγαίνει από το δωμάτιο πριν ξανανοίξουν τα φώτα",
+    "μέτρησε δύο διαφορετικές ώρες στο ίδιο άλλοθι",
+    "βρήκε φρέσκο νερό σε διάδρομο που δεν είχε πρόσβαση",
+    "άκουσε κάποιον να χρησιμοποιεί έναν κωδικό που υποτίθεται πως γνώριζε μόνο ένας άνθρωπος",
+    "παρατήρησε ότι ένα ίχνος μετακινήθηκε πριν φτάσει η ομάδα",
+    "είδε την κάμερα να κόβεται ακριβώς όταν άλλαξε η φωνή στο radio"
+  ];
+  const endings = [
+    "Δεν είναι απόδειξη, αλλά δεν μπορώ να το αγνοήσω.",
+    "Μπορεί να είναι μπλόφα· εγώ όμως έτσι το διάβασα.",
+    "Αν κάνω λάθος, ο πραγματικός killer θα το εκμεταλλευτεί.",
+    "Δεν βασίζομαι σε όσα είπε ο/η παίκτης· αυτό το είδα μόνος/η μου.",
+    "Το συμπέρασμα είναι δικό μου, όχι της ομάδας."
+  ];
   const statements = speakers.map((speaker, index) => {
-    const truthful = Boolean(visibleKillers.length) && (index === 0 || index % 3 === 0);
-    const target = truthful
-      ? pick(visibleKillers, random)
-      : pick(innocents.filter(name => name !== speaker), random) || (kind === "final" ? "LEGACY GHOST" : pick(movie.cast.filter(name => name !== speaker), random));
-    const clue = clues[index % Math.max(1, clues.length)] || fallbackClues[index % fallbackClues.length];
+    const localRandom = mulberry32((current.seed + movie.number * 97 + speaker.length * 613 + index * 1777) >>> 0);
+    const shouldTellTruth = Boolean(visibleKillers.length) && (index === 0 || localRandom() > .42);
+    const truthfulTarget = pick(visibleKillers.filter(name => name !== speaker), localRandom);
+    const bluffTarget = pick(innocents.filter(name => name !== speaker), localRandom);
+    const target = (shouldTellTruth ? truthfulTarget : bluffTarget) || truthfulTarget || bluffTarget || "LEGACY GHOST";
+    const truthful = Boolean(target && target !== "LEGACY GHOST" && movie.killers.includes(target) && shouldTellTruth);
     const targetLine = target === "LEGACY GHOST" ? "ένα παλιό πρόσωπο από το case file" : `τον/την ${target}`;
     return {
       speaker,
       target,
       truthful,
-      text: `«Πιστεύω ότι είναι ${targetLine}, γιατί ${clue}. Κάποιος εδώ δεν λέει όλη την αλήθεια.»`
+      text: `«Πιστεύω ότι είναι ${targetLine}, γιατί ${observations[(index + speaker.length) % observations.length]}. ${endings[(index * 2 + speaker.length) % endings.length]}»`
     };
   });
   movie.accusationDebates[kind] = statements;
@@ -1968,7 +2084,7 @@ function renderAccusation(kind) {
   debate.append(debateLines);
   wrap.append(debate);
   const grid = el("div", "suspect-grid");
-  movie.cast.filter(name => name !== current.protagonist && movie.status[name] !== "DEAD").forEach(name => {
+  movie.cast.filter(name => !isPlayerCharacter(name) && movie.status[name] !== "DEAD").forEach(name => {
     const selected = movie.pendingTheory.includes(name);
     grid.append(characterButton(name, () => toggleSuspect(name, kind), selected, "suspect-card"));
   });
@@ -2047,7 +2163,7 @@ function lockTheory(kind) {
 function renderTrustScene() {
   const movie = current.movie;
   const aliveFriends = movie.friends.filter(isAlive);
-  const focus = aliveFriends[0] || movie.cast.find(name => name !== current.protagonist && isAlive(name));
+  const focus = aliveFriends[0] || movie.cast.find(name => !isPlayerCharacter(name) && isAlive(name));
   const relation = protagonistRelationship(focus);
   const content = movieScreen("THE CONFESSION", 66);
   content.append(scenePanel({
@@ -2114,9 +2230,10 @@ function secondAttackChoice(rescue) {
   const target = movie.secondTarget;
   const random = mulberry32((current.seed + movie.number * 6823 + target.length * 211 + (rescue ? 19 : 41)) >>> 0);
   const itemBonus = !isKiller(target) && (itemHeldBy(target) ? .72 : movie.itemKept ? .32 : 0);
+  const weaponBonus = playerHasWeapon() ? .12 : 0;
   const relationBonus = Math.min(.15, Math.max(0, current.relationships[target].loyalty + current.relationships[target].trust) / 700);
   const puzzleBonus = movie.puzzleAdvantage ? .12 : 0;
-  const survivalChance = Math.min(.96, (rescue ? .64 : .10) + itemBonus + relationBonus + puzzleBonus);
+  const survivalChance = Math.min(.96, (rescue ? .64 : .10) + itemBonus + relationBonus + puzzleBonus + weaponBonus);
   const survived = survivalRoll(target, survivalChance, random);
   if (survived) {
     setStatus(target, "SAVED");
@@ -2170,6 +2287,10 @@ function settleBet(movie) {
 
 function renderReveal() {
   const movie = current.movie;
+  if (movie.number === 3) {
+    stopMusic();
+    playKillerMemorialScore();
+  }
   playSfx("impact");
   navigator.vibrate?.([120, 60, 180]);
   const discovered = identifiedKillers(movie).length;
@@ -2207,7 +2328,7 @@ function renderReveal() {
 function renderFinale() {
   const movie = current.movie;
   const discovered = identifiedKillers(movie).length;
-  const closest = movie.friends.filter(name => isAlive(name) && !isKiller(name))[0] || movie.cast.find(name => name !== current.protagonist && isAlive(name) && !isKiller(name));
+  const closest = movie.friends.filter(name => isAlive(name) && !isKiller(name))[0] || movie.cast.find(name => !isPlayerCharacter(name) && isAlive(name) && !isKiller(name));
   const content = movieScreen("THE FINAL CHASE", 92);
   content.append(scenePanel({
     name: closest || current.protagonist, time: "03:17 AM", image: closest || current.protagonist, tone: "red", eyebrow: "THE LAST DECISION", title: "Το φιλμ τελειώνει μόνο με αίμα.",
@@ -2227,9 +2348,10 @@ function finaleChoice(choice, closest, discovered) {
   if (closest) {
     const relationshipBonus = Math.min(.16, Math.max(0, current.relationships[closest].loyalty + current.relationships[closest].trust) / 650);
     const itemBonus = !isKiller(closest) && (itemHeldBy(closest) ? .34 : movie.itemKept ? .28 : 0);
+    const weaponBonus = playerHasWeapon() ? .12 : 0;
     const baseChance = choice === "friend" ? .62 : choice === "trap" ? .38 : .46;
     const theoryBonus = perfect ? .20 : discovered ? .08 : 0;
-    const lives = survivalRoll(closest, Math.min(.96, baseChance + relationshipBonus + itemBonus + theoryBonus + (movie.puzzleAdvantage ? .08 : 0)), finaleRandom);
+    const lives = survivalRoll(closest, Math.min(.96, baseChance + relationshipBonus + itemBonus + weaponBonus + theoryBonus + (movie.puzzleAdvantage ? .08 : 0)), finaleRandom);
     setStatus(closest, lives ? "SAVED" : "DEAD");
     if (lives && !movie.saved.includes(closest)) { movie.saved.push(closest); movie.peopleSaved += 1; }
     if (lives && itemBonus && !movie.itemSaved.includes(closest)) movie.itemSaved.push(closest);
@@ -2243,10 +2365,10 @@ function finaleChoice(choice, closest, discovered) {
   const remainingFatalities = Math.max(0, (movie.fatalityTarget || 4) - deathsSoFar);
   const latePool = movie.number === 3
     ? [
-      ...shuffle(movie.cast.filter(name => movie.newcomers?.includes(name) && name !== current.protagonist && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom),
-      ...shuffle(movie.cast.filter(name => !movie.newcomers?.includes(name) && name !== current.protagonist && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom)
+      ...shuffle(movie.cast.filter(name => movie.newcomers?.includes(name) && !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom),
+      ...shuffle(movie.cast.filter(name => !movie.newcomers?.includes(name) && !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom)
     ]
-    : shuffle(movie.cast.filter(name => name !== current.protagonist && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom);
+    : shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom);
   const lateCandidates = latePool.filter(name => {
     if ((itemHeldBy(name) || movie.itemSaved.includes(name)) && !isKiller(name) && finaleRandom() < .88) {
       if (!movie.itemSaved.includes(name)) movie.itemSaved.push(name);
@@ -2296,7 +2418,7 @@ function finishFinaleResolution() {
     movie.resolvedLegacyKillers = unique(current.history.flatMap(record => record.killers || []));
     movie.resolvedLegacyKillers.forEach(name => setStatus(name, "DEAD"));
   }
-  setStatus(current.protagonist, "ALIVE");
+  playerCharacters().forEach(name => setStatus(name, "ALIVE"));
   movie.completed = true;
   createMovieRecord();
   const lost = unique([...movie.cast, ...(movie.resolvedLegacyKillers || [])]).filter(name => movie.status[name] === "DEAD");
@@ -2317,7 +2439,7 @@ function finishFinaleResolution() {
 function createMovieRecord() {
   const movie = current.movie;
   if (movie.recordCreated) return current.history.at(-1);
-  const survivors = movie.cast.filter(name => name === current.protagonist || isAlive(name)).filter(name => !movie.killers.includes(name));
+  const survivors = movie.cast.filter(name => isPlayerCharacter(name) || isAlive(name)).filter(name => !movie.killers.includes(name));
   const wronglyAccused = unique([
     ...movie.midpointTheory.filter(name => !movie.killers.includes(name)),
     ...falsePredictions(movie)
@@ -2327,7 +2449,7 @@ function createMovieRecord() {
   const deathOrder = unique([...(movie.deathOrder || []), ...movie.cast, ...movie.killers, ...(movie.resolvedLegacyKillers || [])])
     .filter(name => movie.status[name] === "DEAD");
   const deaths = deathOrder;
-  const rankedSurvivors = survivors.filter(name => name !== current.protagonist);
+  const rankedSurvivors = survivors.filter(name => !isPlayerCharacter(name));
   const closestFriend = [...rankedSurvivors].sort((a, b) => current.relationships[b].friendship - current.relationships[a].friendship)[0] || null;
   const mostTrusted = [...rankedSurvivors].sort((a, b) => current.relationships[b].trust - current.relationships[a].trust)[0] || null;
   const record = {
@@ -2339,7 +2461,7 @@ function createMovieRecord() {
     wronglyAccused, firstSuspicion: movie.firstSuspicion, midpointTheory: movie.midpointTheory,
     finalTheory: movie.finalTheory, identified: correct.length, cluesFound: movie.cluesFound.length,
     peopleSaved: movie.peopleSaved, deathsPrevented: movie.deathsPrevented,
-    survivalItem: movie.survivalItem, itemHolder: movie.keyHolder || (movie.itemKept ? current.protagonist : null), itemKept: movie.itemKept, itemUsed: movie.itemUsed,
+    survivalItem: movie.survivalItem, itemHolder: movie.keyHolder || (movie.itemKept ? playerCharacters().join(" & ") : null), itemKept: movie.itemKept, itemUsed: movie.itemUsed,
     confirmedLegacyDeaths: unique(movie.resolvedLegacyKillers || []),
     victimCount: ordinaryDeaths.length, itemSaved: unique(movie.itemSaved), puzzleSolved: movie.puzzleSolved, puzzleAdvantage: movie.puzzleAdvantage,
     betAmount: movie.betAmount, betPayout: movie.betPayout, betResult: movie.betResult,
@@ -2354,13 +2476,13 @@ function createMovieRecord() {
 function creditOrder() {
   const movie = current.movie;
   return unique([
-    current.protagonist,
+    ...playerCharacters(),
     ...movie.friends,
     ...movie.killers,
     ...movie.cast
   ]).map(name => {
     let role = "CAST";
-    if (name === current.protagonist) role = "FINAL SURVIVOR · YOU";
+    if (isPlayerCharacter(name)) role = `FINAL SURVIVOR · PLAYER ${playerCharacters().indexOf(name) + 1}`;
     else if (name === movie.killers[0]) role = "THE MASTERMIND";
     else if (movie.killers.includes(name)) role = "THE KILLER";
     else if (movie.friends.includes(name)) role = "YOUR INNER CIRCLE";
@@ -2417,7 +2539,7 @@ function renderMovieReport() {
   const content = el("div", "content");
   content.append(el("p", "eyebrow", "YOUR STORY"), el("h1", "headline", `${movieLabel(movie.number)} · End Credits Statistics`));
   const stats = [
-    [current.protagonist, "Final survivor"],
+    [playerCharacters().join(" & "), isLocalMode() ? "Final survivors · Local 2P" : "Final survivor"],
     [record.killers.join(" & "), "Killers"],
     [`${record.survivors.length}/${record.cast.length}`, "Survivors"],
     [`${record.identified}/${record.killers.length}`, "Killers identified"],
@@ -2444,7 +2566,7 @@ function renderMovieReport() {
   });
   content.append(grid, el("p", "eyebrow", "CAST STATUS"));
   const statusList = el("div", "status-list");
-  unique([current.protagonist, ...movie.cast, ...movie.killers, ...(movie.resolvedLegacyKillers || [])]).forEach(name => {
+  unique([...playerCharacters(), ...movie.cast, ...movie.killers, ...(movie.resolvedLegacyKillers || [])]).forEach(name => {
     const row = el("div", "status-row");
     const img = el("img"); img.src = imagePath(name); img.alt = "";
     const status = movie.status[name] || "ALIVE";
@@ -2521,7 +2643,7 @@ function renderFuneral() {
       el("h1", "display", entry.name),
       el("p", "funeral-line", `Ο/Η ${entry.name} θάβεται παρουσία των επιζώντων. Οι ζωντανοί πλησιάζουν κλαίγοντας, ανάβουν κεριά και ρίχνουν λουλούδια στον τάφο.`),
       el("small", "funeral-status", `${entry.title} · BURIED · CONFIRMED DEAD`),
-      el("p", "funeral-witnesses", `Παρόντες: ${attendees.join(", ") || current.protagonist}`)
+      el("p", "funeral-witnesses", `Παρόντες: ${attendees.join(", ") || playerCharacters().join(" & ")}`)
     );
     scene.append(portrait, depth, copy);
     stage.append(scene);
@@ -2595,7 +2717,7 @@ function renderKillerMemorial() {
 
   controls.append(button("Επόμενος killer", "ghost", next), button("Συνέχεια στο archive", "", finish));
   root.append(stage, el("div", "funeral-heading", "THE MASKS WERE ALWAYS THERE"), controls);
-  playMusic(outroAudio);
+  playKillerMemorialScore();
   showReveal();
   killerRevealTimer = setTimeout(next, 5200);
 }
@@ -2605,7 +2727,7 @@ function renderTrilogyArchive() {
   current.credits ??= 1000;
   const root = screen();
   const content = el("div", "content");
-  content.append(el("p", "eyebrow", "THE TRILOGY IS COMPLETE"), el("h1", "display", `${current.protagonist}’s Cut`), el("p", "lead", `Τρεις ταινίες. Ένα προσωπικό canon. Τελικό fictional betting balance: ${current.credits} Slasher Credits.`));
+  content.append(el("p", "eyebrow", "THE TRILOGY IS COMPLETE"), el("h1", "display", `${playerCharacters().join(" & ")}’s ${isLocalMode() ? "Local Cut" : "Cut"}`), el("p", "lead", `Τρεις ταινίες. Ένα προσωπικό canon. Τελικό fictional betting balance: ${current.credits} Slasher Credits.`));
   const finalRecord = current.history.find(record => record.number === 3);
   if (finalRecord?.confirmedLegacyDeaths?.length) {
     const resolution = el("section", "panel legacy-resolution");
@@ -2635,7 +2757,7 @@ function renderTrilogyArchive() {
   memorial.append(memorialGrid); content.append(memorial);
   const actions = el("div", "actions");
   if (trilogyDeaths().length) actions.append(button("Replay memorial", "secondary", renderFuneral));
-  actions.append(button("Μεταφορά αυτού του save", "secondary", () => transferSaves([current], current.label || `${current.protagonist}-cut`)), button("Νέο universe", "", renderProtagonist), button("Κεντρικό μενού", "ghost", renderHome));
+  actions.append(button("Μεταφορά αυτού του save", "secondary", () => transferSaves([current], current.label || `${current.protagonist}-cut`)), button("Νέο universe", "", renderModeSelect), button("Κεντρικό μενού", "ghost", renderHome));
   content.append(actions);
   root.append(content);
 }
