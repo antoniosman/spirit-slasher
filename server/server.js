@@ -200,7 +200,17 @@ function findSession(code) {
     persistDb();
   }
   if (session && !session.turn) {
-    session.turn = { mode: session.status === "playing" ? "shared" : "lobby", username: null, pendingUsername: null, key: null };
+    session.turn = session.status === "playing"
+      ? { mode: "personal", username: session.players?.[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 }
+      : { mode: "lobby", username: null, pendingUsername: null, key: null, roundCount: 0 };
+    persistDb();
+  }
+  // Migrate untouched 1.10 opening sessions to the deterministic Player 1 →
+  // Player 2 flow without changing an already-resolved story.
+  if (session && session.status === "playing" && session.turn?.mode === "shared"
+    && Number(session.sceneState?.movie) === 1 && Number(session.sceneState?.stage) <= 1
+    && !(session.history || []).length) {
+    session.turn = { mode: "personal", username: session.players?.[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
     persistDb();
   }
   return session;
@@ -369,7 +379,7 @@ async function handleApi(request, response, url) {
   const method = request.method || "GET";
 
   if (method === "GET" && pathname === "/api/health") {
-    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.10.0", time: now() });
+    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.11.0", time: now() });
     return;
   }
 
@@ -451,7 +461,7 @@ async function handleApi(request, response, url) {
       pendingDecisions: {},
       history: [],
       chat: [],
-      turn: { mode: "lobby", username: null, pendingUsername: null, key: null },
+      turn: { mode: "lobby", username: null, pendingUsername: null, key: null, roundCount: 0 },
       createdAt: now(),
       updatedAt: now(),
     };
@@ -512,7 +522,7 @@ async function handleApi(request, response, url) {
     if (session.players.some((player) => !player.character)) return sendError(request, response, 422, "Every player must choose a character.", "missing_character");
     session.status = "playing";
     session.stage = { movie: 1, scene: "opening" };
-    session.turn = { mode: "shared", username: null, pendingUsername: null, key: null };
+    session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
     session.sceneState = { movie: 1, stage: 1, scene: "opening", revision: Number(session.sceneState?.revision || 0) + 1, lastDecision: null, updatedAt: now(), by: user.username };
     updateSession(session);
     sendJson(request, response, 200, { session: publicSession(session, user.username) });
@@ -578,12 +588,17 @@ async function handleApi(request, response, url) {
       session.sceneState.lastDecision = { key, choices, scope, resolvedAt: resolved.resolvedAt };
       session.sceneState.updatedAt = resolved.resolvedAt;
       delete session.pendingDecisions[key];
+      let roundComplete = false;
       if (scope === "shared") {
-        session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null };
+        session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
       } else {
         const currentIndex = Math.max(0, session.players.findIndex(player => player.username === user.username));
         const nextUsername = session.players[(currentIndex + 1) % session.players.length]?.username || user.username;
-        session.turn = { mode: "personal", username: nextUsername, pendingUsername: null, key: null };
+        const roundCount = Number(session.turn?.roundCount || 0) + 1;
+        roundComplete = roundCount >= session.players.length;
+        session.turn = roundComplete
+          ? { mode: "advance", username: null, pendingUsername: null, key, roundCount }
+          : { mode: "personal", username: nextUsername, pendingUsername: null, key: null, roundCount };
       }
       session.updatedAt = now();
       persistDb();
@@ -591,7 +606,7 @@ async function handleApi(request, response, url) {
     } else {
       updateSession(session);
     }
-    sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: shouldResolve });
+    sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: shouldResolve, roundComplete: Boolean(session.turn?.mode === "advance") });
     return;
   }
 
@@ -622,7 +637,9 @@ async function handleApi(request, response, url) {
     }
     session.sceneState = candidate;
     session.stage = { movie, scene };
-    if (changed && session.turn?.pendingUsername) {
+    if (changed && session.turn?.mode === "advance") {
+      session.turn = { mode: "personal", username: session.players?.[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
+    } else if (changed && session.turn?.pendingUsername) {
       session.turn = { mode: "personal", username: session.turn.pendingUsername, pendingUsername: null, key: null };
     }
     updateSession(session);

@@ -19,7 +19,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -217,6 +217,7 @@ let onlineSession = null;
 let onlineWatchingCode = null;
 let onlineSessionSignature = "";
 let onlineEngineStartedCode = null;
+let onlineResumeAttempted = false;
 let onlineLivePanel = null;
 let updateCheckInFlight = false;
 
@@ -448,15 +449,15 @@ function onlineDecisionKey() {
 }
 
 function onlineDecisionScope() {
-  // The opening is a shared vote. Once the common outcome is shown, turns
-  // rotate: one player completes their scene, then the other gets the next
-  // personal decision and sees the synced outcome.
-  return current?.movie?.stage === 1 ? "shared" : "personal";
+  // Every online decision is personal. The server rotates the turn and holds
+  // the shared scene until all players have seen their own outcome.
+  return "personal";
 }
 
 function onlineTurnLabel(session = onlineSession) {
   const turn = session?.turn;
   if (!turn || turn.mode === "shared") return "SHARED DECISION · everyone may choose";
+  if (turn.mode === "advance") return "OUTCOMES COMPLETE · syncing the next scene";
   if (turn.pendingUsername) return `SYNCING SCENE · ${turn.username || "player"} is finishing`;
   return `NOW DECIDING · ${turn.username || "player"}`;
 }
@@ -464,12 +465,21 @@ function onlineTurnLabel(session = onlineSession) {
 function onlineCanAct(session = onlineSession) {
   const turn = session?.turn;
   if (!turn || turn.mode === "shared") return true;
+  if (turn.mode !== "personal") return false;
   return !turn.pendingUsername && turn.username === current?.onlineUsername;
 }
 
 function syncOnlineSceneState(session) {
   const shared = session?.sceneState;
   if (!isOnlineEngine() || !current?.movie || !shared) return false;
+  // The server publishes stage 1 as soon as the host starts the session, but
+  // every client still has to watch its own cast intro first.  Advancing here
+  // used to replace the intro overlay with a blank/frozen scene.
+  if (current.movie.stage === 0) return false;
+  // Do not interrupt a player's local cinematic outcome when another player
+  // resolves the same round. The next poll will apply the revision after the
+  // beat's Continue button returns to the shared scene.
+  if (current.movie.pendingBeat) return false;
   const targetMovie = Number(shared.movie);
   const targetStage = Number(shared.stage);
   if (!Number.isInteger(targetMovie) || !Number.isInteger(targetStage)) return false;
@@ -492,6 +502,7 @@ function syncOnlineSceneState(session) {
   current.movie.pendingBeat = null;
   current.movie.pendingNextStage = null;
   current.onlinePendingDecision = null;
+  current.onlineRoundComplete = false;
   current.onlineScenePublishKey = `${targetMovie}:${targetStage}:${shared.scene}`;
   current.onlineSceneRevision = Number(shared.revision || 0);
   if (shared.lastDecision?.choices) {
@@ -513,6 +524,7 @@ function finishOnlineDecision(key, player, action, session) {
   if (!resolved || current?.onlinePendingDecision?.key !== key) return false;
   rememberOnlineSession(session);
   current.onlinePendingDecision = null;
+  current.onlineRoundComplete = session?.turn?.mode === "advance";
   current.onlineDecisionNotice = { key, choices: resolved.choices || {}, player };
   action();
   return true;
@@ -595,6 +607,7 @@ function screen(extra = "") {
   stopTimers();
   sceneWebGLStops.forEach(stop => stop?.());
   sceneWebGLStops = [];
+  document.querySelectorAll(".cast-intro, .skip").forEach(node => node.remove());
   app.textContent = "";
   const node = el("section", `screen ${extra}`.trim());
   app.append(node);
@@ -908,6 +921,7 @@ function onlineFailure(error) {
     onlineSession = null;
     onlineWatchingCode = null;
     onlineSessionSignature = "";
+    onlineResumeAttempted = false;
     window.SpiritOnline?.stopWatching?.();
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
   }
@@ -918,6 +932,27 @@ function rememberOnlineSession(session) {
   onlineSession = session || null;
   if (session?.code) window.SpiritOnline?.rememberSessionCode?.(session.code);
   return onlineSession;
+}
+
+function autoResumeOnlineSession(client) {
+  const savedCode = client?.getSavedSessionCode?.();
+  if (onlineResumeAttempted || onlineSession || !savedCode || !client?.getToken) return;
+  onlineResumeAttempted = true;
+  client.getSession(savedCode).then(result => {
+    if (!result?.session) throw new Error("Το αποθηκευμένο session δεν είναι διαθέσιμο.");
+    onlineSessionSignature = "";
+    rememberOnlineSession(result.session);
+    renderOnlineLobby();
+    if (result.session.status === "playing") launchOnlinePreview(result.session);
+  }).catch(error => {
+    onlineResumeAttempted = false;
+    if (error?.status === 404 || error?.code === "session_not_found") {
+      client.clearSavedSessionCode?.();
+      if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
+      return;
+    }
+    toast(error?.message || "Δεν έγινε reconnect στο αποθηκευμένο session. Μπορείς να δοκιμάσεις ξανά.");
+  });
 }
 
 function onlinePendingChoice(session, username) {
@@ -1024,11 +1059,17 @@ function publishOnlineSceneState(sceneName) {
   window.SpiritOnline.updateSceneState(current.onlineSessionCode, movie.number, movie.stage, normalizedScene, decisionKey)
     .then(result => {
       if (!result.session) return;
+      const previousTurn = JSON.stringify(onlineSession?.turn || null);
       rememberOnlineSession(result.session);
       current.onlineSceneRevision = Number(result.session.sceneState?.revision || current.onlineSceneRevision || 0);
       current.onlineLastDecisionKey = result.session.sceneState?.lastDecision?.key || current.onlineLastDecisionKey || null;
       onlineSessionSignature = "";
       updateOnlineLivePanel(onlineSession);
+      // The server releases Player 1 only after the final player's outcome has
+      // been acknowledged. Re-render the current scene so its controls unlock
+      // immediately instead of waiting for the next poll.
+      if (previousTurn !== JSON.stringify(result.session.turn || null)
+        && current.movie?.number === movie.number && current.movie?.stage === movie.stage) renderMovie();
     })
     .catch(error => {
       if (error.session) {
@@ -1098,6 +1139,11 @@ function renderOnlineLobby() {
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
+  // Re-entering the Online screen after a refresh should restore an active
+  // lobby/game automatically.  The saved-code panel below remains as an
+  // explicit fallback when the server is temporarily unreachable.
+  autoResumeOnlineSession(client);
+
   if (!onlineSession && client.getSavedSessionCode?.()) {
     const resumePanel = el("article", "panel online-resume-panel");
     resumePanel.append(
@@ -1112,12 +1158,14 @@ function renderOnlineLobby() {
           const result = await client.getSession(client.getSavedSessionCode());
           rememberOnlineSession(result.session);
           onlineSessionSignature = "";
+          onlineResumeAttempted = true;
           renderOnlineLobby();
           if (result.session.status === "playing") launchOnlinePreview(result.session);
         } catch (error) { onlineFailure(error); }
       }),
       button("Forget saved session", "ghost", () => {
         client.clearSavedSessionCode?.();
+        onlineResumeAttempted = false;
         renderOnlineLobby();
       })
     );
@@ -1137,7 +1185,7 @@ function renderOnlineLobby() {
       try { client.setServerUrl(server.input.value); const result = await client.createSession(4); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
     }), button("Join session", "secondary", async () => {
       try { client.setServerUrl(server.input.value); const result = await client.joinSession(joinCode.input.value.trim().toUpperCase()); onlineEngineStartedCode = null; onlineSessionSignature = ""; rememberOnlineSession(result.session); renderOnlineLobby(); } catch (error) { onlineFailure(error); }
-    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; renderOnlineLobby(); }));
+    }), button("Sign out", "ghost", async () => { client.stopWatching(); await client.logout(); client.clearSavedSessionCode?.(); onlineSession = null; onlineWatchingCode = null; onlineSessionSignature = ""; onlineEngineStartedCode = null; onlineResumeAttempted = false; renderOnlineLobby(); }));
     panel.append(actions); content.append(panel); root.append(content); return;
   }
 
@@ -1290,6 +1338,7 @@ function createUniverse(protagonist, options = {}) {
     onlineScenePublishKey: null,
     onlineSceneRevision: 0,
     onlineLastDecisionKey: null,
+    onlineRoundComplete: false,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1324,6 +1373,7 @@ function loadUniverse(id) {
   current.relationshipViewer ||= current.playerCharacters[0];
   current.onlineSceneRevision ??= 0;
   current.onlineLastDecisionKey ||= null;
+  current.onlineRoundComplete ??= false;
   if (!current.playerCharacters.includes(current.relationshipViewer)) current.relationshipViewer = current.playerCharacters[0];
   current.playerCredits ||= Object.fromEntries(current.playerCharacters.map(name => [name, 1000]));
   current.relationshipsByPlayer = Object.fromEntries(current.playerCharacters.map((name, index) => [name, buildRelationshipBoard(name, current.relationshipsByPlayer?.[name] || (index === 0 ? current.relationships : null))]));
@@ -1890,7 +1940,10 @@ function playCastIntro() {
   stopTimers();
   stopMusic();
   const movie = current.movie;
+  const cast = unique(movie.introCast?.length ? movie.introCast : [movie.openingTarget, movie.openingPartner, current.protagonist]);
+  movie.introCast = cast;
   let index = 0;
+  document.querySelectorAll(".cast-intro, .skip").forEach(node => node.remove());
   const overlay = el("section", "cast-intro");
   const skip = el("button", "skip", "Skip intro");
   skip.type = "button";
@@ -1899,7 +1952,7 @@ function playCastIntro() {
   playMusic(introAudio);
 
   function showCredit() {
-    const name = movie.introCast[index];
+    const name = cast[index];
     overlay.textContent = "";
     const backdrop = el("div", "cast-backdrop");
     const img = el("img");
@@ -1913,7 +1966,7 @@ function playCastIntro() {
     copy.append(el("div", "credit", label), el("h1", "", name), el("p", "", `${movieLabel(movie.number)} · ${movie.title}`));
     overlay.append(backdrop, copy);
     index += 1;
-    if (index >= movie.introCast.length) {
+    if (index >= cast.length) {
       clearInterval(introTimer);
       introTimer = setTimeout(finishCastIntro, 1850);
     }
@@ -2116,6 +2169,7 @@ function queueBeat(beat, nextStage) {
     };
     current.movie.lastLocalResolution = null;
   }
+  if (isOnlineEngine() && current.onlineRoundComplete === false) nextStage = "online-next-turn";
   current.movie.pendingBeat = beat;
   current.movie.pendingNextStage = nextStage;
   saveCurrent();
@@ -2162,6 +2216,12 @@ function renderCinematicBeat() {
       resolveFinalKiller();
     } else if (destination === "item-reassign") {
       renderItemReassignment();
+    } else if (destination === "online-next-turn") {
+      // Keep both clients on the same decision stage while the next player
+      // takes their independent turn. The server unlocks the next scene only
+      // after every player has submitted this round.
+      saveCurrent();
+      renderMovie();
     } else advance(destination);
   }));
   content.append(actions);
