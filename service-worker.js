@@ -1,4 +1,4 @@
-const CACHE = "spirit-slasher-v1.10";
+const CACHE = "spirit-slasher-v1.10-build-2";
 const CORE = [
   "./",
   "./index.html",

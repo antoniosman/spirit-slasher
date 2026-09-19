@@ -17,8 +17,11 @@ const updateStatusDetail = document.querySelector("#updateStatusDetail");
 const STORAGE_KEY = "spirit-slasher-trilogies-v1";
 const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
+const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
+const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
 const APP_VERSION = "1.10";
 const SAVE_TRANSFER_VERSION = 1;
+const LOCAL_PENDING = Symbol("local-pending");
 
 const roster = [
   ["Alex", "char_alex.webp"], ["Billy", "char_billy.webp"],
@@ -326,6 +329,17 @@ function relationshipState(name, viewer = activePlayerName()) {
 function friendsForPlayer(player = activePlayerName()) {
   return current?.movie?.playerFriends?.[player] || current?.movie?.friends || [];
 }
+function describeLocalChoice(value) {
+  if (Array.isArray(value)) return value.join(" · ");
+  if (value === null) return "Κράτησε το αντικείμενο / δεν επέλεξε παραλήπτη";
+  if (typeof value === "boolean") return value ? "Ρίσκαρε για τη διάσωση" : "Προστάτεψε το στοιχείο";
+  if (value && typeof value === "object") return `${value.name || "Επιλογή"} · ${value.shared ? "Μοιράστηκε το στοιχείο" : "Κράτησε το στοιχείο κρυφό"}`;
+  return String(value);
+}
+function localChoiceRecap(resolution) {
+  if (!resolution?.choices) return "";
+  return playerCharacters().map(player => `${player}: ${describeLocalChoice(resolution.choices[player])}`).join(" · ");
+}
 function buildRelationshipBoard(player, source = null) {
   const board = Object.fromEntries(allNames().map(name => [name, {
     trust: name === player ? 100 : 0,
@@ -350,14 +364,17 @@ function localDecision(key, value, resolver = values => values.at(-1)) {
   const missing = players.find(name => bucket[name] === undefined);
   if (missing) {
     current.activePlayerIndex = players.indexOf(missing);
+    movie.localTurnNotice = { key, player, choice: value, nextPlayer: missing };
     saveCurrent();
     toast(`${player} κλείδωσε την επιλογή. Τώρα αποφασίζει ο/η ${missing}.`);
     renderMovie();
-    return null;
+    return LOCAL_PENDING;
   }
   const values = players.map(name => bucket[name]);
   movie.localDecisionHistory ||= [];
   movie.localDecisionHistory.push({ key, choices: Object.fromEntries(players.map(name => [name, bucket[name]])) });
+  movie.lastLocalResolution = { key, choices: Object.fromEntries(players.map(name => [name, bucket[name]])) };
+  movie.localTurnNotice = null;
   delete movie.localDecisions[key];
   current.activePlayerIndex = 0;
   saveCurrent();
@@ -768,6 +785,7 @@ function createUniverse(protagonist, options = {}) {
     playerCharacters: players,
     gameMode: mode,
     activePlayerIndex: 0,
+    relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
     label: `${players.join(" & ")}’s ${mode === "local" ? "Local Cut" : "Cut"} · ${new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`,
     credits: mode === "local" ? players.length * 1000 : 1000,
@@ -797,6 +815,8 @@ function loadUniverse(id) {
   current.playerCharacters = unique(current.playerCharacters?.length ? current.playerCharacters.filter(name => character(name)) : [current.protagonist]);
   current.gameMode ||= current.playerCharacters.length > 1 ? "local" : "single";
   current.activePlayerIndex ??= 0;
+  current.relationshipViewer ||= current.playerCharacters[0];
+  if (!current.playerCharacters.includes(current.relationshipViewer)) current.relationshipViewer = current.playerCharacters[0];
   current.playerCredits ||= Object.fromEntries(current.playerCharacters.map(name => [name, 1000]));
   current.relationshipsByPlayer = Object.fromEntries(current.playerCharacters.map((name, index) => [name, buildRelationshipBoard(name, current.relationshipsByPlayer?.[name] || (index === 0 ? current.relationships : null))]));
   current.relationships = current.relationshipsByPlayer[current.protagonist] || current.relationships;
@@ -855,6 +875,8 @@ function loadUniverse(id) {
   movie.pendingNextStage ||= null;
   movie.localDecisions ||= {};
   movie.localDecisionHistory ||= [];
+  movie.localTurnNotice ||= null;
+  movie.lastLocalResolution ||= null;
   movie.playerFriends ||= {};
   movie.localTheories ||= { midpoint: {}, final: {} };
   movie.localBets ||= {};
@@ -912,12 +934,12 @@ function relationshipLevel(value, inverse = false) {
   return "Αβέβαιο";
 }
 
-function relationshipSummary(name) {
-  const state = relationshipState(name);
-  const canon = protagonistRelationship(name);
+function relationshipSummary(name, viewer = activePlayerName()) {
+  const state = relationshipState(name, viewer);
+  const canon = relationshipBetween(viewer, name);
   const flags = [];
   if (canon) flags.push(canon);
-  if (friendsForPlayer().includes(name)) flags.push("Main group");
+  if (friendsForPlayer(viewer).includes(name)) flags.push("Main group");
   if ((state.loyalty || 0) >= 20) flags.push("Loyal");
   if ((state.suspicion || 0) >= 25) flags.push("Under suspicion");
   return flags.join(" · ") || "Unresolved connection";
@@ -934,13 +956,29 @@ function canonRelationshipLines(names = current.movie?.cast || []) {
 
 function renderRelationshipBoard() {
   const movie = current.movie;
+  const viewer = isLocalMode() ? (current.relationshipViewer || playerCharacters()[0]) : activePlayerName();
+  current.relationshipViewer = viewer;
   const root = screen("movie-shell relationship-board-screen");
   const content = el("div", "content");
   const head = el("div", "section-head");
   const title = el("div");
-  title.append(el("p", "eyebrow", `${movieLabel(movie.number)} · ${activePlayerName()} · RELATIONSHIP MECHANICS`), el("h1", "headline", "Οι δικοί σου δεσμοί αλλάζουν ποιος επιστρέφει και ποιος επιβιώνει."), el("p", "section-copy", `Αυτό είναι το προσωπικό relationship board του/της ${activePlayerName()}. Το main group αποκτά story priority στα sequels· οι canon συγγένειες, trust, friendship και loyalty επηρεάζουν βοήθεια και survival odds.`));
+  title.append(el("p", "eyebrow", `${movieLabel(movie.number)} · ${viewer} · RELATIONSHIP MECHANICS`), el("h1", "headline", "Οι δικοί σου δεσμοί αλλάζουν ποιος επιστρέφει και ποιος επιβιώνει."), el("p", "section-copy", `Αυτό είναι το προσωπικό relationship board του/της ${viewer}. Το main group αποκτά story priority στα sequels· οι canon συγγένειες, trust, friendship και loyalty επηρεάζουν βοήθεια και survival odds.`));
   head.append(title, button("Επιστροφή στην ταινία", "ghost", renderMovie));
   content.append(head);
+  if (isLocalMode()) {
+    const switcher = el("div", "relationship-player-switcher");
+    switcher.append(el("span", "eyebrow", "LOCAL 2P · VIEW RELATIONSHIPS"));
+    playerCharacters().forEach((player, index) => {
+      const viewButton = button(`PLAYER ${index + 1} · ${player}`, `ghost mini-btn ${player === viewer ? "active" : ""}`.trim(), () => {
+        current.relationshipViewer = player;
+        saveCurrent();
+        renderRelationshipBoard();
+      });
+      viewButton.setAttribute("aria-pressed", String(player === viewer));
+      switcher.append(viewButton);
+    });
+    content.append(switcher);
+  }
   const canonPanel = el("section", "panel canon-relationship-panel");
   canonPanel.append(el("p", "eyebrow", "CANON RELATIONSHIPS · EVERY MOVIE"), el("h2", "headline", "Οι αρχικοί δεσμοί παραμένουν ενεργοί."), el("p", "section-copy", "Οι συγγένειες και οι σχέσεις δεν είναι απλή πληροφορία: όταν τα πρόσωπα βρίσκονται στην ίδια ταινία, μιλούν, συνεργάζονται, τσακώνονται και επηρεάζουν ο ένας τη διάσωση του άλλου."));
   const canonList = el("div", "canon-relationship-list");
@@ -952,14 +990,14 @@ function renderRelationshipBoard() {
   canonPanel.append(canonList);
   content.append(canonPanel);
   const grid = el("div", "relationship-grid");
-  unique([...movie.friends, ...linkedNames(activePlayerName()), ...movie.cast.filter(name => !isPlayerCharacter(name))]).forEach(name => {
-    const state = relationshipState(name);
+  unique([...friendsForPlayer(viewer), ...linkedNames(viewer), ...movie.cast.filter(name => !isPlayerCharacter(name))]).forEach(name => {
+    const state = relationshipState(name, viewer);
     if (!state) return;
     const card = el("article", `panel relationship-card ${movie.status[name] === "DEAD" ? "dead" : ""}`);
     const portrait = el("img"); portrait.src = imagePath(name); portrait.alt = "";
     const copy = el("div", "relationship-card-copy");
     const identity = el("div", "bond-identity");
-    identity.append(el("span", "social-diamond"), el("small", "", relationshipSummary(name)));
+    identity.append(el("span", "social-diamond"), el("small", "", relationshipSummary(name, viewer)));
     copy.append(identity, el("h2", "", name));
     [["Trust", state.trust || 0, false], ["Friendship", state.friendship || 0, false], ["Loyalty", state.loyalty || 0, false], ["Suspicion", state.suspicion || 0, true]].forEach(([label, value, inverse]) => {
       const row = el("div", `bond-row ${String(label).toLowerCase()}`);
@@ -1123,10 +1161,12 @@ function generateMovie(number) {
   const survivingLegacyFriends = unique(current.history.flatMap(record =>
     (record.friends || []).filter(name => (record.survivors || []).includes(name))
   ));
+  const legacySaved = unique(current.history.flatMap(record => record.saved || []));
   const protectedLegacy = number > 1 ? unique([
     previousRecord?.closestFriend,
     previousRecord?.mostTrusted,
     ...survivingLegacyFriends,
+    ...legacySaved,
     ...priorSurvivors.filter(name => (relationshipState(name, protagonist)?.loyalty || 0) >= 20)
   ]).filter(name => victims.includes(name)) : [];
   const openingPool = victims.filter(name => !protectedLegacy.includes(name));
@@ -1206,7 +1246,7 @@ function generateMovie(number) {
     friendOptions, continuityFriends, newcomers: [...newcomers], friends: [], playerFriends: {}, keyHolder: null, itemKept: false, itemUsed: false, survivalItem: pick(survivalItems[number], random),
     locationChoices, locationClues, rooms, worldAsset: world.asset, protectedLegacy, fatalityTarget, openingScenario, openingKillerRoll,
     cluesFound: [], choices: [], firstSuspicion: [], midpointTheory: [], finalTheory: [], pendingTheory: [],
-    pendingBet: 0, betAmount: 0, betPayout: 0, betResult: "NO BET", betSettled: false, localDecisions: {}, localDecisionHistory: [], localTheories: { midpoint: {}, final: {} }, localBets: {},
+    pendingBet: 0, betAmount: 0, betPayout: 0, betResult: "NO BET", betSettled: false, localDecisions: {}, localDecisionHistory: [], localTurnNotice: null, lastLocalResolution: null, localTheories: { midpoint: {}, final: {} }, localBets: {},
     stageResult: null, saved: [], offscreenDeaths: [], lateDeaths: [], deathOrder: [], canonMoments: [], deathsPrevented: 0, peopleSaved: 0,
     investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {},
     openingPlayerIndex: isLocalMode() ? (Math.floor(random() * players.length)) : 0,
@@ -1233,6 +1273,38 @@ function setStatus(name, status) {
 
 function isAlive(name) { return current.movie.status[name] === "ALIVE" || current.movie.status[name] === "SAVED"; }
 function isKiller(name) { return current.movie.killers.includes(name); }
+function movieThreeProtected(name) {
+  const movie = current?.movie;
+  if (!movie || movie.number !== 3 || !name || isPlayerCharacter(name) || movie.killers?.includes(name)) return false;
+  const currentFriends = unique([
+    ...(movie.friends || []),
+    ...Object.values(movie.playerFriends || {}).flat()
+  ]);
+  const historyFriends = current.history?.some(record => (record.friends || []).includes(name)) || false;
+  const historySaved = current.history?.some(record => (record.saved || []).includes(name)) || false;
+  return currentFriends.includes(name) || (movie.saved || []).includes(name) || (movie.itemSaved || []).includes(name) || historyFriends || historySaved;
+}
+function movieInteractionScore(name) {
+  const movie = current.movie;
+  const stateScores = Object.values(current.relationshipsByPlayer || {}).map(board => {
+    const state = board?.[name] || {};
+    return (state.friendship || 0) + (state.trust || 0) + (state.loyalty || 0);
+  });
+  const choiceMentions = (movie.choices || []).reduce((total, choice) => {
+    const text = `${choice.text || ""} ${choice.consequence || ""}`;
+    return total + (text.includes(name) ? 1 : 0);
+  }, 0);
+  return choiceMentions * 4
+    + (movie.dialoguedWith || []).filter(entry => entry === name).length * 8
+    + (movie.canonMoments || []).filter(moment => (moment.pair || []).includes(name)).length * 8
+    + (movie.friends || []).includes(name) * 40
+    + (movie.saved || []).includes(name) * 45
+    + (movie.itemSaved || []).includes(name) * 30
+    + Math.max(0, ...stateScores) / 25;
+}
+function rankMovieThreeDeaths(names, random) {
+  return shuffle(names, random).sort((a, b) => movieInteractionScore(a) - movieInteractionScore(b));
+}
 function itemHeldBy(name) {
   const movie = current.movie;
   return movie.keyHolder === name || (movie.itemKept && isPlayerCharacter(name));
@@ -1375,8 +1447,14 @@ function movieScreen(sceneName, progress) {
   content.append(top);
   if (isLocalMode()) {
     const turn = el("div", "turn-strip");
-    turn.append(el("span", "eyebrow", "PASS-THE-PHONE"), el("strong", "", `Σειρά: ${activePlayerName()}`), el("small", "", "Ο Player 1 έχει μία extra επιλογή στην έρευνα."), button("Pass turn", "ghost mini-btn", passLocalTurn));
+    turn.append(el("span", "eyebrow", "PASS-THE-PHONE"), el("strong", "", `Σειρά: ${activePlayerName()}`), el("small", "", "Ο ένας παίκτης βλέπει πρώτα την επιλογή του άλλου και μετά κλειδώνει τη δική του."), button("Pass turn", "ghost mini-btn", passLocalTurn));
     content.append(turn);
+    const notice = current.movie.localTurnNotice;
+    if (notice) {
+      const handoff = el("aside", "local-turn-notice");
+      handoff.append(el("span", "eyebrow", "CHOICE LOCKED · SHOWING THE OTHER PLAYER"), el("strong", "", `${notice.player} διάλεξε:`), el("p", "", describeLocalChoice(notice.choice)), el("small", "", `Τώρα είναι η σειρά του/της ${notice.nextPlayer}. Η δική του/της επιλογή θα εμφανιστεί αμέσως μετά στο recap.`));
+      content.append(handoff);
+    }
   }
   const activeCanon = canonRelationshipLines(current.movie.cast).filter(pair => pair.active);
   const strip = el("div", "canon-strip");
@@ -1473,6 +1551,13 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
 }
 
 function queueBeat(beat, nextStage) {
+  if (isLocalMode() && current.movie.lastLocalResolution) {
+    beat = {
+      ...beat,
+      body: `${beat.body} LOCAL 2P RECAP · ${localChoiceRecap(current.movie.lastLocalResolution)}.`
+    };
+    current.movie.lastLocalResolution = null;
+  }
   current.movie.pendingBeat = beat;
   current.movie.pendingNextStage = nextStage;
   saveCurrent();
@@ -1559,7 +1644,7 @@ function renderOpening() {
 function openingChoice(choice) {
   const movie = current.movie;
   choice = localDecision(`opening-${movie.number}`, choice);
-  if (choice === null) return;
+  if (choice === LOCAL_PENDING) return;
   const choiceCode = { warn: 101, police: 211, drive: 307 }[choice];
   const random = mulberry32((current.seed + movie.number * 4079 + movie.openingScenario.id * 97 + choiceCode) >>> 0);
   const roll = random();
@@ -1669,7 +1754,7 @@ function renderFriendChoice() {
 function chooseFriends(group) {
   const movie = current.movie;
   group = localDecision(`group-${movie.number}`, group, values => unique(values.flat()));
-  if (group === null) return;
+  if (group === LOCAL_PENDING) return;
   movie.friends = [...group];
   const groupVote = movie.localDecisionHistory?.at(-1)?.choices;
   movie.playerFriends ||= {};
@@ -1699,7 +1784,9 @@ function chooseFriends(group) {
   const extras = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && !group.includes(name) && !isKiller(name) && isAlive(name)), random);
   const quietNewcomers = extras.filter(name => movie.newcomers?.includes(name));
   const establishedExtras = extras.filter(name => !movie.newcomers?.includes(name));
-  const orderedExtras = [...quietNewcomers, ...establishedExtras];
+  const orderedExtras = movie.number === 3
+    ? rankMovieThreeDeaths(extras.filter(name => !movieThreeProtected(name)), random)
+    : [...quietNewcomers, ...establishedExtras];
   const deathRoll = random();
   const largeFinaleCast = movie.number === 3 && movie.cast.length >= 16;
   const intensityCap = Math.max(0, Math.min(movie.number === 3 ? (largeFinaleCast ? 5 : 4) : 3, (movie.fatalityTarget || 4) - 2));
@@ -1816,7 +1903,7 @@ function renderRelationshipEvent() {
 function resolveRelationshipEvent(choiceIndex) {
   const movie = current.movie;
   choiceIndex = localDecision(`relationship-${movie.number}`, choiceIndex);
-  if (choiceIndex === null) return;
+  if (choiceIndex === LOCAL_PENDING) return;
   const event = movie.relationshipEvent;
   const first = event.first;
   const second = event.second;
@@ -1905,7 +1992,7 @@ function renderItemReassignment() {
 function finalizeKeptItem() {
   const movie = current.movie;
   const keepDecision = localDecision(`item-finalize-${movie.number}`, true);
-  if (keepDecision === null) return;
+  if (keepDecision === LOCAL_PENDING) return;
   movie.itemReassigning = false;
   movie.keyHolder = null;
   movie.itemKept = true;
@@ -1922,7 +2009,7 @@ function finalizeKeptItem() {
 function giveKey(name) {
   const movie = current.movie;
   name = localDecision(`item-${movie.number}`, name);
-  if (name === null) return;
+  if (name === LOCAL_PENDING) return;
   movie.keyHolder = name;
   movie.itemKept = !name;
   movie.itemReassigning = false;
@@ -1963,21 +2050,32 @@ function renderInvestigation() {
 function findClue(location) {
   const movie = current.movie;
   location = localDecision(`room-${movie.number}-${movie.investigationActions}`, location);
-  if (location === null) return;
-  const clue = movie.locationClues[location];
-  if (!movie.investigatedRooms.includes(location)) movie.investigatedRooms.push(location);
-  if (!movie.cluesFound.includes(clue)) movie.cluesFound.push(clue);
-  movie.investigationActions += 1;
+  if (location === LOCAL_PENDING) return;
+  const localChoices = movie.lastLocalResolution?.choices;
+  const locations = isLocalMode() ? unique(Object.values(localChoices || {}).filter(Boolean)) : [location];
+  const clues = locations.map(selectedLocation => movie.locationClues[selectedLocation]).filter(Boolean);
+  locations.forEach(selectedLocation => {
+    const clue = movie.locationClues[selectedLocation];
+    if (!movie.investigatedRooms.includes(selectedLocation)) movie.investigatedRooms.push(selectedLocation);
+    if (!movie.cluesFound.includes(clue)) movie.cluesFound.push(clue);
+  });
+  movie.investigationActions += locations.length;
   movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
-  relationshipState(clue.title.split(":")[0]).suspicion += 18;
-  remember(`Έψαξες: ${location}.`, `Found ${clue.type}: ${clue.title}.`);
+  if (isLocalMode() && localChoices) {
+    Object.entries(localChoices).forEach(([player, selectedLocation]) => {
+      const clue = movie.locationClues[selectedLocation];
+      if (clue) relationshipState(clue.title.split(":")[0], player).suspicion += 18;
+    });
+  } else clues.forEach(clue => { relationshipState(clue.title.split(":")[0]).suspicion += 18; });
+  remember(`Έρευνα: ${locations.join(" + ")}.`, clues.map(clue => `Found ${clue.type}: ${clue.title}.`).join(" "));
+  const mainClue = clues[0] || movie.locationClues[location];
   queueBeat({
-    kind: clue.type === "REAL CLUE" ? "clue" : "twist",
-    eyebrow: `${clue.type} · CASE FILE UPDATED`,
-    title: clue.title,
-    body: `${clue.text} Το στοιχείο μπαίνει στο προσωπικό σου case file — αλλά η ερμηνεία του μπορεί ακόμη να σε οδηγήσει στον λάθος άνθρωπο.`,
-    names: [clue.title.split(":")[0]], statuses: [clue.type],
-    room: movie.rooms.find(item => item.name === location), cta: movie.investigationActions >= 3 ? "Προχώρησε στην επίθεση" : "Διάλεξε την επόμενη κίνηση"
+    kind: mainClue.type === "REAL CLUE" ? "clue" : "twist",
+    eyebrow: clues.length > 1 ? "LOCAL 2P · TWO ROOMS INVESTIGATED" : `${mainClue.type} · CASE FILE UPDATED`,
+    title: clues.length > 1 ? "Οι δύο παίκτες ερεύνησαν διαφορετικές διαδρομές." : mainClue.title,
+    body: `${clues.map((clue, index) => `${index + 1}. ${clue.title}: ${clue.text}`).join(" ")} Τα στοιχεία μπαίνουν στα προσωπικά case files και των δύο — η ερμηνεία τους μπορεί ακόμη να οδηγήσει στον λάθος άνθρωπο.`,
+    names: unique(clues.map(clue => clue.title.split(":")[0])), statuses: clues.map(clue => clue.type),
+    room: movie.rooms.find(item => item.name === locations[0]), cta: movie.investigationActions >= 3 ? "Προχώρησε στην επίθεση" : "Διάλεξε την επόμενη κίνηση"
   }, movie.investigationActions >= 3 ? 5 : 4);
 }
 
@@ -1993,7 +2091,7 @@ function renderInvestigationFollowup() {
   if (unsearched[0]) choices.push({ label: `Ερεύνησε και το «${unsearched[0][0]}».`, action: () => { movie.investigationPhase = "rooms"; saveCurrent(); renderMovie(); } });
   dialogueCandidates.forEach(name => choices.push({ label: `Μίλησε ιδιωτικά με τον/την ${name}${protagonistRelationship(name) ? ` — ${protagonistRelationship(name)}` : ""}.`, action: () => talkAfterInvestigation(name) }));
   if (!movie.puzzleSolved) choices.push({ label: `Λύσε το puzzle: «${movie.puzzle.title}».`, action: () => { movie.investigationPhase = "puzzle"; saveCurrent(); renderMovie(); } });
-  choices.push({ label: "Προχώρα τώρα χωρίς άλλη έρευνα · SKIP", action: () => { movie.investigationPhase = "done"; advance(5); } });
+  choices.push({ label: "Προχώρα τώρα χωρίς άλλη έρευνα · SKIP", action: skipInvestigation });
   const content = movieScreen("INVESTIGATE OR TALK", 43);
   content.append(scenePanel({
     name: focus, time: "12:44 AM", image: focus, room: roomFor(2), tone: "cold",
@@ -2003,25 +2101,40 @@ function renderInvestigationFollowup() {
   }));
 }
 
+function skipInvestigation() {
+  const movie = current.movie;
+  const decision = localDecision(`investigation-skip-${movie.number}-${movie.investigationActions}`, true);
+  if (decision === LOCAL_PENDING) return;
+  movie.investigationPhase = "done";
+  advance(5);
+}
+
 function talkAfterInvestigation(name) {
   const movie = current.movie;
   name = localDecision(`investigation-talk-${movie.number}-${movie.investigationActions}`, name);
-  if (name === null) return;
-  movie.dialoguedWith.push(name);
-  movie.investigationActions += 1;
+  if (name === LOCAL_PENDING) return;
+  const localChoices = movie.lastLocalResolution?.choices;
+  const names = isLocalMode() ? unique(Object.values(localChoices || {}).filter(Boolean)) : [name];
+  names.forEach(selectedName => { if (!movie.dialoguedWith.includes(selectedName)) movie.dialoguedWith.push(selectedName); });
+  movie.investigationActions += names.length;
   movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
+  const localTalkVotes = localChoices || {};
+  const talkEntries = isLocalMode() ? Object.entries(localTalkVotes) : [[activePlayerName(), name]];
+  talkEntries.forEach(([player, selectedName]) => {
+    const relation = relationshipBetween(player, selectedName);
+    relationshipState(selectedName, player).trust += relation ? 18 : 10;
+    relationshipState(selectedName, player).friendship += relation ? 14 : 8;
+    if (isKiller(selectedName)) relationshipState(selectedName, player).suspicion = Math.max(0, relationshipState(selectedName, player).suspicion - 8);
+  });
   const relation = protagonistRelationship(name);
-  relationshipState(name).trust += relation ? 18 : 10;
-  relationshipState(name).friendship += relation ? 14 : 8;
   const sabotage = isKiller(name);
-  if (sabotage) relationshipState(name).suspicion = Math.max(0, relationshipState(name).suspicion - 8);
-  remember(`Μίλησες ιδιωτικά με τον/την ${name}.`, sabotage ? "They subtly redirected the investigation." : "Their trust and survival odds improved.");
+  remember(`Ιδιωτικές συζητήσεις: ${names.join(" + ")}.`, names.map(selectedName => `${selectedName} ${isKiller(selectedName) ? "redirected the investigation" : "improved trust and survival odds"}`).join(" · "));
   queueBeat({
     kind: sabotage ? "sabotage" : "dialogue",
     eyebrow: relation ? `CANON RELATIONSHIP · ${relation}` : "PRIVATE CONVERSATION",
-    title: sabotage ? `${name} σου δίνει ένα στοιχείο που μοιάζει υπερβολικά τέλειο.` : `${name} αποφασίζει να σε εμπιστευτεί.`,
-    body: sabotage ? "Η πληροφορία ανοίγει νέα διαδρομή, αλλά μετακινεί αθόρυβα την υποψία μακριά από τον πραγματικό killer." : `Ο/Η ${name} αποκαλύπτει τι είδε ανάμεσα στα δωμάτια. Η συζήτηση αυξάνει τις πιθανότητες να συνεργαστεί — και να επιζήσει — αργότερα.`,
-    names: [name], statuses: [sabotage ? "UNRELIABLE CLUE" : "TRUST INCREASED"], roomOffset: 2
+    title: sabotage ? `${name} σου δίνει ένα στοιχείο που μοιάζει υπερβολικά τέλειο.` : `${names.join(" και ")} αποφασίζουν να μιλήσουν.`,
+    body: sabotage ? "Η πληροφορία ανοίγει νέα διαδρομή, αλλά μετακινεί αθόρυβα την υποψία μακριά από τον πραγματικό killer." : `${names.join(" και ")} αποκαλύπτουν τι είδαν στις δικές τους διαδρομές. Κάθε προσωπική συζήτηση αυξάνει διαφορετικά trust, friendship και survival odds.`,
+    names, statuses: names.map(selectedName => isKiller(selectedName) ? "UNRELIABLE CLUE" : "TRUST INCREASED"), roomOffset: 2
   }, movie.investigationActions >= 3 ? 5 : 4);
 }
 
@@ -2038,13 +2151,15 @@ function renderPuzzle() {
 function solvePuzzle(answerIndex) {
   const movie = current.movie;
   answerIndex = localDecision(`puzzle-${movie.number}`, answerIndex);
-  if (answerIndex === null) return;
-  const correct = answerIndex === movie.puzzle.correct;
+  if (answerIndex === LOCAL_PENDING) return;
+  const localAnswers = movie.lastLocalResolution?.choices;
+  const answers = isLocalMode() ? Object.values(localAnswers || {}) : [answerIndex];
+  const correct = answers.some(answer => answer === movie.puzzle.correct);
   movie.puzzleSolved = true;
   movie.puzzleAdvantage = correct;
-  movie.investigationActions += 1;
+  movie.investigationActions += isLocalMode() ? 2 : 1;
   movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
-  remember(`Puzzle: ${movie.puzzle.title} — ${movie.puzzle.answers[answerIndex]}.`, correct ? "Solved correctly." : "Wrong route opened.");
+  remember(`Puzzle: ${movie.puzzle.title} — ${isLocalMode() ? answers.map(answer => movie.puzzle.answers[answer]).join(" + ") : movie.puzzle.answers[answerIndex]}.`, correct ? "At least one player solved the route correctly." : "Wrong route opened.");
   queueBeat({
     kind: correct ? "clue" : "twist", eyebrow: correct ? "PUZZLE SOLVED" : "WRONG ANSWER · NEW DANGER",
     title: correct ? "Ο κρυφός μηχανισμός ανοίγει." : "Ο χάρτης σε οδηγεί σε παγίδα.",
@@ -2078,7 +2193,7 @@ function renderDanger() {
 function rescueChoice(savedName, leftName) {
   const movie = current.movie;
   const selectedName = localDecision(`rescue-${movie.number}`, savedName);
-  if (selectedName === null) return;
+  if (selectedName === LOCAL_PENDING) return;
   savedName = selectedName;
   leftName = savedName === movie.dangerA ? movie.dangerB : movie.dangerA;
   const random = mulberry32((current.seed + movie.number * 5431 + savedName.length * 317 + leftName.length * 149 + movie.choices.length) >>> 0);
@@ -2089,8 +2204,12 @@ function rescueChoice(savedName, leftName) {
   const leftItemBonus = !isKiller(leftName) && (itemHeldBy(leftName) ? .76 : movie.itemKept ? .18 : 0);
   const weaponBonus = playerHasWeapon() ? .12 : 0;
   const puzzleBonus = movie.puzzleAdvantage ? .12 : 0;
-  const chosenLives = survivalRoll(savedName, Math.min(.98, .66 + chosenTrust + chosenItemBonus + puzzleBonus + canonBondBonus + weaponBonus), random);
-  const leftLives = survivalRoll(leftName, Math.min(.96, .12 + leftLoyalty + leftItemBonus + puzzleBonus / 2 + canonBondBonus / 2 + weaponBonus), random);
+  const chosenLives = movie.number === 3 && movieThreeProtected(savedName)
+    ? true
+    : survivalRoll(savedName, Math.min(.98, .66 + chosenTrust + chosenItemBonus + puzzleBonus + canonBondBonus + weaponBonus), random);
+  const leftLives = movie.number === 3 && movieThreeProtected(leftName)
+    ? true
+    : survivalRoll(leftName, Math.min(.96, .12 + leftLoyalty + leftItemBonus + puzzleBonus / 2 + canonBondBonus / 2 + weaponBonus), random);
   const outcomes = [[savedName, chosenLives], [leftName, leftLives]];
   outcomes.forEach(([name, lives]) => {
     if (lives) {
@@ -2253,12 +2372,14 @@ function renderAccusation(kind) {
 }
 
 function toggleSuspect(name, kind) {
+  const scrollY = window.scrollY;
   const list = theoryForPlayer(kind);
   const index = list.indexOf(name);
   if (index >= 0) list.splice(index, 1);
   else if (list.length < 4) list.push(name);
   else return toast("Μπορείς να κατηγορήσεις μέχρι 4 άτομα.");
   renderAccusation(kind);
+  requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 function lockTheory(kind) {
@@ -2353,7 +2474,7 @@ function renderTrustScene() {
 function trustChoice(name, shared) {
   const movie = current.movie;
   const trustVote = localDecision(`trust-${movie.number}`, { name, shared }, values => values.at(-1));
-  if (trustVote === null) return;
+  if (trustVote === LOCAL_PENDING) return;
   name = trustVote.name;
   shared = trustVote.shared;
   const localTrustVotes = movie.localDecisionHistory?.at(-1)?.choices;
@@ -2421,7 +2542,7 @@ function renderSecondAttack() {
 function secondAttackChoice(rescue) {
   const movie = current.movie;
   rescue = localDecision(`second-attack-${movie.number}`, rescue);
-  if (rescue === null) return;
+  if (rescue === LOCAL_PENDING) return;
   const target = movie.secondTarget;
   const random = mulberry32((current.seed + movie.number * 6823 + target.length * 211 + (rescue ? 19 : 41)) >>> 0);
   const itemBonus = !isKiller(target) && (itemHeldBy(target) ? .72 : movie.itemKept ? .32 : 0);
@@ -2429,7 +2550,7 @@ function secondAttackChoice(rescue) {
   const relationBonus = Math.min(.15, Math.max(0, relationshipState(target).loyalty + relationshipState(target).trust) / 700);
   const puzzleBonus = movie.puzzleAdvantage ? .12 : 0;
   const survivalChance = Math.min(.96, (rescue ? .64 : .10) + itemBonus + relationBonus + puzzleBonus + weaponBonus);
-  const survived = survivalRoll(target, survivalChance, random);
+  const survived = movie.number === 3 && movieThreeProtected(target) ? true : survivalRoll(target, survivalChance, random);
   if (survived) {
     setStatus(target, "SAVED");
     if (!movie.saved.includes(target)) { movie.saved.push(target); movie.peopleSaved += 1; }
@@ -2573,7 +2694,7 @@ function renderFinale() {
 function finaleChoice(choice, closest, discovered) {
   const movie = current.movie;
   choice = localDecision(`finale-${movie.number}`, choice);
-  if (choice === null) return;
+  if (choice === LOCAL_PENDING) return;
   const perfect = discovered === movie.killers.length;
   const finaleRandom = mulberry32((current.seed + movie.number * 12289 + movie.choices.length * 173) >>> 0);
   if (closest) {
@@ -2582,7 +2703,9 @@ function finaleChoice(choice, closest, discovered) {
     const weaponBonus = playerHasWeapon() ? .12 : 0;
     const baseChance = choice === "friend" ? .62 : choice === "trap" ? .38 : .46;
     const theoryBonus = perfect ? .20 : discovered ? .08 : 0;
-    const lives = survivalRoll(closest, Math.min(.96, baseChance + relationshipBonus + itemBonus + weaponBonus + theoryBonus + (movie.puzzleAdvantage ? .08 : 0)), finaleRandom);
+    const lives = movie.number === 3 && movieThreeProtected(closest)
+      ? true
+      : survivalRoll(closest, Math.min(.96, baseChance + relationshipBonus + itemBonus + weaponBonus + theoryBonus + (movie.puzzleAdvantage ? .08 : 0)), finaleRandom);
     setStatus(closest, lives ? "SAVED" : "DEAD");
     if (lives && !movie.saved.includes(closest)) { movie.saved.push(closest); movie.peopleSaved += 1; }
     if (lives && itemBonus && !movie.itemSaved.includes(closest)) movie.itemSaved.push(closest);
@@ -2595,10 +2718,7 @@ function finaleChoice(choice, closest, discovered) {
   const deathsSoFar = movie.cast.filter(name => movie.status[name] === "DEAD").length;
   const remainingFatalities = Math.max(0, (movie.fatalityTarget || 4) - deathsSoFar);
   const latePool = movie.number === 3
-    ? [
-      ...shuffle(movie.cast.filter(name => movie.newcomers?.includes(name) && !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom),
-      ...shuffle(movie.cast.filter(name => !movie.newcomers?.includes(name) && !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom)
-    ]
+    ? rankMovieThreeDeaths(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest && !movieThreeProtected(name)), finaleRandom)
     : shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== closest), finaleRandom);
   const lateCandidates = latePool.filter(name => {
     if ((itemHeldBy(name) || movie.itemSaved.includes(name)) && !isKiller(name) && finaleRandom() < .88) {
@@ -3075,11 +3195,12 @@ async function checkForUpdate(manual = false) {
   try {
     await swRegistration.update();
     if (swRegistration.waiting) {
+      prepareUpdateResume();
       updateButton.classList.add("ready");
-      showUpdateStatus("available", "Βρέθηκε νέα έκδοση", "Η εγκατάσταση γίνεται αυτόματα. Το παιχνίδι θα ανοίξει ξανά μόνο του.", 0);
+      showUpdateStatus("available", "Βρέθηκε νέα έκδοση", current?.movie ? "Η τρέχουσα σκηνή αποθηκεύτηκε. Η εγκατάσταση γίνεται αυτόματα και η τριλογία συνεχίζεται από εδώ." : "Η εγκατάσταση γίνεται αυτόματα. Το παιχνίδι θα ανοίξει ξανά μόνο του.", 0);
       swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
     } else if (swRegistration.installing) {
-      showUpdateStatus("available", "Κατεβαίνει η νέα έκδοση", "Μην κλείσεις το παιχνίδι — θα ανανεωθεί αυτόματα μόλις είναι έτοιμη.", 0);
+      showUpdateStatus("available", "Κατεβαίνει η νέα έκδοση", current?.movie ? "Μπορείς να συνεχίσεις να παίζεις. Το τρέχον save θα διατηρηθεί και η τριλογία θα συνεχιστεί μετά την ανανέωση." : "Μην κλείσεις το παιχνίδι — θα ανανεωθεί αυτόματα μόλις είναι έτοιμη.", 0);
     } else {
       updateButton.classList.remove("ready");
       showUpdateStatus("latest", "Είσαι ενημερωμένος", `Έχεις ήδη την τελευταία έκδοση v${APP_VERSION}.`);
@@ -3092,21 +3213,34 @@ async function checkForUpdate(manual = false) {
   }
 }
 
+function prepareUpdateResume() {
+  if (!current?.movie || current.movie.completed || !current.id) return;
+  saveCurrent();
+  sessionStorage.setItem(UPDATE_RESUME_KEY, current.id);
+}
+
 async function setupServiceWorker() {
   const completedUpdate = sessionStorage.getItem(UPDATE_COMPLETE_KEY);
+  const resumedAfterUpdate = sessionStorage.getItem(UPDATE_RESUMED_KEY);
+  sessionStorage.removeItem(UPDATE_RESUMED_KEY);
   if (completedUpdate) {
     sessionStorage.removeItem(UPDATE_COMPLETE_KEY);
-    showUpdateStatus("updated", "Η ενημέρωση ολοκληρώθηκε", `Το Spirit Slasher είναι τώρα στην έκδοση v${APP_VERSION}.`, 6000);
+    showUpdateStatus("updated", "Η ενημέρωση ολοκληρώθηκε", resumedAfterUpdate ? `Το Spirit Slasher είναι τώρα στην έκδοση v${APP_VERSION}. Η τριλογία συνεχίζεται από το τελευταίο save.` : `Το Spirit Slasher είναι τώρα στην έκδοση v${APP_VERSION}.`, 6000);
   }
   if (!("serviceWorker" in navigator)) {
     showUpdateStatus("info", "Οι αυτόματες ενημερώσεις δεν υποστηρίζονται", `Τρέχεις την έκδοση v${APP_VERSION}. Άνοιξε το παιχνίδι από σύγχρονο browser.`);
     return;
   }
-  const hadController = Boolean(navigator.serviceWorker.controller);
+  let firstControllerChange = !navigator.serviceWorker.controller;
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!hadController || refreshing) return;
+    if (refreshing || !navigator.serviceWorker.controller) return;
+    if (firstControllerChange) {
+      firstControllerChange = false;
+      return;
+    }
     refreshing = true;
+    prepareUpdateResume();
     sessionStorage.setItem(UPDATE_COMPLETE_KEY, APP_VERSION);
     location.reload();
   });
@@ -3117,8 +3251,9 @@ async function setupServiceWorker() {
       if (!installing) return;
       installing.addEventListener("statechange", () => {
         if (installing.state === "installed" && navigator.serviceWorker.controller) {
+          prepareUpdateResume();
           updateButton.classList.add("ready");
-          showUpdateStatus("available", "Η νέα έκδοση είναι έτοιμη", "Εφαρμόζεται τώρα και το παιχνίδι θα ανοίξει ξανά αυτόματα.", 0);
+          showUpdateStatus("available", "Η νέα έκδοση είναι έτοιμη", current?.movie ? "Το save της τρέχουσας σκηνής είναι ασφαλές. Εφαρμόζεται τώρα και το παιχνίδι συνεχίζεται αυτόματα." : "Εφαρμόζεται τώρα και το παιχνίδι θα ανοίξει ξανά αυτόματα.", 0);
           installing.postMessage({ type: "SKIP_WAITING" });
         }
       });
@@ -3135,4 +3270,16 @@ updateButton.addEventListener("click", () => checkForUpdate(true));
 soundButton.textContent = settings.sound ? "♪" : "×";
 registerWebMCP();
 window.addEventListener("load", setupServiceWorker, { once: true });
-renderHome();
+function bootApp() {
+  const resumeId = sessionStorage.getItem(UPDATE_RESUME_KEY);
+  if (!resumeId) return renderHome();
+  sessionStorage.removeItem(UPDATE_RESUME_KEY);
+  const resumed = saves.find(save => save.id === resumeId);
+  if (resumed?.movie && !resumed.completed) {
+    sessionStorage.setItem(UPDATE_RESUMED_KEY, "1");
+    loadUniverse(resumeId);
+  } else {
+    renderHome();
+  }
+}
+bootApp();
