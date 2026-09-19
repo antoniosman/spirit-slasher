@@ -25,6 +25,11 @@ $serverProcess = Start-Process -FilePath "node" -ArgumentList "server/server.js"
 try {
   Write-Host "Starting HTTPS Quick Tunnel. Share the URL ending in trycloudflare.com with Billy." -ForegroundColor Green
   Write-Host "The app auto-connects when opened from that URL. Press Ctrl+C to stop both server and tunnel." -ForegroundColor Green
+  # cloudflared writes normal informational logs to stderr. PowerShell turns
+  # native stderr into an error record when ErrorActionPreference is Stop, so
+  # allow those logs through without treating them as a failed tunnel.
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
   & cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8787 2>&1 | ForEach-Object {
     $line = $_.ToString()
     Write-Host $line
@@ -34,6 +39,7 @@ try {
       Start-Process $publicUrl
     }
   }
+  $ErrorActionPreference = $previousErrorActionPreference
 }
 finally {
   if ($serverProcess -and -not $serverProcess.HasExited) {
