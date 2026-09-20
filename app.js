@@ -573,6 +573,14 @@ function applyOnlineStoryState(session = onlineSession) {
   onlineStoryPublishSignature = JSON.stringify(onlineStoryPayload());
   saveCurrent();
   stopTimers();
+  if (current.completed) {
+    current.finalSequence ||= "archive";
+    if (current.finalSequence === "survivors") renderSurvivorsCelebration();
+    else if (current.finalSequence === "funeral") renderFuneral();
+    else if (current.finalSequence === "killers") renderKillerMemorial();
+    else renderTrilogyArchive();
+    return true;
+  }
   renderMovie();
   return true;
 }
