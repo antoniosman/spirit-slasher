@@ -205,6 +205,10 @@ function findSession(code) {
       : { mode: "lobby", username: null, pendingUsername: null, key: null, roundCount: 0 };
     persistDb();
   }
+  if (session && !Object.prototype.hasOwnProperty.call(session, "storyState")) {
+    session.storyState = null;
+    persistDb();
+  }
   // Migrate untouched 1.10 opening sessions to the deterministic Player 1 →
   // Player 2 flow without changing an already-resolved story.
   if (session && session.status === "playing" && session.turn?.mode === "shared"
@@ -257,6 +261,9 @@ function publicSession(session, viewer) {
     seed: session.seed || 0,
     stage: session.stage,
     sceneState: session.sceneState || null,
+    // Player 1 owns the canonical browser story state. Other clients hydrate
+    // this snapshot instead of generating a different procedural storyline.
+    storyState: session.storyState || null,
     players: session.players,
     pendingDecisions: pending,
     history: session.history,
@@ -379,7 +386,7 @@ async function handleApi(request, response, url) {
   const method = request.method || "GET";
 
   if (method === "GET" && pathname === "/api/health") {
-    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.15.0", time: now() });
+    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.16.0", time: now() });
     return;
   }
 
@@ -457,6 +464,7 @@ async function handleApi(request, response, url) {
       status: "lobby",
       stage: { movie: 1, scene: "lobby" },
       sceneState: { movie: 1, stage: 0, scene: "lobby", revision: 0, lastDecision: null, updatedAt: now() },
+      storyState: null,
       players: [{ username: user.username, character: null, joinedAt: now() }],
       pendingDecisions: {},
       history: [],
@@ -524,6 +532,7 @@ async function handleApi(request, response, url) {
     session.stage = { movie: 1, scene: "opening" };
     session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
     session.sceneState = { movie: 1, stage: 1, scene: "opening", revision: Number(session.sceneState?.revision || 0) + 1, lastDecision: null, updatedAt: now(), by: user.username };
+    session.storyState = null;
     updateSession(session);
     sendJson(request, response, 200, { session: publicSession(session, user.username) });
     return;
@@ -570,10 +579,18 @@ async function handleApi(request, response, url) {
     pending.scope = scope;
     pending.submissions[user.username] = body.value;
     session.pendingDecisions[key] = pending;
-    const everyoneSubmitted = scope === "shared" && session.players.every((player) => Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
-    const shouldResolve = scope === "personal" || everyoneSubmitted;
+    const everyoneSubmitted = session.players.every((player) => Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
+    // Movie I opening is deliberately a Player 1-only decision. From the
+    // next scene onward every personal turn is collected in one round, then
+    // resolved once so the host can publish one shared outcome to everyone.
+    const isOpeningPlayerOne = scope === "personal"
+      && Number(session.sceneState?.movie) === 1
+      && Number(session.sceneState?.stage) === 1
+      && user.username === session.players?.[0]?.username
+      && Number(session.turn?.roundCount || 0) === 0;
+    const shouldResolve = isOpeningPlayerOne || everyoneSubmitted;
     if (shouldResolve) {
-      const choices = scope === "personal" ? { [user.username]: body.value } : pending.submissions;
+      const choices = scope === "personal" ? pending.submissions : pending.submissions;
       const resolved = {
         type: "decision-resolved",
         key,
@@ -590,23 +607,59 @@ async function handleApi(request, response, url) {
       delete session.pendingDecisions[key];
       let roundComplete = false;
       if (scope === "shared") {
-        session.turn = { mode: "personal", username: session.players[0]?.username || null, pendingUsername: null, key: null, roundCount: 0 };
+        session.turn = { mode: "advance", username: null, pendingUsername: null, key, roundCount: 0 };
+      } else if (isOpeningPlayerOne) {
+        session.turn = { mode: "advance", username: null, pendingUsername: null, key, roundCount: 1 };
       } else {
         const currentIndex = Math.max(0, session.players.findIndex(player => player.username === user.username));
-        const nextUsername = session.players[(currentIndex + 1) % session.players.length]?.username || user.username;
         const roundCount = Number(session.turn?.roundCount || 0) + 1;
         roundComplete = roundCount >= session.players.length;
-        session.turn = roundComplete
-          ? { mode: "advance", username: null, pendingUsername: null, key, roundCount }
-          : { mode: "personal", username: nextUsername, pendingUsername: null, key: null, roundCount };
+        session.turn = { mode: "advance", username: null, pendingUsername: null, key, roundCount };
       }
       session.updatedAt = now();
       persistDb();
       broadcast(session, "decision-resolved");
     } else {
+      // Keep the same decision key open while handing the turn to the next
+      // player. The old server resolved personal choices immediately, which
+      // let each browser advance its own storyline and eventually deadlock.
+      const currentIndex = Math.max(0, session.players.findIndex(player => player.username === user.username));
+      const nextPlayer = session.players.find((player, index) => index !== currentIndex
+        && !Object.prototype.hasOwnProperty.call(pending.submissions, player.username));
+      session.turn = {
+        mode: "personal",
+        username: nextPlayer?.username || session.players[currentIndex]?.username || user.username,
+        pendingUsername: null,
+        key,
+        roundCount: Number(session.turn?.roundCount || 0),
+      };
       updateSession(session);
     }
     sendJson(request, response, 200, { session: publicSession(session, user.username), resolved: shouldResolve, roundComplete: Boolean(session.turn?.mode === "advance") });
+    return;
+  }
+
+  const storyStateMatch = pathname.match(/^\/api\/sessions\/([A-Za-z0-9]+)\/story-state$/);
+  if (method === "POST" && storyStateMatch) {
+    const membership = requireMember(request, response, storyStateMatch[1]);
+    if (!membership) return;
+    const { user, session } = membership;
+    if (session.status !== "playing") return sendError(request, response, 409, "The game has not started.", "game_not_started");
+    // Player 1 is the canonical story author. The host is Player 1 in every
+    // session created by this server, so this also prevents conflicting writes.
+    if (session.players?.[0]?.username !== user.username) return sendError(request, response, 403, "Only Player 1 can publish the shared story.", "story_author_only");
+    const body = await parseBody(request);
+    if (!body.state || typeof body.state !== "object" || Array.isArray(body.state)) {
+      return sendError(request, response, 422, "A story state object is required.", "invalid_story_state");
+    }
+    const serialized = JSON.stringify(body.state);
+    if (serialized.length > 850000) return sendError(request, response, 413, "The story state is too large.", "story_state_too_large");
+    const revision = Number(session.storyState?.revision || 0) + 1;
+    session.storyState = { revision, by: user.username, updatedAt: now(), state: body.state };
+    session.updatedAt = now();
+    persistDb();
+    broadcast(session, "story-state");
+    sendJson(request, response, 200, { session: publicSession(session, user.username), revision });
     return;
   }
 

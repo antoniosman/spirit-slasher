@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.15";
+const APP_VERSION = "1.16";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -221,6 +221,9 @@ let onlineSessionSignature = "";
 let onlineEngineStartedCode = null;
 let onlineLivePanel = null;
 let updateCheckInFlight = false;
+let onlineStoryPublishTimer = null;
+let onlineStoryPublishing = false;
+let onlineStoryPublishSignature = "";
 
 function loadJSON(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -238,6 +241,13 @@ function saveCurrent() {
   if (index >= 0) saves[index] = current;
   else saves.unshift(current);
   persistSaves();
+  // Player 1 is the single story author in Online mode. Debouncing keeps the
+  // canonical snapshot cheap while still making every scene/outcome visible
+  // to the other browsers.
+  if (isOnlineEngine() && isOnlineStoryAuthoritative()) {
+    clearTimeout(onlineStoryPublishTimer);
+    onlineStoryPublishTimer = setTimeout(() => publishOnlineStoryState(), 90);
+  }
 }
 
 function buildTransferPayload(selectedSaves) {
@@ -324,7 +334,10 @@ function chooseSaveImport() {
 function character(name) { return roster.find(item => item.name === name); }
 function imagePath(name) { return assetUrl(`assets/characters/${character(name)?.file || "char_billy.webp"}`); }
 function allNames() { return roster.map(item => item.name); }
-function playerCharacters() { return unique(current?.playerCharacters?.length ? current.playerCharacters : [current?.protagonist].filter(Boolean)); }
+function playerCharacters() {
+  if (current?.gameMode === "online" && current.onlineGroupCharacters?.length) return unique(current.onlineGroupCharacters);
+  return unique(current?.playerCharacters?.length ? current.playerCharacters : [current?.protagonist].filter(Boolean));
+}
 function onlineGroupCharacters() {
   if (current?.gameMode !== "online") return [];
   return unique(current.onlineGroupCharacters?.length ? current.onlineGroupCharacters : playerCharacters());
@@ -335,7 +348,12 @@ function castPlayerCharacters() {
 function isPlayerCharacter(name) { return castPlayerCharacters().includes(name); }
 function isLocalMode() { return current?.gameMode === "local" && playerCharacters().length > 1; }
 function isMultiplayerMode() { return current?.gameMode !== "single" && playerCharacters().length > 1; }
-function activePlayerName() { return playerCharacters()[current?.activePlayerIndex || 0] || current?.protagonist; }
+function activePlayerName() {
+  // The online story is shared, but each browser still has its own profile
+  // viewer for relationship labels and avatar copy.
+  if (current?.gameMode === "online") return current?.protagonist;
+  return playerCharacters()[current?.activePlayerIndex || 0] || current?.protagonist;
+}
 function passLocalTurn() {
   if (!isLocalMode()) return;
   const currentIndex = Number.isInteger(current.activePlayerIndex) ? current.activePlayerIndex : 0;
@@ -412,7 +430,7 @@ function buildRelationshipBoard(player, source = null) {
   return board;
 }
 function localDecision(key, value, resolver = values => values.at(-1)) {
-  if (!isMultiplayerMode()) return value;
+  if (!isMultiplayerMode() || isOnlineEngine()) return value;
   const movie = current.movie;
   movie.localDecisions ||= {};
   const bucket = movie.localDecisions[key] ||= {};
@@ -443,6 +461,12 @@ function isOnlineEngine() {
   return current?.gameMode === "online" && Boolean(current.onlineSessionCode) && Boolean(window.SpiritOnline);
 }
 
+function isOnlineStoryAuthoritative() {
+  if (!isOnlineEngine()) return false;
+  const firstPlayer = onlineSession?.players?.[0]?.username;
+  return Boolean(firstPlayer && firstPlayer === current?.onlineUsername);
+}
+
 function onlineDecisionKey() {
   const movie = current.movie;
   const revision = Number(onlineSession?.sceneState?.revision || current.onlineSceneRevision || 0);
@@ -450,8 +474,8 @@ function onlineDecisionKey() {
 }
 
 function onlineDecisionScope() {
-  // Every online decision is personal. The server rotates the turn and holds
-  // the shared scene until all players have seen their own outcome.
+  // The server collects the ordered player turns, then resolves one shared
+  // decision round. Player 1 is the canonical story author for the outcome.
   return "personal";
 }
 
@@ -470,9 +494,96 @@ function onlineCanAct(session = onlineSession) {
   return !turn.pendingUsername && turn.username === current?.onlineUsername;
 }
 
+function onlineStoryPayload() {
+  if (!current) return null;
+  // Keep connection identity local to each browser, but publish every field
+  // that can affect procedural scenes, relationships and outcomes.
+  const fields = [
+    "seed", "protagonist", "playerCharacters", "onlineGroupCharacters", "gameMode",
+    "movieNumber", "movie", "history", "onlineScenarioHistory", "relationships",
+    "relationshipsByPlayer", "playerCredits", "credits", "activePlayerIndex",
+    "completed", "survivorCelebrationPending", "label"
+  ];
+  const state = {};
+  fields.forEach(field => {
+    if (current[field] !== undefined) state[field] = current[field];
+  });
+  state.playerCharacters = playerCharacters();
+  state.onlineGroupCharacters = onlineGroupCharacters();
+  state.gameMode = "online";
+  return JSON.parse(JSON.stringify(state));
+}
+
+function publishOnlineStoryState() {
+  if (!isOnlineEngine() || !isOnlineStoryAuthoritative() || !window.SpiritOnline?.updateStoryState) return;
+  if (onlineStoryPublishing) {
+    clearTimeout(onlineStoryPublishTimer);
+    onlineStoryPublishTimer = setTimeout(() => publishOnlineStoryState(), 180);
+    return;
+  }
+  const state = onlineStoryPayload();
+  if (!state) return;
+  const signature = JSON.stringify(state);
+  if (signature === onlineStoryPublishSignature) return;
+  onlineStoryPublishing = true;
+  window.SpiritOnline.updateStoryState(current.onlineSessionCode, state)
+    .then(result => {
+      onlineStoryPublishSignature = signature;
+      current.onlineStoryRevision = Number(result.revision || result.session?.storyState?.revision || current.onlineStoryRevision || 0);
+      if (result.session) {
+        rememberOnlineSession(result.session);
+        onlineSessionSignature = "";
+        updateOnlineLivePanel(onlineSession);
+      }
+    })
+    .catch(error => onlineFailure(error))
+    .finally(() => { onlineStoryPublishing = false; });
+}
+
+function applyOnlineStoryState(session = onlineSession) {
+  const snapshot = session?.storyState;
+  const revision = Number(snapshot?.revision || 0);
+  if (!isOnlineEngine() || !snapshot?.state || !revision || revision <= Number(current.onlineStoryRevision || 0)) return false;
+  const localIdentity = {
+    id: current.id,
+    protagonist: current.protagonist,
+    onlineUsername: current.onlineUsername,
+    onlineSessionCode: current.onlineSessionCode,
+    onlineGroupCharacters: onlineGroupCharacters(),
+    playerCharacters: playerCharacters()
+  };
+  const state = JSON.parse(JSON.stringify(snapshot.state));
+  Object.assign(current, state);
+  current.id = localIdentity.id;
+  current.protagonist = localIdentity.protagonist;
+  current.onlineUsername = localIdentity.onlineUsername;
+  current.onlineSessionCode = localIdentity.onlineSessionCode;
+  current.onlineGroupCharacters = unique(state.onlineGroupCharacters?.length ? state.onlineGroupCharacters : localIdentity.onlineGroupCharacters);
+  current.playerCharacters = [...current.onlineGroupCharacters];
+  current.gameMode = "online";
+  current.onlineStoryRevision = revision;
+  current.onlineSceneRevision = Number(session.sceneState?.revision || current.onlineSceneRevision || 0);
+  current.onlineLastDecisionKey = session.sceneState?.lastDecision?.key || current.onlineLastDecisionKey || null;
+  current.onlinePendingDecision = null;
+  current.onlineAwaitingStory = false;
+  current.onlineDecisionNotice = session.sceneState?.lastDecision?.choices
+    ? { key: session.sceneState.lastDecision.key, choices: session.sceneState.lastDecision.choices, player: current.onlineUsername }
+    : null;
+  current.onlineRoundComplete = session.turn?.mode === "advance";
+  onlineStoryPublishSignature = JSON.stringify(onlineStoryPayload());
+  saveCurrent();
+  stopTimers();
+  renderMovie();
+  return true;
+}
+
 function syncOnlineSceneState(session) {
   const shared = session?.sceneState;
   if (!isOnlineEngine() || !current?.movie || !shared) return false;
+  // Hydrate the canonical story before considering the lightweight scene
+  // cursor. This is what prevents three browsers from running three random
+  // versions of the same movie.
+  if (applyOnlineStoryState(session)) return true;
   // The server publishes stage 1 as soon as the host starts the session, but
   // every client still has to watch its own cast intro first.  Advancing here
   // used to replace the intro overlay with a blank/frozen scene.
@@ -527,7 +638,19 @@ function finishOnlineDecision(key, player, action, session) {
   current.onlinePendingDecision = null;
   current.onlineRoundComplete = session?.turn?.mode === "advance";
   current.onlineDecisionNotice = { key, choices: resolved.choices || {}, player };
-  action();
+  current.onlineResolvedChoices = resolved.choices || {};
+  if (isOnlineStoryAuthoritative()) {
+    action();
+    // Most actions call saveCurrent themselves; this covers actions that only
+    // change the scene cursor and makes the publish intent explicit.
+    publishOnlineStoryState();
+  } else {
+    // Non-authoritative players must never run their local closure. They wait
+    // for Player 1's snapshot, otherwise each browser would fork the plot.
+    current.onlineAwaitingStory = true;
+    toast("Η κοινή επιλογή λύθηκε. Περιμένουμε το επόμενο shared scene…");
+  }
+  current.onlineResolvedChoices = null;
   return true;
 }
 
@@ -959,15 +1082,21 @@ function onlineWatch(code) {
   onlineWatchingCode = code;
   window.SpiritOnline.rememberSessionCode?.(code);
   const applySession = session => {
-    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, sceneState: session.sceneState, turn: session.turn, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
+    const previousTurn = JSON.stringify(onlineSession?.turn || null);
+    const signature = JSON.stringify({ code: session.code, status: session.status, stage: session.stage, sceneState: session.sceneState, storyState: session.storyState?.revision, turn: session.turn, players: session.players, history: session.history, pendingDecisions: session.pendingDecisions, chat: session.chat });
     if (signature === onlineSessionSignature && onlineSession?.me === session.me) return;
     onlineSessionSignature = signature;
     onlineSession = session;
     window.SpiritOnline.rememberSessionCode?.(session.code);
     updateOnlineLivePanel(session);
     if (session.status === "playing") {
+      applyOnlineStoryState(session);
       syncOnlineSceneState(session);
       launchOnlinePreview(session);
+      // A turn handoff changes which browser's controls are enabled. Refresh
+      // the same scene immediately instead of waiting for a full navigation.
+      if (previousTurn !== JSON.stringify(session.turn || null)
+        && current?.movie && !current.movie.pendingBeat && current.movie.stage > 0) renderMovie();
       return;
     }
     if (document.querySelector("[data-online-lobby]")) renderOnlineLobby();
@@ -1180,6 +1309,7 @@ function launchOnlinePreview(session) {
     savedOnlineCut.onlineUsername = session.me;
     savedOnlineCut.onlineGroupCharacters = session.players.map(entry => entry.character).filter(Boolean);
     loadUniverse(savedOnlineCut.id);
+    applyOnlineStoryState(session);
     return;
   }
   createUniverse(player.character, {
@@ -1190,6 +1320,7 @@ function launchOnlinePreview(session) {
     onlineSessionCode: session.code,
     onlineUsername: session.me,
   });
+  applyOnlineStoryState(session);
 }
 
 function renderOnlineLobby() {
@@ -1394,9 +1525,15 @@ function confirmProtagonist(name) {
 }
 
 function createUniverse(protagonist, options = {}) {
-  const players = unique(options.playerCharacters?.length ? options.playerCharacters : [protagonist]);
-  const onlineGroup = unique(options.onlineGroupCharacters?.length ? options.onlineGroupCharacters : players).filter(name => character(name));
+  onlineStoryPublishSignature = "";
   const mode = options.mode || "single";
+  const onlineGroup = unique(options.onlineGroupCharacters?.length ? options.onlineGroupCharacters : options.playerCharacters || [protagonist]).filter(name => character(name));
+  // Online story generation must know the complete cast of human players on
+  // every browser. Previously each client only generated itself, producing
+  // different danger rolls, groups and scenes after the opening.
+  const players = unique(mode === "online" && onlineGroup.length
+    ? onlineGroup
+    : options.playerCharacters?.length ? options.playerCharacters : [protagonist]);
   const seed = Number.isFinite(options.seed) ? Number(options.seed) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
   const relationshipsByPlayer = Object.fromEntries(players.map(player => [player, buildRelationshipBoard(player)]));
   current = {
@@ -1414,6 +1551,7 @@ function createUniverse(protagonist, options = {}) {
     onlineSceneRevision: 0,
     onlineLastDecisionKey: null,
     onlineRoundComplete: false,
+    onlineStoryRevision: 0,
     activePlayerIndex: 0,
     relationshipViewer: players[0],
     playerCredits: Object.fromEntries(players.map(name => [name, 1000])),
@@ -1444,9 +1582,14 @@ function loadUniverse(id) {
   current.credits ??= 1000;
   current.playerCharacters = unique(current.playerCharacters?.length ? current.playerCharacters.filter(name => character(name)) : [current.protagonist]);
   current.gameMode ||= current.playerCharacters.length > 1 ? "local" : "single";
+  if (current.gameMode === "online") {
+    current.onlineGroupCharacters = unique(current.onlineGroupCharacters?.length ? current.onlineGroupCharacters : current.playerCharacters).filter(name => character(name));
+    if (current.onlineGroupCharacters.length) current.playerCharacters = [...current.onlineGroupCharacters];
+  }
   current.activePlayerIndex ??= 0;
   current.relationshipViewer ||= current.playerCharacters[0];
   current.onlineSceneRevision ??= 0;
+  current.onlineStoryRevision ??= 0;
   current.onlineLastDecisionKey ||= null;
   current.onlineRoundComplete ??= false;
   current.survivorCelebrationPending ??= false;
@@ -2115,10 +2258,14 @@ function movieScreen(sceneName, progress) {
   }
   if (current.gameMode === "online") {
     const onlineTurn = el("div", "turn-strip online-turn-strip");
+    const pendingRound = Object.values(onlineSession?.pendingDecisions || {}).find(decision => Object.keys(decision?.submissions || {}).length);
+    const pendingCopy = pendingRound
+      ? Object.entries(pendingRound.submissions || {}).map(([name, value]) => `${name} joined ${describeOnlineChoice(value)}`).join(" · ")
+      : "";
     onlineTurn.append(
       el("span", "eyebrow", "SERVER TURN"),
       el("strong", "", onlineTurnLabel()),
-      el("small", "", "Το scene progress είναι κοινό. Ο ενεργός παίκτης ολοκληρώνει το δικό του outcome πριν ξεκλειδώσει ο επόμενος."),
+      el("small", "", pendingCopy || "Το scene progress είναι κοινό. Ο Player 1 αποφασίζει το opening και μετά όλοι συνεχίζετε στην ίδια σκηνή."),
     );
     content.append(onlineTurn);
     publishOnlineSceneState(sceneName);
@@ -2324,8 +2471,8 @@ function renderOpening() {
   const scenario = movie.openingScenario;
   const decisionPlayer = playerCharacters()[movie.openingPlayerIndex || 0] || current.protagonist;
   content.append(scenePanel({
-    name: person, time: scenario.time, image: person, tone: "red", eyebrow: `${scenario.eyebrow}${isLocalMode() ? ` · TURN: ${decisionPlayer}` : ""}`, title: scenario.title,
-    body: `${scenario.body}${isLocalMode() ? ` Ο/Η ${decisionPlayer} παίρνει την πρώτη απόφαση· μετά κάντε pass turn.` : ""}`,
+    name: person, time: scenario.time, image: person, tone: "red", eyebrow: `${scenario.eyebrow}${isLocalMode() ? ` · TURN: ${decisionPlayer}` : isOnlineEngine() ? " · PLAYER 1 DECIDES" : ""}`, title: scenario.title,
+    body: `${scenario.body}${isLocalMode() ? ` Ο/Η ${decisionPlayer} παίρνει την πρώτη απόφαση· μετά κάντε pass turn.` : isOnlineEngine() ? " Ο Player 1 κλειδώνει το opening outcome. Μετά όλοι συνεχίζετε στην ίδια κοινή ιστορία." : ""}`,
     cameos: [movie.openingPartner],
     choices: [
       { label: scenario.choices[0], action: () => openingChoice("warn") },
@@ -2453,7 +2600,7 @@ function renderFriendChoice() {
     const canonCopy = groupCanon.length ? `Canon δεσμός: ${groupCanon.join(" · ")}. ` : "";
     const groupCopy = `${continuityCopy}${canonCopy}${canonLinks.length ? `${canonLinks.join(" · ")} · ` : ""}${group.length} active members · κανείς δεν έμεινε εκτός group.`;
     card.append(el("b", "", String.fromCharCode(65 + index)), el("h3", "", group.join(" · ")), el("p", "", groupCopy));
-    const choose = button("Πήγαινε σε αυτούς", "ghost", () => chooseFriends(group), true);
+    const choose = button(`GROUP ${index + 1} · Πήγαινε σε αυτούς`, "ghost", () => chooseFriends(group, index), true);
     card.append(choose);
     grid.append(card);
   });
@@ -2461,14 +2608,34 @@ function renderFriendChoice() {
   content.append(root);
 }
 
-function chooseFriends(group) {
+function chooseFriends(group, groupIndex = -1) {
   const movie = current.movie;
   group = localDecision(`group-${movie.number}`, group, values => unique(values.flat()));
   if (group === LOCAL_PENDING) return;
+  // The canonical host combines the ordered group picks into one shared cast
+  // outcome. Every browser receives this result through story-state sync.
+  if (isOnlineEngine() && isOnlineStoryAuthoritative() && current.onlineResolvedChoices) {
+    const selectedIndexes = Object.values(current.onlineResolvedChoices)
+      .map(value => String(value?.label || value || "").match(/GROUP\s+(\d+)/i)?.[1])
+      .map(value => Number(value) - 1)
+      .filter(index => Number.isInteger(index) && movie.friendOptions?.[index]);
+    const groups = selectedIndexes.map(index => movie.friendOptions[index]);
+    if (groups.length) group = unique(groups.flat());
+  }
   movie.friends = [...group];
   const groupVote = movie.localDecisionHistory?.at(-1)?.choices;
   movie.playerFriends ||= {};
-  if (isMultiplayerMode() && groupVote) {
+  if (isOnlineEngine()) {
+    playerCharacters().forEach(player => { movie.playerFriends[player] = [...group]; });
+    group.forEach(name => {
+      playerCharacters().forEach(player => {
+        const state = relationshipState(name, player);
+        state.friendship += 24;
+        state.trust += 12;
+        state.loyalty += 10;
+      });
+    });
+  } else if (isMultiplayerMode() && groupVote) {
     playerCharacters().forEach(player => {
       const ownGroup = unique(groupVote[player] || group);
       movie.playerFriends[player] = ownGroup;

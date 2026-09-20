@@ -136,6 +136,7 @@ window.SpiritOnline = (() => {
     startSession: code => request(`/api/sessions/${encodeURIComponent(code)}/start`, { method: "POST" }),
     updateStage: (code, movie, scene) => request(`/api/sessions/${encodeURIComponent(code)}/stage`, { method: "POST", body: JSON.stringify({ movie, scene }) }),
     updateSceneState: (code, movie, stage, scene, decisionKey = "") => request(`/api/sessions/${encodeURIComponent(code)}/scene-state`, { method: "POST", body: JSON.stringify({ movie, stage, scene, decisionKey }) }),
+    updateStoryState: (code, state) => request(`/api/sessions/${encodeURIComponent(code)}/story-state`, { method: "POST", body: JSON.stringify({ state }) }),
     sendDecision: (code, key, value, scope = "shared") => request(`/api/sessions/${encodeURIComponent(code)}/decisions`, { method: "POST", body: JSON.stringify({ key, value, scope }) }),
     sendChat: (code, text) => request(`/api/sessions/${encodeURIComponent(code)}/chat`, { method: "POST", body: JSON.stringify({ text }) }),
     stopWatching,
