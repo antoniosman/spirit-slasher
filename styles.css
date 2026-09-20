@@ -37,6 +37,13 @@ body {
     linear-gradient(145deg, #07090c, #0b0e12 55%, #08080a);
 }
 
+html.intro-lock,
+body.intro-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -505,7 +512,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .ensemble-line span, .ensemble-line strong, .ensemble-line small { display: block; min-width: 0; }
 .ensemble-line strong { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
 .ensemble-line small { margin-top: 3px; color: var(--muted); font-family: "Cormorant Garamond", Georgia, serif; font-size: .92rem; line-height: 1.2; }
-.choice-list { display: grid; gap: 10px; margin-top: 24px; }
+.choice-list { position: relative; z-index: 4; display: grid; gap: 10px; margin-top: 24px; opacity: 1; visibility: visible; }
 .choice {
   display: grid;
   grid-template-columns: 34px 1fr;
@@ -516,12 +523,15 @@ button { -webkit-tap-highlight-color: transparent; }
   padding: 14px 16px;
   border: 1px solid var(--line);
   color: var(--paper);
-  background: rgba(255,255,255,.025);
+  background: rgba(255,255,255,.075);
   cursor: pointer;
   text-align: left;
   position: relative;
   overflow: hidden;
   transition: transform .2s ease, border-color .2s ease, background .2s ease;
+  opacity: 1;
+  visibility: visible;
+  z-index: 1;
 }
 .choice::after { content: ""; position: absolute; left: -100%; top: 0; bottom: 0; width: 36%; background: linear-gradient(90deg, transparent, rgba(226,27,45,.18), transparent); transform: skewX(-18deg); transition: left .45s ease; }
 .choice:hover::after, .choice:focus-visible::after { left: 120%; }
@@ -532,7 +542,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .choice.turn-locked { opacity: .46; cursor: not-allowed; filter: saturate(.55); }
 .remember { margin-top: 20px; color: var(--ice); font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.16rem; font-style: italic; animation: fade-up .5s both; }
 
-.cast-intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; width: 100vw; height: 100dvh; min-height: 100svh; overflow: hidden; background: #030405; }
+.cast-intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; width: 100vw; height: 100dvh; min-height: 100svh; overflow: hidden; touch-action: none; user-select: none; background: #030405; }
 .cast-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
 .cast-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.3) contrast(1.24) brightness(.52); transform: scale(1.06); animation: cast-pan 4s ease-out both; }
 .cast-backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,5,7,.92) 0 22%, transparent 65%), linear-gradient(0deg, rgba(4,5,7,.88), transparent 44%); }
@@ -541,7 +551,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .cast-title .credit { color: var(--blood); font-size: .75rem; font-weight: 800; letter-spacing: .32em; text-transform: uppercase; }
 .cast-title h1 { margin: 12px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(4rem, 13vw, 10rem); line-height: .72; letter-spacing: -.055em; }
 .cast-title p { margin: 18px 0 0; color: #d0d4d8; font-size: 1rem; letter-spacing: .22em; text-transform: uppercase; }
-.skip { position: fixed; z-index: 32; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); color: white; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); padding: 12px 16px; cursor: pointer; }
+.skip { position: fixed; z-index: 32; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); touch-action: manipulation; color: white; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); padding: 12px 16px; cursor: pointer; }
 
 .suspect-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 26px; }
 .accusation-debate { margin-top: 22px; padding: clamp(18px, 3vw, 28px); border-left: 3px solid var(--blood); background: linear-gradient(135deg, rgba(226,27,45,.1), rgba(7,9,12,.88)); }

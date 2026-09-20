@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.16";
+const APP_VERSION = "1.17";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -502,7 +502,7 @@ function onlineStoryPayload() {
     "seed", "protagonist", "playerCharacters", "onlineGroupCharacters", "gameMode",
     "movieNumber", "movie", "history", "onlineScenarioHistory", "relationships",
     "relationshipsByPlayer", "playerCredits", "credits", "activePlayerIndex",
-    "completed", "survivorCelebrationPending", "label"
+    "completed", "survivorCelebrationPending", "finalSequence", "label"
   ];
   const state = {};
   fields.forEach(field => {
@@ -729,6 +729,8 @@ function button(text, className, onClick, dataChoice = false) {
 
 function screen(extra = "") {
   stopTimers();
+  document.documentElement.classList.remove("intro-lock");
+  document.body.classList.remove("intro-lock");
   sceneWebGLStops.forEach(stop => stop?.());
   sceneWebGLStops = [];
   document.querySelectorAll(".cast-intro, .skip").forEach(node => node.remove());
@@ -1597,7 +1599,19 @@ function loadUniverse(id) {
   current.playerCredits ||= Object.fromEntries(current.playerCharacters.map(name => [name, 1000]));
   current.relationshipsByPlayer = Object.fromEntries(current.playerCharacters.map((name, index) => [name, buildRelationshipBoard(name, current.relationshipsByPlayer?.[name] || (index === 0 ? current.relationships : null))]));
   current.relationships = current.relationshipsByPlayer[current.protagonist] || current.relationships;
-  if (current.completed) return current.survivorCelebrationPending ? renderSurvivorsCelebration() : renderTrilogyArchive();
+  if (current.completed) {
+    // The final sequence is resumable: archive first, then winners, funeral
+    // and killer memorial. Older saves used survivorCelebrationPending; map
+    // that flag once so refreshes no longer reopen a blank final screen.
+    // A pre-v1.17 save could have been captured while the old winners scene
+    // was blank. Reopen those saves in the stable archive so the player has a
+    // visible recovery path instead of being trapped on the broken canvas.
+    current.finalSequence ||= "archive";
+    if (current.finalSequence === "survivors") return renderSurvivorsCelebration();
+    if (current.finalSequence === "funeral") return renderFuneral();
+    if (current.finalSequence === "killers") return renderKillerMemorial();
+    return renderTrilogyArchive();
+  }
   if (!current.movie) return startMovie(current.movieNumber || 1);
   const movie = current.movie;
   const world = movieWorlds[movie.number];
@@ -2158,6 +2172,8 @@ function renderRecap() {
 function playCastIntro() {
   stopTimers();
   stopMusic();
+  document.documentElement.classList.add("intro-lock");
+  document.body.classList.add("intro-lock");
   const movie = current.movie;
   const cast = unique(movie.introCast?.length ? movie.introCast : [movie.openingTarget, movie.openingPartner, current.protagonist]);
   movie.introCast = cast;
@@ -3861,9 +3877,10 @@ function renderMovieReport() {
 function completeTrilogy() {
   current.completed = true;
   current.movie = null;
-  current.survivorCelebrationPending = true;
+  current.survivorCelebrationPending = false;
+  current.finalSequence = "archive";
   saveCurrent();
-  renderSurvivorsCelebration();
+  renderTrilogyArchive();
 }
 
 function trilogyDeaths() {
@@ -3892,6 +3909,7 @@ function renderSurvivorsCelebration() {
   const survivors = trilogySurvivors();
   if (!survivors.length) {
     current.survivorCelebrationPending = false;
+    current.finalSequence = "funeral";
     saveCurrent();
     return renderFuneral();
   }
@@ -3961,6 +3979,7 @@ function renderSurvivorsCelebration() {
     if (survivorTimer) clearInterval(survivorTimer);
     survivorTimer = null;
     current.survivorCelebrationPending = false;
+    current.finalSequence = "funeral";
     saveCurrent();
     funeral3DStop?.();
     funeral3DStop = null;
@@ -3985,7 +4004,11 @@ function renderSurvivorsCelebration() {
 function renderFuneral() {
   if (!current) return renderHome();
   const dead = trilogyDeaths();
-  if (!dead.length) return renderKillerMemorial();
+  if (!dead.length) {
+    current.finalSequence = "killers";
+    saveCurrent();
+    return renderKillerMemorial();
+  }
   stopMusic();
   const root = screen("funeral-screen cinematic");
   const stage = el("div", "funeral-stage");
@@ -3996,6 +4019,8 @@ function renderFuneral() {
 
   const finish = () => {
     stopMemorialScore();
+    current.finalSequence = "killers";
+    saveCurrent();
     renderKillerMemorial();
   };
 
@@ -4059,6 +4084,8 @@ function renderKillerMemorial() {
   const finish = () => {
     stopTimers();
     stopMusic();
+    current.finalSequence = "archive";
+    saveCurrent();
     renderTrilogyArchive();
   };
 
@@ -4131,13 +4158,29 @@ function renderTrilogyArchive() {
   memorial.append(memorialGrid); content.append(memorial);
   const actions = el("div", "actions");
   if (trilogySurvivors().length) {
-    actions.append(button("Replay survivors celebration", "secondary", () => {
+    actions.append(button("Δες τους winners", "", () => {
+      current.finalSequence = "survivors";
       current.survivorCelebrationPending = true;
       saveCurrent();
       renderSurvivorsCelebration();
     }));
   }
-  if (trilogyDeaths().length) actions.append(button("Replay memorial", "secondary", renderFuneral));
+  if (trilogyDeaths().length) actions.append(button("Πήγαινε στο funeral", "secondary", () => {
+    current.finalSequence = "funeral";
+    saveCurrent();
+    renderFuneral();
+  }));
+  if (current.history.some(record => (record.killers || []).length)) actions.append(button("Δες το killer memorial", "secondary", () => {
+    current.finalSequence = "killers";
+    saveCurrent();
+    renderKillerMemorial();
+  }));
+  actions.append(button("Refresh scene", "ghost", () => {
+    current.finalSequence = "archive";
+    current.survivorCelebrationPending = false;
+    saveCurrent();
+    renderTrilogyArchive();
+  }));
   actions.append(button("Μεταφορά αυτού του save", "secondary", () => transferSaves([current], current.label || `${current.protagonist}-cut`)), button("Νέο universe", "", renderModeSelect), button("Κεντρικό μενού", "ghost", renderHome));
   content.append(actions);
   root.append(content);
