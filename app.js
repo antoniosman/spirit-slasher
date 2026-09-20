@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.17";
+const APP_VERSION = "1.18";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -3926,82 +3926,63 @@ function renderSurvivorsCelebration() {
   const stage = el("div", "funeral-stage survivors-stage");
   const scene = el("article", "funeral-scene survivors-scene");
   const depth = el("div", "funeral-depth survivors-depth");
-  const confetti = el("div", "survivors-confetti");
-  const confettiColors = ["#ffda61", "#ff7182", "#8ce9ed", "#c6a6ff", "#ffffff", "#82e8a6"];
-  for (let index = 0; index < 44; index += 1) {
-    const piece = el("span");
-    piece.style.setProperty("--x", `${(index * 37) % 101}%`);
-    piece.style.setProperty("--delay", `${(index % 11) * -.34}s`);
-    piece.style.setProperty("--duration", `${3.4 + (index % 5) * .46}s`);
-    piece.style.setProperty("--drift", `${((index * 17) % 80) - 40}px`);
-    piece.style.setProperty("--color", confettiColors[index % confettiColors.length]);
-    confetti.append(piece);
-  }
-  const candleLeft = el("span", "funeral-candle candle-left");
-  const candleRight = el("span", "funeral-candle candle-right");
-  const copy = el("div", "survivors-copy");
-  const activeCount = el("p", "survivors-count");
-  const activeName = el("h1", "display survivors-active-name");
-  const activeLine = el("p", "survivors-line");
-  const survivorStrip = el("div", "survivors-strip");
-  const activePortrait = el("img", "survivors-active-portrait");
   let activeIndex = 0;
-
-  survivors.forEach((name, index) => {
-    const card = el("div", "survivor-chip");
-    const image = el("img");
-    image.src = imagePath(name);
-    image.alt = name;
-    card.append(image, el("span", "", name));
-    card.dataset.index = String(index);
-    survivorStrip.append(card);
-  });
-
   const controls = el("div", "funeral-controls survivors-controls");
   const nextButton = button("Επόμενος survivor", "ghost", advance);
-  controls.append(nextButton, button("Συνέχεια στο funeral", "", finish));
-  copy.append(
-    el("p", "eyebrow", "MOVIE III · SURVIVORS CUT"),
-    el("h2", "survivors-kicker", "THEY MADE IT OUT"),
-    activeCount,
-    activeName,
-    activeLine,
-    survivorStrip
-  );
-  scene.append(depth, confetti, candleLeft, candleRight, activePortrait, copy);
-  stage.append(scene);
-  root.append(stage, controls, el("div", "funeral-heading", "THE NIGHT DIDN'T WIN"));
-
-  const updateActive = () => {
-    const name = survivors[activeIndex];
-    activeCount.textContent = `SURVIVOR ${String(activeIndex + 1).padStart(2, "0")} / ${String(survivors.length).padStart(2, "0")}`;
-    activeName.textContent = name;
-    activeLine.textContent = `${name} survived the Final Chapter. Τώρα χορεύει για όλους όσους έμειναν όρθιοι.`;
-    activePortrait.src = imagePath(name);
-    activePortrait.alt = `Portrait of survivor ${name}`;
-    survivorStrip.querySelectorAll(".survivor-chip").forEach((chip, index) => chip.classList.toggle("active", index === activeIndex));
-    nextButton.textContent = activeIndex >= survivors.length - 1 ? "Προς το funeral" : "Επόμενος survivor";
-  };
-
   const finish = () => {
     if (survivorTimer) clearInterval(survivorTimer);
     survivorTimer = null;
     current.survivorCelebrationPending = false;
-    current.finalSequence = "funeral";
+    current.finalSequence = "archive";
     saveCurrent();
-    funeral3DStop?.();
-    funeral3DStop = null;
     stopMusic();
-    renderFuneral();
+    renderTrilogyArchive();
   };
+  controls.append(
+    nextButton,
+    button("Refresh winners", "ghost", () => { activeIndex = 0; showSurvivor(); }),
+    button("Πίσω στο archive", "ghost", finish),
+    button("Ολοκλήρωση", "", finish)
+  );
+  stage.append(scene);
+  root.append(stage, controls, el("div", "funeral-heading", "THE NIGHT DIDN'T WIN"));
+
+  function showSurvivor() {
+    const name = survivors[activeIndex];
+    scene.textContent = "";
+    depth.textContent = "";
+    depth.append(el("span", "funeral-rain rain-far"), el("span", "funeral-rain rain-near"));
+    const portrait = el("div", "funeral-portrait survivors-portrait");
+    const image = el("img"); image.src = imagePath(name); image.alt = `Portrait of survivor ${name}`;
+    portrait.append(image);
+    const copy = el("div", "funeral-copy survivors-copy");
+    copy.append(
+      el("p", "eyebrow", `${String(activeIndex + 1).padStart(2, "0")} / ${String(survivors.length).padStart(2, "0")} · MOVIE III`),
+      el("h1", "display", name),
+      el("p", "funeral-line", `${name} επέζησε. Οι survivors στέκονται όρθιοι και γιορτάζουν όσους κατάφεραν να βγουν ζωντανοί.`),
+      el("small", "funeral-status survivors-status", "SURVIVOR · ALIVE · CELEBRATION")
+    );
+    const confetti = el("div", "survivors-confetti");
+    ["#ffda61", "#ff7182", "#8ce9ed", "#c6a6ff", "#ffffff", "#82e8a6"].forEach((color, index) => {
+      const piece = el("span");
+      piece.style.setProperty("--x", `${12 + index * 15}%`);
+      piece.style.setProperty("--delay", `${index * -.3}s`);
+      piece.style.setProperty("--duration", `${3.4 + index * .35}s`);
+      piece.style.setProperty("--drift", `${index % 2 ? 30 : -30}px`);
+      piece.style.setProperty("--color", color);
+      confetti.append(piece);
+    });
+    scene.append(portrait, depth, confetti, copy);
+    nextButton.textContent = activeIndex >= survivors.length - 1 ? "Πίσω στο archive" : "Επόμενος survivor";
+  }
 
   function advance() {
     if (activeIndex >= survivors.length - 1) return finish();
     activeIndex += 1;
-    updateActive();
+    showSurvivor();
   }
 
-  updateActive();
+  showSurvivor();
   playMusic(winnersAudio);
   survivorTimer = setInterval(() => {
     if (activeIndex >= survivors.length - 1) finish();
@@ -4065,7 +4046,7 @@ function renderFuneral() {
 
   controls.append(
     button("Επόμενο πορτρέτο", "ghost", next),
-    button("Συνέχεια στο archive", "", finish)
+    button("Συνέχεια στο killer memorial", "", finish)
   );
   root.append(stage, el("div", "funeral-heading", "I WILL REMEMBER YOU"), controls);
   playMemorialScore();
@@ -4082,7 +4063,11 @@ function renderKillerMemorial() {
     motive: record.motive,
     role: index === 0 ? "THE MASTERMIND" : "THE KILLER"
   })));
-  if (!entries.length) return renderTrilogyArchive();
+  if (!entries.length) {
+    current.finalSequence = "survivors";
+    saveCurrent();
+    return renderSurvivorsCelebration();
+  }
   stopMusic();
   const root = screen("killer-memorial-screen cinematic");
   const stage = el("div", "killer-memorial-stage");
@@ -4092,9 +4077,9 @@ function renderKillerMemorial() {
   const finish = () => {
     stopTimers();
     stopMusic();
-    current.finalSequence = "archive";
+    current.finalSequence = "survivors";
     saveCurrent();
-    renderTrilogyArchive();
+    renderSurvivorsCelebration();
   };
 
   const showReveal = () => {
@@ -4124,7 +4109,7 @@ function renderKillerMemorial() {
     if (index < entries.length) killerRevealTimer = setTimeout(next, 5200);
   };
 
-  controls.append(button("Επόμενος killer", "ghost", next), button("Συνέχεια στο archive", "", finish));
+  controls.append(button("Επόμενος killer", "ghost", next), button("Συνέχεια στους winners", "", finish));
   root.append(stage, el("div", "funeral-heading", "THE MASKS WERE ALWAYS THERE"), controls);
   playKillerMemorialScore();
   showReveal();
@@ -4165,20 +4150,18 @@ function renderTrilogyArchive() {
   if (!memorialEntries.length) memorialGrid.append(el("p", "section-copy", "Κανένας καταγεγραμμένος θάνατος."));
   memorial.append(memorialGrid); content.append(memorial);
   const actions = el("div", "actions");
-  if (trilogySurvivors().length) {
-    actions.append(button("Δες τους winners", "", () => {
-      current.finalSequence = "survivors";
-      current.survivorCelebrationPending = true;
-      saveCurrent();
-      renderSurvivorsCelebration();
-    }));
-  }
   if (trilogyDeaths().length) actions.append(button("Πήγαινε στο funeral", "secondary", () => {
     current.finalSequence = "funeral";
     saveCurrent();
     renderFuneral();
   }));
-  if (current.history.some(record => (record.killers || []).length)) actions.append(button("Δες το killer memorial", "secondary", () => {
+  if (trilogySurvivors().length) actions.append(button("Δες τους winners (last)", "", () => {
+    current.finalSequence = "survivors";
+    current.survivorCelebrationPending = true;
+    saveCurrent();
+    renderSurvivorsCelebration();
+  }));
+  if (current.history.some(record => (record.killers || []).length)) actions.append(button("Replay killer memorial", "secondary", () => {
     current.finalSequence = "killers";
     saveCurrent();
     renderKillerMemorial();
