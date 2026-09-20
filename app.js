@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.14";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -634,32 +634,33 @@ function stopTimers() {
 
 function stopMusic() {
   [introAudio, outroAudio, funeralAudio, killerMemorialAudio, winnersAudio].forEach(audio => {
+    if (!audio) return;
     audio.pause();
     audio.currentTime = 0;
   });
 }
 
 function stopMemorialScore() {
-  funeralAudio.pause();
-  funeralAudio.currentTime = 0;
+  funeralAudio?.pause();
+  if (funeralAudio) funeralAudio.currentTime = 0;
 }
 
 function playMemorialScore() {
-  if (!settings.sound) return;
+  if (!settings.sound || !funeralAudio) return;
   stopMemorialScore();
   funeralAudio.volume = .72;
   funeralAudio.play().catch(() => {});
 }
 
 function playKillerMemorialScore() {
-  if (!settings.sound) return;
+  if (!settings.sound || !killerMemorialAudio) return;
   killerMemorialAudio.currentTime = 0;
   killerMemorialAudio.volume = .78;
   killerMemorialAudio.play().catch(() => {});
 }
 
 function playMusic(audio, restart = true) {
-  if (!settings.sound) return;
+  if (!settings.sound || !audio) return;
   if (restart) audio.currentTime = 0;
   audio.volume = .78;
   audio.play().catch(() => {});
@@ -1448,11 +1449,12 @@ function loadUniverse(id) {
   current.onlineSceneRevision ??= 0;
   current.onlineLastDecisionKey ||= null;
   current.onlineRoundComplete ??= false;
+  current.survivorCelebrationPending ??= false;
   if (!current.playerCharacters.includes(current.relationshipViewer)) current.relationshipViewer = current.playerCharacters[0];
   current.playerCredits ||= Object.fromEntries(current.playerCharacters.map(name => [name, 1000]));
   current.relationshipsByPlayer = Object.fromEntries(current.playerCharacters.map((name, index) => [name, buildRelationshipBoard(name, current.relationshipsByPlayer?.[name] || (index === 0 ? current.relationships : null))]));
   current.relationships = current.relationshipsByPlayer[current.protagonist] || current.relationships;
-  if (current.completed) return renderTrilogyArchive();
+  if (current.completed) return current.survivorCelebrationPending ? renderSurvivorsCelebration() : renderTrilogyArchive();
   if (!current.movie) return startMovie(current.movieNumber || 1);
   const movie = current.movie;
   const world = movieWorlds[movie.number];
@@ -3692,6 +3694,7 @@ function renderMovieReport() {
 function completeTrilogy() {
   current.completed = true;
   current.movie = null;
+  current.survivorCelebrationPending = true;
   saveCurrent();
   renderSurvivorsCelebration();
 }
@@ -3720,7 +3723,11 @@ function trilogySurvivors() {
 function renderSurvivorsCelebration() {
   if (!current) return renderHome();
   const survivors = trilogySurvivors();
-  if (!survivors.length) return renderFuneral();
+  if (!survivors.length) {
+    current.survivorCelebrationPending = false;
+    saveCurrent();
+    return renderFuneral();
+  }
   stopMusic();
   const root = screen("survivors-screen cinematic");
   const canvas = el("canvas", "survivors-webgl");
@@ -3772,6 +3779,8 @@ function renderSurvivorsCelebration() {
   const finish = () => {
     if (survivorTimer) clearInterval(survivorTimer);
     survivorTimer = null;
+    current.survivorCelebrationPending = false;
+    saveCurrent();
     funeral3DStop?.();
     funeral3DStop = null;
     stopMusic();
@@ -3945,6 +3954,13 @@ function renderTrilogyArchive() {
   if (!memorialEntries.length) memorialGrid.append(el("p", "section-copy", "Κανένας καταγεγραμμένος θάνατος."));
   memorial.append(memorialGrid); content.append(memorial);
   const actions = el("div", "actions");
+  if (trilogySurvivors().length) {
+    actions.append(button("Replay survivors celebration", "secondary", () => {
+      current.survivorCelebrationPending = true;
+      saveCurrent();
+      renderSurvivorsCelebration();
+    }));
+  }
   if (trilogyDeaths().length) actions.append(button("Replay memorial", "secondary", renderFuneral));
   actions.append(button("Μεταφορά αυτού του save", "secondary", () => transferSaves([current], current.label || `${current.protagonist}-cut`)), button("Νέο universe", "", renderModeSelect), button("Κεντρικό μενού", "ghost", renderHome));
   content.append(actions);
