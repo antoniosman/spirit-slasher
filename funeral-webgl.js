@@ -287,6 +287,123 @@
     };
   }
 
+  function mountSurvivors(canvas, options = {}) {
+    const gl = canvas.getContext("webgl", { alpha: true, antialias: true, premultipliedAlpha: false });
+    if (!gl) return () => {};
+    const survivors = Array.isArray(options.survivors) ? options.survivors : [];
+    const imageFor = typeof options.imageFor === "function" ? options.imageFor : () => "";
+    const getActiveIndex = typeof options.getActiveIndex === "function" ? options.getActiveIndex : () => 0;
+    let stopped = false;
+    let frame = 0;
+    const startedAt = performance.now();
+    const colorProgram = program(gl, vertexColor, fragmentColor);
+    const textureProgram = program(gl, vertexTexture, fragmentTexture);
+    const cubeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, cubeVertices, gl.STATIC_DRAW);
+    const quadBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+    const avatarTextures = survivors.map(name => texture(gl, imageFor(name)));
+
+    const drawCube = (vp, position, scale, color, yaw = 0) => {
+      gl.useProgram(colorProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
+      const attribute = gl.getAttribLocation(colorProgram, "aPosition");
+      gl.enableVertexAttribArray(attribute);
+      gl.vertexAttribPointer(attribute, 3, gl.FLOAT, false, 0, 0);
+      gl.uniformMatrix4fv(gl.getUniformLocation(colorProgram, "uMvp"), false, multiply(vp, model(position, scale, yaw)));
+      gl.uniform4fv(gl.getUniformLocation(colorProgram, "uColor"), color);
+      gl.drawArrays(gl.TRIANGLES, 0, 36);
+    };
+
+    const drawPortrait = (vp, portraitTexture, position, scale, opacity = 1, yaw = 0) => {
+      gl.useProgram(textureProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      const positionAttribute = gl.getAttribLocation(textureProgram, "aPosition");
+      const uvAttribute = gl.getAttribLocation(textureProgram, "aUv");
+      gl.enableVertexAttribArray(positionAttribute);
+      gl.enableVertexAttribArray(uvAttribute);
+      gl.vertexAttribPointer(positionAttribute, 3, gl.FLOAT, false, 20, 0);
+      gl.vertexAttribPointer(uvAttribute, 2, gl.FLOAT, false, 20, 12);
+      gl.uniformMatrix4fv(gl.getUniformLocation(textureProgram, "uMvp"), false, multiply(vp, model(position, scale, yaw)));
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, portraitTexture);
+      gl.uniform1i(gl.getUniformLocation(textureProgram, "uTexture"), 0);
+      gl.uniform1f(gl.getUniformLocation(textureProgram, "uOpacity"), opacity);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    };
+
+    const resize = () => {
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      const width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
+      const height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      gl.viewport(0, 0, width, height);
+    };
+
+    const drawDancer = (vp, index, elapsed, active) => {
+      const phase = elapsed * (active ? 5.2 : 2.1) + index * 1.57;
+      const unit = active ? 1.08 : .66;
+      const lane = active ? 0 : (index % 2 ? 3.15 : -3.15) + Math.floor(index / 4) * (index % 2 ? .38 : -.38);
+      const z = active ? .45 : -1.5 - Math.floor(index / 3) * .35;
+      const bob = Math.abs(Math.sin(phase)) * (active ? .16 : .045);
+      const sway = Math.sin(phase * .64) * (active ? .24 : .08);
+      const kick = Math.sin(phase * 1.24);
+      const alpha = active ? 1 : .4;
+      const bodyColor = active ? [.14, .37, .43, 1] : [.075, .12, .15, alpha];
+      const headColor = active ? [.24, .47, .51, 1] : [.11, .17, .19, alpha];
+      const bodyY = -.34 + bob;
+      const headY = 1.18 + bob;
+      drawCube(vp, [lane, bodyY, z], [.8 * unit, .72 * unit, .48 * unit], bodyColor, sway * .22);
+      drawCube(vp, [lane, headY, z], [.46 * unit, .46 * unit, .46 * unit], headColor, sway * .34);
+      drawPortrait(vp, avatarTextures[index], [lane, headY, z + .47 * unit], [.68 * unit, .68 * unit, 1], active ? .98 : .46, sway * .34);
+
+      const armWave = Math.sin(phase + .8) * (active ? .42 : .1);
+      const armX = .9 * unit;
+      drawCube(vp, [lane - armX, .03 + bob, z], [.13 * unit, .56 * unit, .13 * unit], bodyColor, -armWave);
+      drawCube(vp, [lane + armX, .03 + bob, z], [.13 * unit, .56 * unit, .13 * unit], bodyColor, armWave);
+      drawCube(vp, [lane - .28 * unit, -1.25 + bob, z + kick * .12], [.18 * unit, .54 * unit, .18 * unit], bodyColor, kick * .17);
+      drawCube(vp, [lane + .28 * unit, -1.25 + bob, z - kick * .12], [.18 * unit, .54 * unit, .18 * unit], bodyColor, -kick * .17);
+      drawCube(vp, [lane, -1.78, z], [1.03 * unit, .035 * unit, .72 * unit], active ? [.64, .29, .08, .52] : [.16, .09, .08, .22]);
+    };
+
+    const render = now => {
+      if (stopped) return;
+      resize();
+      const elapsed = (now - startedAt) / 1000;
+      const activeIndex = Math.max(0, Math.min(survivors.length - 1, Number(getActiveIndex()) || 0));
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      const projection = perspective(Math.PI / 4.15, canvas.width / canvas.height, .1, 100);
+      const sway = Math.sin(elapsed * .16) * .24;
+      const view = lookAt([sway, 2.7, 11.5], [0, -.35, 0], [0, 1, 0]);
+      const vp = multiply(projection, view);
+      drawCube(vp, [0, -1.91, -.2], [8.8, .06, 7], [.008, .012, .016, 1]);
+      drawCube(vp, [0, -1.65, .35], [4.75, .1, 2.75], [.08, .12, .14, .98]);
+      drawCube(vp, [0, .65, -1.15], [2.3, 2.3, .05], [.15, .42, .48, .075]);
+      survivors.forEach((_, index) => {
+        if (index !== activeIndex) drawDancer(vp, index, elapsed, false);
+      });
+      drawDancer(vp, activeIndex, elapsed, true);
+      frame = requestAnimationFrame(render);
+    };
+    frame = requestAnimationFrame(render);
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+      avatarTextures.forEach(item => gl.deleteTexture(item));
+      gl.deleteBuffer(cubeBuffer);
+      gl.deleteBuffer(quadBuffer);
+      gl.deleteProgram(colorProgram);
+      gl.deleteProgram(textureProgram);
+    };
+  }
+
   function mountAtmosphere(canvas, mood = "cold") {
     const gl = canvas.getContext("webgl", { alpha: true, antialias: true, premultipliedAlpha: false });
     if (!gl) return () => {};
@@ -332,5 +449,5 @@
     };
   }
 
-  window.SpiritFuneral3D = { mount, mountAtmosphere };
+  window.SpiritFuneral3D = { mount, mountAtmosphere, mountSurvivors };
 })();

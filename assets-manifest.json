@@ -1,10 +1,11 @@
 {
-  "version": "1.12",
+  "version": "1.13",
   "assets": [
     "assets/audio/funeral.mp3",
     "assets/audio/intro.mp3",
     "assets/audio/memoriam-killers.mp3",
     "assets/audio/outro.mp3",
+    "assets/audio/winners_song.mp3",
     "assets/brand/spirit-slasher-logo.png",
     "assets/characters/char_alex.webp",
     "assets/characters/char_billy.webp",

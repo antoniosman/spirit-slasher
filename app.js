@@ -5,6 +5,7 @@ const introAudio = document.querySelector("#introAudio");
 const outroAudio = document.querySelector("#outroAudio");
 const funeralAudio = document.querySelector("#funeralAudio");
 const killerMemorialAudio = document.querySelector("#killerMemorialAudio");
+const winnersAudio = document.querySelector("#winnersAudio");
 const soundButton = document.querySelector("#soundButton");
 const fullscreenButton = document.querySelector("#fullscreenButton");
 const homeButton = document.querySelector("#homeButton");
@@ -19,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.12";
+const APP_VERSION = "1.13";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -207,6 +208,7 @@ let current = null;
 let introTimer = null;
 let creditTimer = null;
 let memorialTimer = null;
+let survivorTimer = null;
 let killerRevealTimer = null;
 let funeral3DStop = null;
 let sceneWebGLStops = [];
@@ -618,10 +620,12 @@ function stopTimers() {
   if (introTimer) clearInterval(introTimer);
   if (creditTimer) clearInterval(creditTimer);
   if (memorialTimer) clearInterval(memorialTimer);
+  if (survivorTimer) clearInterval(survivorTimer);
   if (killerRevealTimer) clearTimeout(killerRevealTimer);
   introTimer = null;
   creditTimer = null;
   memorialTimer = null;
+  survivorTimer = null;
   killerRevealTimer = null;
   funeral3DStop?.();
   funeral3DStop = null;
@@ -629,7 +633,7 @@ function stopTimers() {
 }
 
 function stopMusic() {
-  [introAudio, outroAudio, funeralAudio, killerMemorialAudio].forEach(audio => {
+  [introAudio, outroAudio, funeralAudio, killerMemorialAudio, winnersAudio].forEach(audio => {
     audio.pause();
     audio.currentTime = 0;
   });
@@ -3689,7 +3693,7 @@ function completeTrilogy() {
   current.completed = true;
   current.movie = null;
   saveCurrent();
-  renderFuneral();
+  renderSurvivorsCelebration();
 }
 
 function trilogyDeaths() {
@@ -3702,6 +3706,95 @@ function trilogyDeaths() {
   const firstDeath = new Map();
   entries.forEach(entry => { if (!firstDeath.has(entry.name)) firstDeath.set(entry.name, entry); });
   return [...firstDeath.values()];
+}
+
+function trilogySurvivors() {
+  const finalRecord = [...(current?.history || [])].reverse().find(record => record.number === 3) || current?.history?.at(-1);
+  const dead = new Set(trilogyDeaths().map(entry => entry.name));
+  const killers = new Set((current?.history || []).flatMap(record => record.killers || []));
+  const fallback = finalRecord?.cast?.filter(name => finalRecord.statuses?.[name] !== "DEAD") || [];
+  return unique([...(finalRecord?.survivors || []), ...fallback, ...playerCharacters()])
+    .filter(name => !dead.has(name) && !killers.has(name));
+}
+
+function renderSurvivorsCelebration() {
+  if (!current) return renderHome();
+  const survivors = trilogySurvivors();
+  if (!survivors.length) return renderFuneral();
+  stopMusic();
+  const root = screen("survivors-screen cinematic");
+  const canvas = el("canvas", "survivors-webgl");
+  canvas.setAttribute("aria-hidden", "true");
+  const atmosphere = el("div", "survivors-atmosphere");
+  const stage = el("div", "survivors-stage");
+  const copy = el("div", "survivors-copy");
+  const activeCount = el("p", "survivors-count");
+  const activeName = el("h1", "display survivors-active-name");
+  const activeLine = el("p", "survivors-line");
+  const survivorStrip = el("div", "survivors-strip");
+  const activePortrait = el("img", "survivors-active-portrait");
+  let activeIndex = 0;
+
+  survivors.forEach((name, index) => {
+    const card = el("div", "survivor-chip");
+    const image = el("img");
+    image.src = imagePath(name);
+    image.alt = name;
+    card.append(image, el("span", "", name));
+    card.dataset.index = String(index);
+    survivorStrip.append(card);
+  });
+
+  const controls = el("div", "funeral-controls survivors-controls");
+  const nextButton = button("Επόμενος survivor", "ghost", advance);
+  controls.append(nextButton, button("Συνέχεια στο funeral", "", finish));
+  copy.append(
+    el("p", "eyebrow", "MOVIE III · SURVIVORS CUT"),
+    el("h2", "survivors-kicker", "THEY MADE IT OUT"),
+    activeCount,
+    activeName,
+    activeLine,
+    survivorStrip
+  );
+  root.append(canvas, atmosphere, stage, activePortrait, copy, controls, el("div", "funeral-heading", "THE NIGHT DIDN'T WIN"));
+
+  const updateActive = () => {
+    const name = survivors[activeIndex];
+    activeCount.textContent = `SURVIVOR ${String(activeIndex + 1).padStart(2, "0")} / ${String(survivors.length).padStart(2, "0")}`;
+    activeName.textContent = name;
+    activeLine.textContent = `${name} survived the Final Chapter. Τώρα χορεύει για όλους όσους έμειναν όρθιοι.`;
+    activePortrait.src = imagePath(name);
+    activePortrait.alt = `Portrait of survivor ${name}`;
+    survivorStrip.querySelectorAll(".survivor-chip").forEach((chip, index) => chip.classList.toggle("active", index === activeIndex));
+    nextButton.textContent = activeIndex >= survivors.length - 1 ? "Προς το funeral" : "Επόμενος survivor";
+  };
+
+  const finish = () => {
+    if (survivorTimer) clearInterval(survivorTimer);
+    survivorTimer = null;
+    funeral3DStop?.();
+    funeral3DStop = null;
+    stopMusic();
+    renderFuneral();
+  };
+
+  function advance() {
+    if (activeIndex >= survivors.length - 1) return finish();
+    activeIndex += 1;
+    updateActive();
+  }
+
+  updateActive();
+  funeral3DStop = window.SpiritFuneral3D?.mountSurvivors?.(canvas, {
+    survivors,
+    imageFor: imagePath,
+    getActiveIndex: () => activeIndex
+  }) || null;
+  playMusic(winnersAudio);
+  survivorTimer = setInterval(() => {
+    if (activeIndex >= survivors.length - 1) finish();
+    else advance();
+  }, 4300);
 }
 
 function renderFuneral() {
@@ -3941,7 +4034,7 @@ async function checkForUpdate(manual = false) {
   try {
     // Read the published version outside the service-worker cache. This is
     // important for players who are still controlled by the previous worker:
-    // an old cached app must be able to discover v1.12 before it can install
+    // an old cached app must be able to discover a newer build before it can install
     // the new worker.
     let publishedVersion = "";
     try {
