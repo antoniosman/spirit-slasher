@@ -697,16 +697,18 @@ button { -webkit-tap-highlight-color: transparent; }
 .funeral-witnesses { max-width: 66ch; margin: 12px 0 0; color: #aab4b9; font-size: .78rem; line-height: 1.5; }
 .funeral-heading { position: fixed; z-index: 4; top: max(20px, env(safe-area-inset-top)); left: 50%; color: rgba(222,231,235,.56); font-family: "Cormorant Garamond", Georgia, serif; font-size: .8rem; letter-spacing: .32em; transform: translateX(-50%); white-space: nowrap; }
 .funeral-controls { position: fixed; z-index: 5; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
-.survivors-screen { min-height: 100svh; padding: 0; overflow: hidden; background: radial-gradient(circle at 50% 28%, #102d35, #030507 68%); perspective: 1400px; }
-.survivors-webgl { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 42%, rgba(27,75,83,.45), rgba(2,3,5,.96) 72%); }
-.survivors-atmosphere { position: absolute; z-index: 1; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 34%, rgba(139,226,231,.14), transparent 23%), linear-gradient(90deg, rgba(3,7,10,.82), transparent 31% 69%, rgba(3,7,10,.82)), linear-gradient(0deg, rgba(2,3,5,.9), transparent 48%); mix-blend-mode: screen; animation: survivors-lights 3.8s ease-in-out infinite alternate; }
+.survivors-screen { min-height: 100svh; padding: 0; overflow: hidden; background: radial-gradient(circle at 50% 28%, #172026, #030406 64%); perspective: 1400px; }
+.survivors-scene { background: radial-gradient(circle at 50% 30%, rgba(35,69,74,.42), rgba(2,3,5,.2) 52%, rgba(2,3,5,.86) 100%); }
+.survivors-depth::before { background: linear-gradient(90deg, rgba(2,3,5,.66), transparent 35% 67%, rgba(2,3,5,.58)), linear-gradient(0deg, rgba(2,3,5,.88), transparent 50%); }
 .survivors-stage { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 7px, rgba(154,235,242,.035) 8px, transparent 9px); opacity: .72; }
+.survivors-confetti { position: absolute; z-index: 3; inset: -10% 0 0; overflow: hidden; pointer-events: none; }
+.survivors-confetti span { position: absolute; top: -12%; left: var(--x); width: 8px; height: 15px; background: var(--color); border-radius: 2px; box-shadow: 0 0 10px rgba(255,255,255,.22); opacity: .9; transform: rotate(12deg); animation: survivors-confetti-fall var(--duration) var(--delay) linear infinite; }
 .survivors-copy { position: absolute; z-index: 4; left: clamp(20px, 6vw, 92px); bottom: clamp(88px, 12vh, 148px); width: min(620px, calc(100% - 40px)); padding: 22px 24px 20px; border-left: 3px solid rgba(137,200,215,.9); background: linear-gradient(90deg, rgba(3,7,10,.92), rgba(3,7,10,.42) 75%, transparent); backdrop-filter: blur(7px); animation: survivors-copy-in .9s cubic-bezier(.16,.78,.2,1) both; }
 .survivors-kicker { margin: 8px 0 10px; color: var(--ice); font-size: clamp(.74rem, 1.4vw, .92rem); font-weight: 900; letter-spacing: .27em; }
 .survivors-count { margin: 0; color: var(--blood); font-size: .7rem; font-weight: 900; letter-spacing: .22em; }
 .survivors-active-name { margin: 4px 0 8px; font-size: clamp(3.8rem, 9vw, 7.8rem); line-height: .8; text-shadow: 0 10px 35px rgba(0,0,0,.72); }
 .survivors-line { max-width: 48ch; margin: 0 0 18px; color: #c8d9dc; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(1.16rem, 2vw, 1.55rem); font-style: italic; }
-.survivors-active-portrait { position: absolute; z-index: 3; top: clamp(72px, 11vh, 120px); right: clamp(26px, 9vw, 160px); width: min(20vw, 224px); aspect-ratio: 1; object-fit: cover; border: 2px solid rgba(137,200,215,.62); box-shadow: 0 0 0 10px rgba(137,200,215,.05), 0 26px 70px rgba(0,0,0,.62); filter: saturate(1.15) contrast(1.08); transform: rotate(3deg); animation: survivor-portrait-pulse 2.8s ease-in-out infinite; }
+.survivors-active-portrait { position: absolute; z-index: 3; top: clamp(72px, 11vh, 120px); right: clamp(26px, 9vw, 160px); width: min(20vw, 224px); aspect-ratio: 1; object-fit: cover; border: 2px solid rgba(137,200,215,.62); background: #080a0c; box-shadow: 0 0 0 10px rgba(137,200,215,.05), 0 26px 70px rgba(0,0,0,.62); filter: saturate(1.18) contrast(1.08); transform: rotate(3deg); animation: survivor-dance 2.3s ease-in-out infinite; }
 .survivors-strip { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; padding: 5px 0 4px; scrollbar-width: thin; }
 .survivor-chip { position: relative; flex: 0 0 58px; height: 70px; overflow: hidden; border: 1px solid rgba(212,232,235,.22); background: #06090b; opacity: .52; transition: .35s ease; }
 .survivor-chip.active { border-color: var(--ice); opacity: 1; transform: translateY(-5px) rotate(-2deg); box-shadow: 0 0 22px rgba(137,200,215,.32); }
@@ -849,7 +851,8 @@ button { -webkit-tap-highlight-color: transparent; }
 @keyframes candle-flicker { from { transform: translateX(-50%) rotate(-4deg) scale(.9); opacity: .72; } to { transform: translateX(-50%) rotate(5deg) scale(1.08); opacity: 1; } }
 @keyframes survivors-copy-in { from { opacity: 0; transform: translateX(-34px) translateZ(-80px); filter: blur(8px); } to { opacity: 1; transform: translateZ(42px); filter: none; } }
 @keyframes survivors-lights { from { opacity: .56; transform: scale(1); } to { opacity: 1; transform: scale(1.06); } }
-@keyframes survivor-portrait-pulse { 0%,100% { transform: rotate(3deg) scale(1); } 50% { transform: rotate(-2deg) scale(1.035); } }
+@keyframes survivors-confetti-fall { 0% { opacity: 0; transform: translate3d(0, -10vh, 0) rotate(0deg); } 12% { opacity: .95; } 100% { opacity: .18; transform: translate3d(var(--drift), 122vh, 0) rotate(720deg); } }
+@keyframes survivor-dance { 0%,100% { transform: rotate(3deg) translateY(0) scale(1); } 25% { transform: rotate(-5deg) translateY(-7px) scale(1.035); } 50% { transform: rotate(4deg) translateY(2px) scale(1.015); } 75% { transform: rotate(-2deg) translateY(-5px) scale(1.04); } }
 
 .mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 28px 0; }
 .mode-card { display: grid; gap: 10px; align-content: start; min-height: 260px; }

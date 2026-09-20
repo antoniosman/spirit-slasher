@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.14";
+const APP_VERSION = "1.15";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -3729,11 +3729,23 @@ function renderSurvivorsCelebration() {
     return renderFuneral();
   }
   stopMusic();
-  const root = screen("survivors-screen cinematic");
-  const canvas = el("canvas", "survivors-webgl");
-  canvas.setAttribute("aria-hidden", "true");
-  const atmosphere = el("div", "survivors-atmosphere");
-  const stage = el("div", "survivors-stage");
+  const root = screen("funeral-screen survivors-screen cinematic");
+  const stage = el("div", "funeral-stage survivors-stage");
+  const scene = el("article", "funeral-scene survivors-scene");
+  const depth = el("div", "funeral-depth survivors-depth");
+  const confetti = el("div", "survivors-confetti");
+  const confettiColors = ["#ffda61", "#ff7182", "#8ce9ed", "#c6a6ff", "#ffffff", "#82e8a6"];
+  for (let index = 0; index < 44; index += 1) {
+    const piece = el("span");
+    piece.style.setProperty("--x", `${(index * 37) % 101}%`);
+    piece.style.setProperty("--delay", `${(index % 11) * -.34}s`);
+    piece.style.setProperty("--duration", `${3.4 + (index % 5) * .46}s`);
+    piece.style.setProperty("--drift", `${((index * 17) % 80) - 40}px`);
+    piece.style.setProperty("--color", confettiColors[index % confettiColors.length]);
+    confetti.append(piece);
+  }
+  const candleLeft = el("span", "funeral-candle candle-left");
+  const candleRight = el("span", "funeral-candle candle-right");
   const copy = el("div", "survivors-copy");
   const activeCount = el("p", "survivors-count");
   const activeName = el("h1", "display survivors-active-name");
@@ -3763,7 +3775,9 @@ function renderSurvivorsCelebration() {
     activeLine,
     survivorStrip
   );
-  root.append(canvas, atmosphere, stage, activePortrait, copy, controls, el("div", "funeral-heading", "THE NIGHT DIDN'T WIN"));
+  scene.append(depth, confetti, candleLeft, candleRight, activePortrait, copy);
+  stage.append(scene);
+  root.append(stage, controls, el("div", "funeral-heading", "THE NIGHT DIDN'T WIN"));
 
   const updateActive = () => {
     const name = survivors[activeIndex];
@@ -3794,11 +3808,6 @@ function renderSurvivorsCelebration() {
   }
 
   updateActive();
-  funeral3DStop = window.SpiritFuneral3D?.mountSurvivors?.(canvas, {
-    survivors,
-    imageFor: imagePath,
-    getActiveIndex: () => activeIndex
-  }) || null;
   playMusic(winnersAudio);
   survivorTimer = setInterval(() => {
     if (activeIndex >= survivors.length - 1) finish();
