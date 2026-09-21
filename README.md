@@ -54,8 +54,10 @@
 παρέχει accounts, sessions 2–4 παικτών, character lobby, seeded shared cast,
 per-player decision barriers, live avatar/choice polling και session-private chat.
 Οι λεπτομέρειες βρίσκονται στο [`server/README.md`](server/README.md). Το Online
-preview engine κρατάει ξεχωριστές επιλογές/outcomes ανά account, ενώ τα Single
-Player και Local μένουν ανεπηρέαστα.
+εκτελεί το ίδιο ακριβώς game flow με το Local multiplayer: Player 1 ανοίγει την
+ιστορία και στη συνέχεια 2–4 accounts παίζουν διαδοχικά στην ίδια κοινή σκηνή.
+Οι πραγματικές τιμές κάθε επιλογής περνούν στους ίδιους Local resolvers για
+groups, rooms, puzzles, rescues, items, theories, bets και finale outcomes.
 
 Για δοκιμή με παίκτη εκτός του τοπικού δικτύου, χρησιμοποίησε το named tunnel
 `https://slasher.spirituniverse.gr` που έχεις ρυθμίσει στο Cloudflare. Αφού

@@ -386,7 +386,7 @@ async function handleApi(request, response, url) {
   const method = request.method || "GET";
 
   if (method === "GET" && pathname === "/api/health") {
-    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.18.0", time: now() });
+    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.19.0", time: now() });
     return;
   }
 
@@ -669,6 +669,10 @@ async function handleApi(request, response, url) {
     if (!membership) return;
     const { user, session } = membership;
     if (session.status !== "playing") return sendError(request, response, 409, "The game has not started.", "game_not_started");
+    // Online Party is the Local pass-the-turn game over the network. Player 1
+    // is the only scene/story writer; the other devices submit decisions and
+    // hydrate the same canonical outcome instead of moving their own cursor.
+    if (session.players?.[0]?.username !== user.username) return sendError(request, response, 403, "Only Player 1 can publish the shared scene.", "scene_author_only");
     const body = await parseBody(request);
     const movie = Number(body.movie);
     const stage = Number(body.stage);

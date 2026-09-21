@@ -66,9 +66,10 @@ LAN or another test server.
   compatible clients, but the browser test adapter intentionally uses polling.
 
 The existing Single Player and Local pass-the-phone modes remain client-only.
-The Online account/lobby UI and the seeded Movie I/II/III preview engine connect
-to these endpoints. Each account runs its own action/outcome while the session
-shares the same seed, player group and decision barriers.
+Online is the same Local pass-the-turn engine distributed across 2–4 devices:
+the server orders the turns, stores each real gameplay value and lets Player 1
+apply the existing Local resolver once before publishing the shared scene and
+story snapshot. Every account therefore watches one storyline and one outcome.
 
 Large portraits, maps, logo and audio are requested from the GitHub Pages asset
 base (`https://antoniosman.github.io/spirit-slasher/`) so the local/tunnel server
