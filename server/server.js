@@ -386,7 +386,7 @@ async function handleApi(request, response, url) {
   const method = request.method || "GET";
 
   if (method === "GET" && pathname === "/api/health") {
-    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.19.0", time: now() });
+    sendJson(request, response, 200, { ok: true, service: "spirit-slasher-local", version: "1.20.0", time: now() });
     return;
   }
 
