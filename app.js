@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.24.0";
+const APP_VERSION = "1.25.0";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -53,10 +53,10 @@ const cinematicCharacterFiles = {
 };
 
 const characterGenders = {
-  Alex: "male", Billy: "male", Catherine: "female", Demarin: "male",
-  Elisa: "female", Ester: "female", Eva: "female", Evelin: "female",
-  Hope: "female", Jasmine: "female", Luna: "female", Paul: "male",
-  Pauline: "female", Phillip: "male", Rino: "male", Sargenie: "female",
+  Alex: "female", Billy: "male", Catherine: "female", Demarin: "female",
+  Elisa: "female", Ester: "female", Eva: "female", Evelyn: "female",
+  Evaggelia: "female", Hope: "female", Ian: "male", Irene: "female", Jasmine: "female", Luna: "female", Paul: "male",
+  Pauline: "female", Phillip: "male", Rino: "male", Sargenie: "male",
   Smaragda: "female", Sorina: "female", Tony: "male", Vicky: "female",
   Vincent: "male", Violet: "female", Zoe: "female"
 };
@@ -1817,6 +1817,19 @@ function loadUniverse(id) {
   const world = movieWorlds[movie.number];
   movie.rooms ||= [...world.rooms];
   movie.worldAsset ||= world.asset;
+  movie.locationChoices ||= [];
+  movie.locationClues ||= {};
+  while (movie.locationChoices.length < 4) {
+    const usedLocations = new Set(movie.locationChoices.map(([location]) => location));
+    const extraRoom = movie.rooms.find(room => !usedLocations.has(room.name));
+    if (!extraRoom) break;
+    movie.locationChoices.push([extraRoom.name, extraRoom.hint]);
+    movie.locationClues[extraRoom.name] ||= {
+      type: "UNVERIFIED CLUE",
+      title: "UNKNOWN FIGURE: το κλειδωμένο τέταρτο δωμάτιο",
+      text: "Το δωμάτιο προστέθηκε από το updated investigation flow. Το ίχνος είναι αληθινό, red herring ή παγίδα· δεν αποκαλύπτει αυτόματα κανέναν killer."
+    };
+  }
   movie.survivalItem ||= survivalItems[movie.number][0];
   movie.protectedLegacy ||= [];
   movie.offscreenDeaths ||= [];
@@ -1838,6 +1851,11 @@ function loadUniverse(id) {
   movie.investigatedRooms ||= [];
   movie.investigationPhase ||= "rooms";
   movie.investigationActions ||= 0;
+  movie.initialInvestigationComplete ??= movie.investigatedRooms.length > 0;
+  movie.additionalActions ||= {};
+  movie.additionalActionDrafts ||= {};
+  movie.additionalActionsComplete ??= false;
+  if (movie.stage === 4 && movie.initialInvestigationComplete && !movie.additionalActionsComplete) movie.investigationPhase = "followup";
   movie.dialoguedWith ||= [];
   movie.puzzle ||= investigationPuzzles[0];
   movie.puzzleSolved ||= false;
@@ -2293,7 +2311,7 @@ function generateMovie(number) {
   const friendOptions = distributeFriendGroups(shuffledFriends, continuityFriends);
   const world = movieWorlds[number];
   const rooms = shuffle(expandedRooms(number), random).slice(0, 12);
-  const locationChoices = rooms.slice(0, 3).map(room => [room.name, room.hint]);
+  const locationChoices = rooms.slice(0, 4).map(room => [room.name, room.hint]);
   const openingScenario = buildOpeningScenario(number, openingTarget, openingPartner, random, current.history.map(record => record.openingScenarioId));
   const fatalityTarget = number === 1
     ? Math.min(Math.max(4, cast.length - 3), 4 + Math.floor(random() * 4))
@@ -2338,6 +2356,11 @@ function generateMovie(number) {
       { type: "CHARACTER SECRET", title: `${secretHolder}: η μυστική έξοδος`, text: `${subjectName(secretHolder)} γνώριζε μια έξοδο αλλά την έκρυβε για να προστατεύσει κάποιον άλλο.` }
     ], random)
   ];
+  cluePool.push(pick([
+    { type: "REAL CLUE", title: `${clueIdentity}: το σπασμένο radio`, text: mysteryFinalClue ? `${legacyClueWarning} Η συχνότητα κρατά ένα παλιό ηχητικό αποτύπωμα, αλλά μπορεί να είναι αντιγραφή.` : `Το κρυπτογραφημένο radio συνδέθηκε με συσκευή που χρησιμοποίησε ${subjectName(mainKiller, true)} πριν από το blackout.` },
+    { type: "RED HERRING", title: `${innocent}: το κλειδωμένο ντουλάπι`, text: `Το ντουλάπι είχε αντικείμενα ${genitiveName(innocent)}, αλλά το λουκέτο ανοίχτηκε με δεύτερο, άγνωστο κλειδί.` },
+    { type: "CHARACTER SECRET", title: `${secretHolder}: η κρυφή συχνότητα`, text: `${subjectName(secretHolder)} άκουγε τις συνομιλίες του group χωρίς να το παραδεχτεί. Αυτό εξηγεί όσα γνώριζε, όχι αν είναι killer.` }
+  ], random));
   const locationClues = Object.fromEntries(locationChoices.map((location, index) => [location[0], cluePool[index]]));
   const status = Object.fromEntries(unique([...cast, ...killers]).map(name => [name, "ALIVE"]));
   const historicalChoice = current.history.flatMap(movie => movie.pivotal || [])[0];
@@ -2364,7 +2387,7 @@ function generateMovie(number) {
     cluesFound: [], choices: [], firstSuspicion: [], midpointTheory: [], finalTheory: [], pendingTheory: [],
     pendingBet: 0, betAmount: 0, betPayout: 0, betResult: "NO BET", betSettled: false, localDecisions: {}, localDecisionHistory: [], localTurnNotice: null, lastLocalResolution: null, localTheories: { midpoint: {}, final: {} }, localBets: {},
     stageResult: null, saved: [], offscreenDeaths: [], lateDeaths: [], abandoned: [], deathOrder: [], canonMoments: [], deathsPrevented: 0, peopleSaved: 0,
-    investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {}, finalDeepInvestigationResolved: false, finalDeepInvestigationResult: null,
+    investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, initialInvestigationComplete: false, additionalActions: {}, additionalActionDrafts: {}, additionalActionsComplete: false, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {}, finalDeepInvestigationResolved: false, finalDeepInvestigationResult: null,
     openingPlayerIndex: isLocalMode() ? (Math.floor(random() * players.length)) : 0,
     roleBriefingComplete: !(current.localHiddenKillerEnabled && number === 3), roleBriefingIndex: 0, roleBriefingRevealed: false, hiddenKillerStrategy: null,
     sceneIndex: 0, completed: false, recordCreated: false, pendingBeat: null, pendingNextStage: null
@@ -2911,6 +2934,8 @@ function renderCinematicBeat() {
       resolveFinalKiller();
     } else if (destination === "final-sacrifice") {
       queueFinalKillBeat();
+    } else if (destination === "killer-fall-summary") {
+      queueKillerFallSummary();
     } else if (destination === "item-reassign") {
       renderItemReassignment();
     } else if (destination === "online-next-turn") {
@@ -3480,9 +3505,13 @@ function renderInvestigation() {
   if (movie.investigationPhase === "puzzle") return renderPuzzle();
   const content = movieScreen("INVESTIGATION", 38);
   const wrap = el("div", "content");
-  wrap.append(el("p", "eyebrow", "THE MAP KEEPS CHANGING"), el("h1", "headline", movie.investigatedRooms.length ? "Ποιο δωμάτιο θα ερευνήσεις μετά;" : "Πού θα ψάξεις πρώτα;"));
+  wrap.append(
+    el("p", "eyebrow", "INITIAL INVESTIGATION · FOUR LOCKED ROUTES"),
+    el("h1", "headline", "Διάλεξε ένα από τα 4 δωμάτια."),
+    el("p", "section-copy", isLocalMode() ? "Κάθε παίκτης επιλέγει διαδοχικά διαφορετικό δωμάτιο. Όσα περισσέψουν παραμένουν κλειστά μέχρι την προαιρετική δεύτερη φάση." : "Ερεύνησε ένα δωμάτιο. Τα υπόλοιπα δεν αποκαλύπτονται αυτόματα και παραμένουν διαθέσιμα μόνο στην προαιρετική δεύτερη φάση.")
+  );
   const grid = el("div", "feature-grid");
-  const roomKey = `room-${movie.number}-${movie.investigationActions}`;
+  const roomKey = `initial-room-${movie.number}`;
   const onlineRoomRound = isOnlineEngine()
     ? Object.values(onlineSession?.pendingDecisions || {}).find(decision => Object.values(decision?.submissions || {}).some(submission => submission?.localKey === roomKey))
     : null;
@@ -3508,7 +3537,7 @@ function renderInvestigation() {
 
 function findClue(location) {
   const movie = current.movie;
-  const roomKey = `room-${movie.number}-${movie.investigationActions}`;
+  const roomKey = `initial-room-${movie.number}`;
   const duplicate = Object.entries(movie.localDecisions?.[roomKey] || {}).find(([player, picked]) => player !== activePlayerName() && picked === location);
   if (duplicate) {
     toast(`Το δωμάτιο έχει ήδη κλειδωθεί από ${duplicate[0]}. Διάλεξε άλλη διαδρομή.`);
@@ -3524,8 +3553,9 @@ function findClue(location) {
     if (!movie.investigatedRooms.includes(selectedLocation)) movie.investigatedRooms.push(selectedLocation);
     if (!movie.cluesFound.includes(clue)) movie.cluesFound.push(clue);
   });
-  movie.investigationActions += locations.length;
-  movie.investigationPhase = movie.investigationActions >= 3 ? "done" : "followup";
+  movie.investigationActions = locations.length;
+  movie.initialInvestigationComplete = true;
+  movie.investigationPhase = "followup";
   if (isMultiplayerMode() && localChoices) {
     Object.entries(localChoices).forEach(([player, selectedLocation]) => {
       const clue = movie.locationClues[selectedLocation];
@@ -3551,38 +3581,201 @@ function findClue(location) {
     title: secretVictim ? `${subjectName(secretVictim)} δολοφονήθηκε μακριά από το Inner Circle.` : clues.length > 1 ? "Οι παίκτες ερεύνησαν διαφορετικές διαδρομές." : mainClue.title,
     body: `${clues.map((clue, index) => `${index + 1}. ${clue.title}: ${clue.text}`).join(" ")} Αξιοπιστία: ${reliability}. Τα puzzles και οι προηγούμενες έρευνες αλλάζουν πόσο εύκολα αναγνωρίζεται ένα killer-planted στοιχείο.${rareEventLine ? ` ΣΠΑΝΙΟ ΓΕΓΟΝΟΣ · ${rareEventLine}` : ""}${allianceLine}${secretVictim ? ` Την ίδια στιγμή ανακοινώνεται ο θάνατος ${genitiveName(secretVictim)}· ${subjectName(secretVictim)} είναι πλέον οριστικά DEAD.` : ""}`,
     names: unique([...clues.map(clue => clue.title.split(":")[0]), ...(secretVictim ? [secretVictim] : [])]), statuses: [...clues.map(clue => clue.type), ...(secretVictim ? ["DEAD"] : [])],
-    room: movie.rooms.find(item => item.name === locations[0]), cta: movie.investigationActions >= 3 ? "Προχώρησε στην επίθεση" : "Διάλεξε την επόμενη κίνηση"
-  }, movie.investigationActions >= 3 ? 5 : 4);
+    room: movie.rooms.find(item => item.name === locations[0]), cta: "Πέρασε στις προαιρετικές ενέργειες"
+  }, 4);
 }
 
 function renderInvestigationFollowup() {
   const movie = current.movie;
-  const unsearched = movie.locationChoices.filter(([location]) => !movie.investigatedRooms.includes(location));
+  if (isOnlineEngine()) return renderOnlineAdditionalActions();
+  movie.additionalActions ||= {};
+  movie.additionalActionDrafts ||= {};
+  const player = isLocalMode() ? activePlayerName() : current.protagonist;
+  const draft = movie.additionalActionDrafts[player] || null;
+  const reservedRooms = Object.values(movie.additionalActions).filter(action => action?.type === "room").map(action => action.target);
+  const unsearched = movie.locationChoices.filter(([location]) => !movie.investigatedRooms.includes(location) && !reservedRooms.includes(location));
   const dialogueCandidates = movie.cast
-    .filter(name => !isPlayerCharacter(name) && name !== movie.legacyEcho && name !== "LEGACY GHOST" && isAlive(name) && !movie.dialoguedWith.includes(name))
-    .sort((a, b) => (protagonistRelationship(b) ? 1 : 0) - (protagonistRelationship(a) ? 1 : 0))
-    .slice(0, isLocalMode() && (current.activePlayerIndex || 0) === 0 ? 3 : 2);
+    .filter(name => !isPlayerCharacter(name) && name !== movie.legacyEcho && name !== "LEGACY GHOST" && isAlive(name))
+    .sort((a, b) => (relationshipState(b, player).trust || 0) - (relationshipState(a, player).trust || 0));
   const focus = dialogueCandidates[0] || supportingVoices([], 1)[0] || current.protagonist;
-  const choices = [];
-  if (unsearched[0]) choices.push({ label: `Ερεύνησε και το «${unsearched[0][0]}».`, action: () => { movie.investigationPhase = "rooms"; saveCurrent(); renderMovie(); } });
-  dialogueCandidates.forEach(name => choices.push({ label: `Μίλησε ιδιωτικά με ${accusativeName(name)}${protagonistRelationship(name) ? ` — ${protagonistRelationship(name)}` : ""}.`, action: () => talkAfterInvestigation(name) }));
-  if (!movie.puzzleSolved) choices.push({ label: `Λύσε το puzzle: «${movie.puzzle.title}».`, action: () => { movie.investigationPhase = "puzzle"; saveCurrent(); renderMovie(); } });
-  choices.push({ label: "Προχώρα τώρα χωρίς άλλη έρευνα · SKIP", action: skipInvestigation });
+  let eyebrow = `SECOND PHASE · ${player.toUpperCase()}`;
+  let title = `${player}, διάλεξε μία πρόσθετη ενέργεια.`;
+  let body = "Η δεύτερη φάση είναι προαιρετική. Κάθε παίκτης κλειδώνει μία ενέργεια και μετά παραδίδει τη σειρά στον επόμενο.";
+  let choices;
+  if (draft === "room") {
+    eyebrow = "OPTIONAL ROOM · UNREVEALED EVIDENCE";
+    title = "Ποιο ανεξερεύνητο δωμάτιο θέλεις να ανοίξεις;";
+    body = "Μόνο το δωμάτιο που επιλέγεις θα αποκαλυφθεί. Ένα δωμάτιο που κλειδώθηκε από άλλον παίκτη δεν μπορεί να εξερευνηθεί δεύτερη φορά.";
+    choices = [
+      ...unsearched.map(([location]) => ({ label: `Ερεύνησε το «${location}».`, action: () => submitAdditionalAction({ type: "room", target: location }) })),
+      { label: "Πίσω στις 4 κατηγορίες", action: () => setAdditionalActionDraft(null) }
+    ];
+  } else if (draft === "talk") {
+    eyebrow = "PRIVATE CONVERSATION · WHO DO YOU TRUST?";
+    title = "Με ποιον ζωντανό χαρακτήρα θέλεις να μιλήσεις;";
+    body = "Μπορείς να επιλέξεις οποιονδήποτε ζωντανό NPC, ακόμη και εκτός Inner Circle. Η συζήτηση μπορεί να αυξήσει ή να μειώσει trust και το στοιχείο μπορεί να είναι αλήθεια, λάθος εκτίμηση ή σκόπιμη παραπλάνηση.";
+    choices = [
+      ...dialogueCandidates.map(name => ({ label: `Μίλησε ιδιωτικά με ${accusativeName(name)}${protagonistRelationship(name) ? ` · ${protagonistRelationship(name)}` : ""}.`, action: () => submitAdditionalAction({ type: "talk", target: name }) })),
+      { label: "Πίσω στις 4 κατηγορίες", action: () => setAdditionalActionDraft(null) }
+    ];
+  } else if (draft === "puzzle") {
+    eyebrow = "OPTIONAL PUZZLE · ONE ANSWER CHANGES THE ROUTE";
+    title = movie.puzzle.title;
+    body = movie.puzzle.question;
+    choices = [
+      ...movie.puzzle.answers.map((answer, index) => ({ label: answer, action: () => submitAdditionalAction({ type: "puzzle", answer: index }) })),
+      { label: "Πίσω στις 4 κατηγορίες", action: () => setAdditionalActionDraft(null) }
+    ];
+  } else {
+    choices = [
+      { label: unsearched.length ? "Ερεύνησε ένα δωμάτιο που δεν επισκέφθηκες." : "🔒 Δεν υπάρχει άλλο διαθέσιμο ανεξερεύνητο δωμάτιο.", disabled: !unsearched.length, action: () => setAdditionalActionDraft("room") },
+      { label: "Μίλησε ιδιωτικά με έναν ζωντανό χαρακτήρα.", disabled: !dialogueCandidates.length, action: () => setAdditionalActionDraft("talk") },
+      { label: `Λύσε ένα Puzzle · «${movie.puzzle.title}».`, action: () => setAdditionalActionDraft("puzzle") },
+      { label: "Μην κάνεις τίποτα · συνέχισε την ιστορία.", action: () => submitAdditionalAction({ type: "none" }) }
+    ];
+  }
   const content = movieScreen("INVESTIGATE OR TALK", 43);
   content.append(scenePanel({
     name: focus, time: "12:44 AM", image: focus, room: roomFor(2), tone: "cold",
-    eyebrow: `THE CASE OPENS UP · ${movie.investigationActions}/3 ACTIONS`, title: "Διάλεξε την επόμενη κίνηση.",
-    body: "Έχεις έως τρεις actions συνολικά: δωμάτιο, puzzle ή συζήτηση. Μπορείς να τα συνδυάσεις όπως θέλεις ή να πατήσεις SKIP και να προχωρήσεις.",
-    choices, cameos: dialogueCandidates
+    eyebrow, title, body,
+    choices, cameos: dialogueCandidates.slice(0, 4)
   }));
 }
 
-function skipInvestigation() {
+function renderOnlineAdditionalActions() {
   const movie = current.movie;
-  const decision = localDecision(`investigation-skip-${movie.number}-${movie.investigationActions}`, true);
-  if (decision === LOCAL_PENDING) return;
+  const reservedRooms = Object.values(movie.additionalActions || {}).filter(action => action?.type === "room").map(action => action.target);
+  const unsearched = movie.locationChoices.filter(([location]) => !movie.investigatedRooms.includes(location) && !reservedRooms.includes(location));
+  const dialogueCandidates = movie.cast.filter(name => !isPlayerCharacter(name) && name !== movie.legacyEcho && name !== "LEGACY GHOST" && isAlive(name));
+  const focus = dialogueCandidates[0] || current.protagonist;
+  const choices = [
+    ...unsearched.map(([location]) => ({ label: `ROOM · Ερεύνησε το «${location}».`, action: () => submitOnlineAdditionalAction({ type: "room", target: location }) })),
+    ...dialogueCandidates.map(name => ({ label: `TALK · Μίλησε ιδιωτικά με ${accusativeName(name)}.`, action: () => submitOnlineAdditionalAction({ type: "talk", target: name }) })),
+    ...movie.puzzle.answers.map((answer, index) => ({ label: `PUZZLE · ${answer}`, action: () => submitOnlineAdditionalAction({ type: "puzzle", answer: index }) })),
+    { label: "NONE · Μην κάνεις τίποτα.", action: () => submitOnlineAdditionalAction({ type: "none" }) }
+  ];
+  const content = movieScreen("ONLINE · SECOND INVESTIGATION PHASE", 43);
+  content.append(scenePanel({
+    name: focus, time: "12:44 AM", image: focus, room: roomFor(2), tone: "cold",
+    eyebrow: "ONE OPTIONAL ACTION PER ONLINE PLAYER",
+    title: "Κλείδωσε τη δική σου πρόσθετη ενέργεια.",
+    body: "Κάθε online player επιλέγει ανεξάρτητα room, private talk, puzzle ή none. Ο server περιμένει όλες τις επιλογές και δημοσιεύει ένα κοινό αποτέλεσμα.",
+    choices, cameos: dialogueCandidates.slice(0, 4)
+  }));
+}
+
+function submitOnlineAdditionalAction(action) {
+  const movie = current.movie;
+  const resolved = localDecision(`additional-action-${movie.number}`, action, values => values);
+  if (resolved === LOCAL_PENDING) return;
+  const choices = movie.lastLocalResolution?.choices || {};
+  movie.additionalActions = Object.fromEntries(Object.entries(choices).map(([player, value]) => [player, value]));
+  resolveAdditionalActions();
+}
+
+function setAdditionalActionDraft(type) {
+  const movie = current.movie;
+  movie.additionalActionDrafts ||= {};
+  const player = isLocalMode() ? activePlayerName() : current.protagonist;
+  if (type) movie.additionalActionDrafts[player] = type;
+  else delete movie.additionalActionDrafts[player];
+  saveCurrent();
+  renderMovie();
+}
+
+function submitAdditionalAction(action) {
+  const movie = current.movie;
+  movie.additionalActions ||= {};
+  movie.additionalActionDrafts ||= {};
+  const players = isLocalMode() ? playerCharacters() : [current.protagonist];
+  const player = isLocalMode() ? activePlayerName() : current.protagonist;
+  if (action.type === "room") {
+    const alreadyTaken = movie.investigatedRooms.includes(action.target)
+      || Object.entries(movie.additionalActions).some(([owner, entry]) => owner !== player && entry?.type === "room" && entry.target === action.target);
+    if (alreadyTaken) {
+      toast("Αυτό το δωμάτιο έχει ήδη εξερευνηθεί ή κλειδωθεί από άλλον παίκτη.");
+      return renderMovie();
+    }
+  }
+  movie.additionalActions[player] = action;
+  delete movie.additionalActionDrafts[player];
+  const missing = players.find(name => !movie.additionalActions[name]);
+  if (missing) {
+    current.activePlayerIndex = players.indexOf(missing);
+    movie.localTurnNotice = { key: `additional-action-${movie.number}`, player, choice: action.type, nextPlayer: missing };
+    saveCurrent();
+    toast(`${player} κλείδωσε την πρόσθετη ενέργεια. Τώρα αποφασίζει ${subjectName(missing, true)}.`);
+    return renderMovie();
+  }
+  current.activePlayerIndex = 0;
+  movie.localTurnNotice = null;
+  resolveAdditionalActions();
+}
+
+function resolveAdditionalActions() {
+  const movie = current.movie;
+  const entries = Object.entries(movie.additionalActions || {});
+  const lines = [];
+  const shownNames = [];
+  const statuses = [];
+  let anyCorrectPuzzle = false;
+  let puzzleAttempted = false;
+  entries.forEach(([player, action], index) => {
+    const random = mulberry32((current.seed + movie.number * 17891 + player.length * 311 + index * 997) >>> 0);
+    if (action.type === "room") {
+      const clue = movie.locationClues[action.target];
+      if (clue && !movie.investigatedRooms.includes(action.target)) {
+        movie.investigatedRooms.push(action.target);
+        if (!movie.cluesFound.includes(clue)) movie.cluesFound.push(clue);
+        relationshipState(clue.title.split(":")[0], player).suspicion += 18;
+        lines.push(`${player}: άνοιξε το «${action.target}» και βρήκε ${clue.type} — ${clue.title}.`);
+        const clueName = clue.title.split(":")[0];
+        if (character(clueName)) { shownNames.push(clueName); statuses.push(clue.type); }
+      } else lines.push(`${player}: το δωμάτιο είχε ήδη καταγραφεί και δεν αποκάλυψε δεύτερο clue.`);
+    } else if (action.type === "talk") {
+      const target = action.target;
+      const state = relationshipState(target, player);
+      const canon = relationshipBetween(player, target);
+      const misleading = isKiller(target) || random() < .28;
+      const trustDelta = misleading ? (random() < .5 ? -8 : 4) : canon ? 18 : 10;
+      state.trust += trustDelta;
+      state.friendship += misleading ? 2 : canon ? 14 : 7;
+      state.suspicion += misleading ? 9 : -3;
+      if (!movie.dialoguedWith.includes(target)) movie.dialoguedWith.push(target);
+      lines.push(`${player}: μίλησε ιδιωτικά με ${accusativeName(target)}. Το trust ${trustDelta >= 0 ? `ανέβηκε +${trustDelta}` : `έπεσε ${trustDelta}`}, αλλά η πληροφορία παραμένει UNVERIFIED και μπορεί να είναι αλήθεια ή παραπλάνηση.`);
+      shownNames.push(target); statuses.push("PRIVATE CLUE · UNVERIFIED");
+    } else if (action.type === "puzzle") {
+      puzzleAttempted = true;
+      const correct = action.answer === movie.puzzle.correct;
+      anyCorrectPuzzle ||= correct;
+      lines.push(`${player}: απάντησε «${movie.puzzle.answers[action.answer]}» στο puzzle — ${correct ? "η διαδρομή άνοιξε" : "ενεργοποιήθηκε λάθος μηχανισμός"}.`);
+    } else lines.push(`${player}: δεν έκανε πρόσθετη ενέργεια και κράτησε τις πληροφορίες που είχε ήδη.`);
+  });
+  if (puzzleAttempted) {
+    movie.puzzleSolved = true;
+    movie.puzzleAdvantage = Boolean(movie.puzzleAdvantage || anyCorrectPuzzle);
+  }
+  const puzzleRandom = mulberry32((current.seed + movie.number * 19913 + entries.length * 487) >>> 0);
+  const puzzleVictim = puzzleAttempted && !anyCorrectPuzzle ? maybeSecretAttack("failed-puzzle", puzzleRandom) : null;
+  if (puzzleVictim) {
+    lines.push(`${subjectName(puzzleVictim)} δολοφονήθηκε όσο οι παίκτες ακολουθούσαν τη λάθος λύση. Ο θάνατος καταγράφεται οριστικά.`);
+    shownNames.push(puzzleVictim);
+    statuses.push("DEAD");
+  }
+  movie.investigationActions += entries.length;
+  movie.additionalActionsComplete = true;
   movie.investigationPhase = "done";
-  advance(5);
+  remember(`Πρόσθετες ενέργειες: ${entries.map(([player, action]) => `${player} → ${action.type}${action.target ? ` (${action.target})` : ""}`).join(" · ")}.`, lines.join(" "));
+  queueBeat({
+    kind: puzzleVictim ? "death" : anyCorrectPuzzle ? "clue" : "dialogue",
+    eyebrow: "SECOND INVESTIGATION PHASE · ACTIONS LOCKED",
+    title: "Κάθε παίκτης ακολούθησε τη δική του διαδρομή.",
+    body: lines.join(" "),
+    names: unique(shownNames),
+    statuses: unique(shownNames).map(name => statuses[shownNames.lastIndexOf(name)] || "UNVERIFIED"),
+    roomOffset: 2,
+    cta: "Συνέχισε στην επίθεση"
+  }, 5);
 }
 
 function talkAfterInvestigation(name) {
@@ -4574,17 +4767,38 @@ function finishFinaleResolution() {
   movie.completed = true;
   createMovieRecord();
   const killersConfirmedDead = unique([...(movie.resolvedLegacyKillers || []), ...movie.killers]);
-  const lost = unique(movie.cast).filter(name => movie.status[name] === "DEAD" && !killersConfirmedDead.includes(name));
+  const lost = unique([...(movie.deathOrder || []), ...movie.cast]).filter(name => movie.status[name] === "DEAD" && !killersConfirmedDead.includes(name));
+  movie.killersConfirmedDead = killersConfirmedDead;
+  movie.endVictims = lost;
+  queueBeat({
+    kind: lost.length ? "death" : "finale",
+    eyebrow: `${movieLabel(movie.number).toUpperCase()} · VICTIM ROLL`,
+    title: lost.length ? `Αυτοί χάθηκαν στο ${movieLabel(movie.number)}.` : "Κανένα επιπλέον θύμα δεν χάθηκε.",
+    body: lost.length
+      ? `Πριν αποκαλυφθεί η τελική μοίρα των killers, καταγράφονται με τη σειρά θανάτου: ${lost.map(name => subjectName(name)).join(" · ")}. ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`
+      : `Όλοι οι μη-killer χαρακτήρες που έφτασαν στο final cut επέζησαν. ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`,
+    names: lost,
+    statuses: lost.map(() => "DEAD"),
+    roomOffset: 2,
+    cta: "Δες τη μοίρα των killers"
+  }, "killer-fall-summary");
+}
+
+function queueKillerFallSummary() {
+  const movie = current.movie;
+  const killersConfirmedDead = movie.killersConfirmedDead || unique([...(movie.resolvedLegacyKillers || []), ...movie.killers]);
+  const shownKillers = movie.number === 3 ? killersConfirmedDead : movie.killers;
   queueBeat({
     kind: "finale",
-    eyebrow: movie.number === 3 ? "FINAL CUT · THE NIGHT ENDS" : "FINAL CUT · EVIL FALLS",
-    title: movie.number === 3 ? "Οι μάσκες πέφτουν για πάντα." : "Οι killers χάνονται μέσα στη φωτιά.",
+    eyebrow: movie.number === 3 ? "FINAL CUT · ALL MASKS FALL" : "FINAL CUT · EVIL FALLS",
+    title: movie.number === 3 ? "Οι killers πεθαίνουν οριστικά." : "Οι killers χάνονται μέσα στη φωτιά.",
     body: movie.number === 3
-      ? `${movie.finalKillAssignments?.length ? `Τελικά χτυπήματα: ${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκότωσε ${accusativeName(killer)}`).join(" · ")}. ` : ""}Η ιστορία τελειώνει οριστικά. ${killersConfirmedDead.join(", ")} καταγράφονται πλέον ως CONFIRMED DEAD. Όσοι παλιοί killers δεν επέστρεψαν, δεν γύρισαν επειδή είχαν πράγματι πεθάνει· το PRESUMED DEAD κλείνει εδώ. ${lost.length ? `Στη διάρκεια της ταινίας και της τελικής έρευνας επιβεβαιώθηκαν νεκροί: ${lost.join(", ")}.` : "Δεν υπήρξαν άλλα θύματα."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} βοήθησε να σωθούν: ${movie.itemSaved.join(", ")}.` : ""}`
-      : `Οι ${movie.killers.length === 1 ? "killer καταγράφεται" : "killers καταγράφονται"} ως PRESUMED DEAD. Δεν θα εμφανιστούν ως κανονικοί χαρακτήρες στην επόμενη ταινία. Μόνο το Movie III μπορεί να κρύβει έναν human killer στο προαιρετικό Hidden Killer 3P — και κανείς δεν θα το μάθει πριν το reveal. ${lost.length ? `Στη διάρκεια της νύχτας χάθηκαν επίσης: ${lost.join(", ")}.` : "Οι υπόλοιποι κατάφεραν να επιζήσουν."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`,
-    names: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]) : [...movie.lateDeaths, ...movie.killers],
-    statuses: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]).map(() => "DEAD") : [...movie.lateDeaths.map(() => "DEAD"), ...movie.killers.map(() => "KILLER · PRESUMED DEAD")],
-    roomOffset: 2, cta: "End credits"
+      ? `${movie.finalKillAssignments?.length ? `Τελικά χτυπήματα: ${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκότωσε ${accusativeName(killer)}`).join(" · ")}. ` : ""}${killersConfirmedDead.join(", ")} καταγράφονται ως CONFIRMED DEAD. Όσοι παλιοί killers δεν επέστρεψαν θεωρούνται πλέον επίσης οριστικά νεκροί και το PRESUMED DEAD κλείνει εδώ.`
+      : `${movie.killers.length === 1 ? "Ο killer καταγράφεται" : "Οι killers καταγράφονται"} ως PRESUMED DEAD. Δεν θα εμφανιστούν ως κανονικοί χαρακτήρες στην επόμενη ταινία και μόνο το Movie III μπορεί να κρύβει τη μοναδική επιτρεπόμενη ανατροπή επιστροφής.`,
+    names: shownKillers,
+    statuses: shownKillers.map(() => movie.number === 3 ? "KILLER · CONFIRMED DEAD" : "KILLER · PRESUMED DEAD"),
+    roomOffset: 2,
+    cta: movie.number === 3 ? "Πήγαινε στα statistics" : "Προχώρησε στην επόμενη ταινία"
   }, "credits");
 }
 
@@ -4671,6 +4885,7 @@ function createMovieRecord() {
     choices: movie.choices.length, pivotal: movie.choices.slice(0, 3).map(item => item.text), choicesLog: movie.choices.slice(), canonMoments: movie.canonMoments || [],
     closestFriend, mostTrusted, totalClues: movie.locationChoices.length, finalDeepInvestigationResult: movie.finalDeepInvestigationResult,
     finalInvestigationScenario: movie.finalInvestigationScenario, finalSacrifice: movie.finalSacrifice || null,
+    additionalActions: JSON.parse(JSON.stringify(movie.additionalActions || {})),
     hiddenKillerStrategy: movie.hiddenKillerStrategy || null, finalKillAssignments: movie.finalKillAssignments || [],
     relationshipArc: movie.relationshipArc || null, secretAlliance: movie.secretAlliance || null,
     secretAttackVictims: movie.secretAttackVictims || [], rareEvent: movie.rareEvent || null,
