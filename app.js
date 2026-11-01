@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.25.1";
+const APP_VERSION = "1.26.0";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -266,7 +266,7 @@ const featureCopy = [
   ["120 room variants", "Τρία cinematic map atlases γίνονται 120 διαφορετικά sub-rooms, routes, clues και scene orders σε κάθε canon."],
   ["Accusation history", "Το παιχνίδι θυμάται την πρώτη, τη μεσαία και την τελική θεωρία σου και μετρά τι πρόβλεψες."],
   ["Independent NPC minds", "Κάθε NPC χτίζει δική του υποψία από προσωπικές παρατηρήσεις, μπορεί να μπλοφάρει και δεν επαναλαμβάνει μηχανικά τα ίδια λόγια ή τη θεωρία του παίκτη."],
-  ["Local 2–3P pass-the-phone", "Διάλεξε δύο ή τρεις χαρακτήρες. Στο 3P μπορείς προαιρετικά να ενεργοποιήσεις μυστικό human killer μόνο στο Movie III, με ιδιωτικό role reveal, μπλόφες και κρυφό sabotage."],
+  ["Local 2–4P pass-the-phone", "Διάλεξε δύο έως τέσσερις χαρακτήρες. Στο 3P ή 4P μπορείς προαιρετικά να ενεργοποιήσεις μυστικό human killer μόνο στο Movie III, με ιδιωτικό role reveal, μπλόφες και κρυφό sabotage."],
   ["Legacy survivors", "Οι σημαντικές σχέσεις και οι επιζώντες επιστρέφουν. Οι πιο πιστοί δεν πετιούνται άδικα στο opening kill του sequel."],
   ["Movie III mastermind", "Μόνο στο Final Chapter υπάρχει πιθανότητα να κρύβεται ακριβώς ένας παλιός killer — ποτέ στο intro και ποτέ ως κανονικός χαρακτήρας."],
   ["Fictional killer betting", "Πόνταρε Slasher Credits στη final theory: 2× για πλήρη ακριβή πρόβλεψη ή αναλογική επιστροφή για μερική επιτυχία — χωρίς πραγματικά χρήματα."],
@@ -1119,12 +1119,12 @@ function renderFeatures() {
 function renderModeSelect() {
   const root = screen();
   const content = el("div", "content narrow");
-  content.append(el("p", "eyebrow", "NEW TRILOGY · CHOOSE YOUR CUT"), el("h1", "display", "Πώς θέλεις να παίξεις;"), el("p", "lead", "Οι επιλογές, οι σχέσεις και τα saves λειτουργούν σε κάθε mode. Το Local 2–3P είναι pass-the-phone / share-screen· στο προαιρετικό Hidden Killer 3P ένας ανθρώπινος player μπορεί να βρίσκεται μέσα από τη μάσκα."));
+  content.append(el("p", "eyebrow", "NEW TRILOGY · CHOOSE YOUR CUT"), el("h1", "display", "Πώς θέλεις να παίξεις;"), el("p", "lead", "Οι επιλογές, οι σχέσεις και τα saves λειτουργούν σε κάθε mode. Το Local 2–4P είναι pass-the-phone / share-screen· στο προαιρετικό Hidden Killer 3P/4P ένας ανθρώπινος player μπορεί να βρίσκεται μέσα από τη μάσκα."));
   const grid = el("div", "mode-grid");
   const single = el("article", "panel mode-card");
   single.append(el("p", "eyebrow", "SINGLE PLAYER"), el("h2", "headline", "Μόνος/η στο cut"), el("p", "section-copy", "Ένας πρωταγωνιστής, procedural τριλογία και όλο το canon στα χέρια σου."), button("Single Player", "", () => renderProtagonist("single")));
   const multi = el("article", "panel mode-card");
-  multi.append(el("p", "eyebrow", "MULTIPLAYER"), el("h2", "headline", "Παίξε μαζί"), el("p", "section-copy", "Online με account και local/tunnel server ή Local μέχρι τρεις παίκτες με κοινή οθόνη / pass-the-phone."), button("Multiplayer", "secondary", renderMultiplayerMode));
+  multi.append(el("p", "eyebrow", "MULTIPLAYER"), el("h2", "headline", "Παίξε μαζί"), el("p", "section-copy", "Online με account και local/tunnel server ή Local μέχρι τέσσερις παίκτες με κοινή οθόνη / pass-the-phone."), button("Multiplayer", "secondary", renderMultiplayerMode));
   grid.append(single, multi); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderHome)); content.append(actions);
   root.append(content);
@@ -1138,7 +1138,7 @@ function renderMultiplayerMode() {
   const online = el("article", "panel mode-card");
   online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", openOnlineLobby));
   const local = el("article", "panel mode-card");
-  local.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Standard survivor mode για 2–3 παίκτες ή προαιρετικό Hidden Killer μόνο στο Movie III όταν επιλέξετε τρεις. Όλοι παίζουν διαδοχικά στην ίδια κοινή τριλογία."), button("Local 2–3 Players", "", () => renderLocalSetup()));
+  local.append(el("p", "eyebrow", "LOCAL · 2–4 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Survivors Mode για 2–4 παίκτες ή προαιρετικό Hidden Killer μόνο στο Movie III όταν επιλέξετε τρεις ή τέσσερις. Όλοι παίζουν διαδοχικά στην ίδια κοινή τριλογία."), button("Local 2–4 Players", "", () => renderLocalSetup()));
   grid.append(online, local); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderModeSelect)); content.append(actions);
   root.append(content);
@@ -1623,10 +1623,10 @@ function renderLocalSetup(selected = []) {
   const head = el("div", "section-head");
   const title = el("div");
   const nextNumber = selectedPlayers.length + 1;
-  title.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS · CASTING"), el("h1", "headline", selectedPlayers.length ? `Διάλεξε τον/την Player ${nextNumber}` : "Διάλεξε 2 ή 3 χαρακτήρες"));
+  title.append(el("p", "eyebrow", "LOCAL · 2–4 PLAYERS · CASTING"), el("h1", "headline", selectedPlayers.length ? `Διάλεξε τον/την Player ${nextNumber}` : "Διάλεξε 2 έως 4 χαρακτήρες"));
   head.append(title, el("p", "section-copy", selectedPlayers.length
     ? `Ήδη επιλέχθηκαν: ${selectedPlayers.join(" & ")}. Κάθε χαρακτήρας έχει δικά του relationships, theory, bet και ανεξάρτητο turn.`
-    : "Στο standard mode οι ανθρώπινοι players παραμένουν καλοί και εκτός killers. Με τρεις παίκτες μπορείτε αργότερα να ενεργοποιήσετε τυχαίο μυστικό killer με ιδιωτική αποκάλυψη ρόλων."));
+    : "Στο Survivors Mode όλοι οι ανθρώπινοι players παραμένουν καλοί. Με 3 ή 4 παίκτες μπορείτε να επιλέξετε Hidden Killer Mode, με ιδιωτική αποκάλυψη του μυστικού ρόλου στο Movie III."));
   content.append(head);
   if (selectedPlayers.length) {
     const chosen = el("div", "local-player-pair local-player-selection");
@@ -1638,15 +1638,17 @@ function renderLocalSetup(selected = []) {
     });
     content.append(chosen);
   }
-  const grid = el("div", "roster");
-  roster.filter(item => !selectedPlayers.includes(item.name)).forEach(item => grid.append(characterButton(item.name, () => {
-    const next = [...selectedPlayers, item.name];
-    if (next.length >= 3) confirmLocalPlayers(next);
-    else renderLocalSetup(next);
-  }, false, selectedPlayers.length ? "local-player-two" : "")));
-  content.append(grid);
+  if (selectedPlayers.length < 4) {
+    const grid = el("div", "roster");
+    roster.filter(item => !selectedPlayers.includes(item.name)).forEach(item => grid.append(characterButton(item.name, () => {
+      const next = [...selectedPlayers, item.name];
+      if (next.length >= 4) confirmLocalPlayers(next);
+      else renderLocalSetup(next);
+    }, false, selectedPlayers.length ? "local-player-two" : "")));
+    content.append(grid);
+  }
   const actions = el("div", "actions");
-  if (selectedPlayers.length === 2) actions.append(button("Παίξε με 2 players", "", () => confirmLocalPlayers(selectedPlayers)));
+  if (selectedPlayers.length >= 2) actions.append(button(`Συνέχεια με ${selectedPlayers.length} players`, "", () => confirmLocalPlayers(selectedPlayers)));
   actions.append(button("Πίσω", "ghost", selectedPlayers.length ? () => renderLocalSetup(selectedPlayers.slice(0, -1)) : renderMultiplayerMode));
   content.append(actions);
   root.append(content);
@@ -1661,14 +1663,46 @@ function confirmLocalPlayers(players) {
   selectedPlayers.forEach((name, index) => {
     const card = el("article", "panel local-player-card");
     const img = el("img"); img.src = imagePath(name); img.alt = ""; img.dataset.character = name;
-    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", selectedPlayers.length === 3 ? "SURVIVORS MODE = NO SECRET ROLES" : "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
+    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", "MODE ΘΑ ΕΠΙΒΕΒΑΙΩΘΕΙ ΠΡΙΝ ΤΗΝ ΕΝΑΡΞΗ")); pair.append(card);
   });
   content.append(pair);
   const actions = el("div", "actions");
-  actions.append(button(`Έναρξη Local ${selectedPlayers.length}P · Survivors`, "", () => createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers })));
-  if (selectedPlayers.length === 3) actions.append(button("Hidden Killer 3P · Τυχαίος μυστικός ρόλος", "secondary", () => createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers, localHiddenKillerEnabled: true })));
+  actions.append(button(`Survivors Mode · Local ${selectedPlayers.length}P`, "", () => confirmLocalMode(selectedPlayers, false)));
+  if (selectedPlayers.length >= 3) actions.append(button(`Hidden Killer Mode · Local ${selectedPlayers.length}P`, "secondary", () => confirmLocalMode(selectedPlayers, true)));
   actions.append(button("Άλλαξε χαρακτήρες", "ghost", () => renderLocalSetup(selectedPlayers.slice(0, -1))));
   content.append(actions); root.append(content);
+}
+
+function confirmLocalMode(players, hiddenKillerMode) {
+  document.querySelector(".local-mode-confirm")?.remove();
+  const selectedPlayers = [...players];
+  const overlay = el("div", "local-handoff-modal local-mode-confirm");
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "local-mode-title");
+  const card = el("section", "panel local-handoff-card");
+  const modeName = hiddenKillerMode ? "HIDDEN KILLER MODE" : "SURVIVORS MODE";
+  card.append(
+    el("p", "eyebrow", `LOCAL ${selectedPlayers.length}P · CONFIRM MODE`),
+    el("h1", "headline", `Επέλεξες ${modeName}`),
+    el("p", "lead", hiddenKillerMode
+      ? "Ένας από τους ανθρώπινους players θα έχει μυστικό killer role στο Movie III. Η αποκάλυψη του ρόλου παραμένει ιδιωτική και οι υπόλοιποι δεν ενημερώνονται."
+      : "Όλοι οι ανθρώπινοι players είναι survivors και κανένας τους δεν μπορεί να γίνει killer."),
+    el("p", "local-mode-cast", `PLAYERS · ${selectedPlayers.join(" · ")}`)
+  );
+  card.querySelector("h1").id = "local-mode-title";
+  const actions = el("div", "actions local-mode-actions");
+  actions.append(
+    button(`Επιβεβαίωση · ${modeName}`, "", () => {
+      overlay.remove();
+      createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers, localHiddenKillerEnabled: hiddenKillerMode });
+    }),
+    button("Ακύρωση · άλλαξε mode", "ghost", () => overlay.remove())
+  );
+  card.append(actions);
+  overlay.append(card);
+  document.body.append(overlay);
+  overlay.querySelector("button")?.focus();
 }
 
 function renderProtagonist() {
@@ -1741,8 +1775,8 @@ function createUniverse(protagonist, options = {}) {
     playerCharacters: players,
     onlineGroupCharacters: mode === "online" ? onlineGroup : [],
     gameMode: mode,
-    localHiddenKillerEnabled: Boolean(options.localHiddenKillerEnabled && mode === "local" && players.length === 3),
-    hiddenKiller: options.localHiddenKillerEnabled && mode === "local" && players.length === 3 ? players[(seed + players.join("").length) % players.length] : null,
+    localHiddenKillerEnabled: Boolean(options.localHiddenKillerEnabled && mode === "local" && players.length >= 3 && players.length <= 4),
+    hiddenKiller: options.localHiddenKillerEnabled && mode === "local" && players.length >= 3 && players.length <= 4 ? players[(seed + players.join("").length) % players.length] : null,
     onlineSessionCode: options.onlineSessionCode || null,
     onlineUsername: options.onlineUsername || null,
     onlinePendingDecision: null,
@@ -2050,6 +2084,33 @@ function supportingVoices(exclude = [], count = 2) {
   return [...available.slice(offset), ...available.slice(0, offset)].slice(0, count);
 }
 
+function voicedDialogue(name, text, context = "standard") {
+  let signature = "";
+  const state = relationshipState(name);
+  const memory = continuityMemory(name).at(-1);
+  if (name === "Hope") signature = context === "danger" ? "Αποκλείεται να συμβαίνει αυτό, βοηθήστε με!" : "Αποκλείεται…";
+  else if (name === "Tony" && isPlayerCharacter(name)) signature = "nononono…";
+  else if (name === "Billy" && context === "close-danger") signature = "Τι είπατε;";
+  else if (name === "Demarin" && context === "danger") signature = "Ώπα…";
+  else if (name === "Demarin" && (isKiller(name) || state?.trust < 0 || memory?.type === "accused" || memory?.type === "abandoned")) signature = "Εντάξει ρε παιδιά…";
+  if (!signature || text.includes(signature)) return text;
+  const quoteIndex = text.indexOf("«");
+  return quoteIndex >= 0
+    ? `${text.slice(0, quoteIndex + 1)}${signature} ${text.slice(quoteIndex + 1)}`
+    : `«${signature}» ${text}`;
+}
+
+function lunaChallenge(target) {
+  return genderWord(target, "Ποιος νομίζεις πως είσαι;", "Ποια νομίζεις πως είσαι;");
+}
+
+function dangerDialogue(names) {
+  const lines = [];
+  if (names.includes("Demarin")) lines.push(`Demarin: ${voicedDialogue("Demarin", "Δεν θα με κλείσετε εδώ.", "danger")}`);
+  if (names.includes("Hope")) lines.push(`Hope: ${voicedDialogue("Hope", "Δεν θα με αφήσετε εδώ!", "danger")}`);
+  return lines.join(" ");
+}
+
 function dialogueLine(name) {
   const movie = current.movie;
   const relation = protagonistRelationship(name);
@@ -2066,21 +2127,21 @@ function dialogueLine(name) {
       `Δεν πρόλαβα να πω αντίο ${toName(relatedDead)}. Κανείς δεν θα μου πάρει και την αλήθεια.`,
       `Όποιος σκότωσε ${accusativeName(relatedDead)} θα πληρώσει. Δεν με νοιάζει ποια μάσκα φοράει.`
     ];
-    return `${bond || "BLOOD BOND"} · «${grief[Math.abs(seed) % grief.length]}»`;
+    return voicedDialogue(name, `${bond || "BLOOD BOND"} · «${grief[Math.abs(seed) % grief.length]}»`, name === "Billy" ? "close-danger" : "standard");
   }
   const priorMemory = continuityMemory(name).at(-1);
-  if (priorMemory?.type === "saved") return `SURVIVAL MEMORY · «Δεν ξέχασα ότι με έσωσες στο ${movieLabel(priorMemory.movie)}. Αν χρειαστεί, αυτή τη φορά θα καλύψω εγώ την έξοδό σου.»`;
+  if (priorMemory?.type === "saved") return voicedDialogue(name, `SURVIVAL MEMORY · «Δεν ξέχασα ότι με έσωσες στο ${movieLabel(priorMemory.movie)}. Αν χρειαστεί, αυτή τη φορά θα καλύψω εγώ την έξοδό σου.»`);
   if (priorMemory?.type === "accused") {
     const trust = relationshipState(name)?.trust || 0;
-    return trust < 0
+    return voicedDialogue(name, trust < 0
       ? `BROKEN TRUST · «Με είπες killer χωρίς απόδειξη στο ${movieLabel(priorMemory.movie)}. Μην περιμένεις να σου δώσω ό,τι βρήκα τώρα.»`
-      : `WOUNDED TRUST · «Θυμάμαι την κατηγορία σου. Θα βοηθήσω μόνο επειδή ο πραγματικός killer είναι ακόμη εδώ.»`;
+      : `WOUNDED TRUST · «Θυμάμαι την κατηγορία σου. Θα βοηθήσω μόνο επειδή ο πραγματικός killer είναι ακόμη εδώ.»`);
   }
-  if (priorMemory?.type === "abandoned") return `ABANDONED · «Όταν χωρίστηκαν τα groups, με άφησες πίσω. Επιβίωσα χωρίς εσένα και τώρα θα αποφασίσω εγώ αν θα βοηθήσω.»`;
-  if (priorMemory?.type === "grief") return `TRAUMA · «Από τότε που πέθανε ${subjectName(priorMemory.linked, true)}, δεν κοιμάμαι. Αυτή τη φορά θα βρω την αλήθεια πριν χαθεί άλλος άνθρωπος.»`;
+  if (priorMemory?.type === "abandoned") return voicedDialogue(name, `ABANDONED · «Όταν χωρίστηκαν τα groups, με άφησες πίσω. Επιβίωσα χωρίς εσένα και τώρα θα αποφασίσω εγώ αν θα βοηθήσω.»`);
+  if (priorMemory?.type === "grief") return voicedDialogue(name, `TRAUMA · «Από τότε που πέθανε ${subjectName(priorMemory.linked, true)}, δεν κοιμάμαι. Αυτή τη φορά θα βρω την αλήθεια πριν χαθεί άλλος άνθρωπος.»`, name === "Billy" ? "close-danger" : "standard");
   if (movie.secretAlliance?.members?.includes(name) && movie.secretAlliance.revealed) {
     const partner = movie.secretAlliance.members.find(member => member !== name);
-    return `SECRET ALLIANCE · «${subjectName(partner)} κι εγώ ανταλλάσσαμε στοιχεία κρυφά. Αυτό δεν μας κάνει killers· σημαίνει ότι δεν εμπιστευόμασταν την ομάδα.»`;
+    return voicedDialogue(name, `SECRET ALLIANCE · «${subjectName(partner)} κι εγώ ανταλλάσσαμε στοιχεία κρυφά. Αυτό δεν μας κάνει killers· σημαίνει ότι δεν εμπιστευόμασταν την ομάδα.»`);
   }
   const contexts = movie.stage <= 2 ? [
     "Το opening δεν ήταν τυχαίο.", "Κάποιος ήξερε ακριβώς πού θα σταθούμε.", "Η πρώτη παγίδα ήταν μήνυμα, όχι απλώς φόνος.", "Κοίτα ποιος αποφεύγει να μιλήσει για όσα είδε."
@@ -2102,9 +2163,9 @@ function dialogueLine(name) {
   const relatedAlive = linkedNames(name).find(other => isAlive(other));
   if (relatedAlive) {
     const canon = relationshipBetween(name, relatedAlive);
-    return `${canon || "CANON BOND"} · ${name} & ${relatedAlive}: «${contexts[Math.abs(seed) % contexts.length]} Θα μείνουμε μαζί και θα καλύψουμε ο ένας τον άλλον μέχρι το τέλος.»`;
+    return voicedDialogue(name, `${canon || "CANON BOND"} · ${name} & ${relatedAlive}: «${contexts[Math.abs(seed) % contexts.length]} Θα μείνουμε μαζί και θα καλύψουμε ο ένας τον άλλον μέχρι το τέλος.»`);
   }
-  return relation ? `${relation} · ${line}` : line;
+  return voicedDialogue(name, relation ? `${relation} · ${line}` : line);
 }
 
 function distributeFriendGroups(names, preferred = []) {
@@ -2899,6 +2960,18 @@ function queueBeat(beat, nextStage) {
   withTransition(renderCinematicBeat);
 }
 
+function cinematicCharacterReactions(beat) {
+  const names = beat.names || [];
+  const dangerBeat = ["death", "attack", "rescue", "twist", "sabotage"].includes(beat.kind);
+  const reactions = [];
+  if (dangerBeat && names.includes("Demarin") && isAlive("Demarin")) reactions.push(["Demarin", voicedDialogue("Demarin", "Η νύχτα μόλις άλλαξε πορεία.", "danger")]);
+  if (names.includes("Hope") && isAlive("Hope")) reactions.push(["Hope", voicedDialogue("Hope", dangerBeat ? "Δεν θα με αφήσετε εδώ!" : "Κάτι δεν πάει καθόλου καλά.", dangerBeat ? "danger" : "standard")]);
+  if (dangerBeat && isPlayerCharacter("Tony") && isAlive("Tony")) reactions.push(["Tony", voicedDialogue("Tony", "Δεν γίνεται να τελειώσει έτσι.")]);
+  const billyCircle = new Set([...linkedNames("Billy"), ...friendsForPlayer("Billy")]);
+  if (dangerBeat && isAlive("Billy") && names.some(name => billyCircle.has(name))) reactions.push(["Billy", voicedDialogue("Billy", "Πείτε μου ποιος κινδυνεύει.", "close-danger")]);
+  return reactions;
+}
+
 function renderCinematicBeat() {
   const movie = current.movie;
   const beat = movie.pendingBeat;
@@ -2914,6 +2987,17 @@ function renderCinematicBeat() {
   backdrop.append(el("span", "beat-depth depth-far"), el("span", "beat-depth depth-near"), el("span", "film-grain"));
   const content = el("div", "beat-content");
   content.append(el("p", "eyebrow beat-kicker", beat.eyebrow || "THE NIGHT CHANGES"), el("h1", "display beat-title", beat.title), el("p", "lead beat-body", beat.body));
+  const reactions = cinematicCharacterReactions(beat);
+  if (reactions.length) {
+    const dialogue = el("div", "ensemble-dialogue beat-reactions");
+    reactions.forEach(([name, text]) => {
+      const line = el("article", "ensemble-line");
+      const avatar = el("img"); avatar.src = imagePath(name); avatar.alt = "";
+      const copy = el("span"); copy.append(el("strong", "", name), el("small", "", text));
+      line.append(avatar, copy); dialogue.append(line);
+    });
+    content.append(dialogue);
+  }
   if (beat.names?.length) {
     const row = el("div", "beat-cast");
     beat.names.forEach((name, index) => {
@@ -3310,8 +3394,16 @@ function renderRelationshipEvent() {
         `Δώσε τους κοινή ευθύνη για τη διάσωση της ομάδας.`
       ]
     };
+    if ([event.first, second].includes("Luna") && [event.first, second].includes("Hope")) {
+      scenes.canon.title = "Η Luna και η Hope αρνούνται να αφήσουν η μία την άλλη.";
+      scenes.canon.body = `Hope: «Αποκλείεται… δεν θα χωριστούμε τώρα.» Luna: «Είσαι η αδελφή μου. Θα μπούμε μαζί και θα βγούμε μαζί.» Οι δίδυμες μοιράζονται ένα ήσυχο bonding moment πριν επιστρέψουν στην ομάδα, χωρίς να αλλάζει κανένα gameplay roll.`;
+    }
   }
   const scene = scenes[event.type] || scenes.argument;
+  if (["argument", "accusation"].includes(event.type) && [event.first, second].includes("Luna")) {
+    const target = event.first === "Luna" ? second : event.first;
+    scene.body = `Luna: «${lunaChallenge(target)}» ${scene.body}`;
+  }
   const content = movieScreen("RANDOM RELATIONSHIP EVENT", 24);
   content.append(scenePanel({
     name: `${event.first} / ${second}`, time: "11:58 PM", image: event.first, room: roomFor(1), tone: event.type === "argument" || event.type === "accusation" ? "red" : "cold",
@@ -3883,7 +3975,7 @@ function renderDanger() {
     : "Δεν έχουν ιδιαίτερο δεσμό και κανείς δεν περίμενε ότι θα παγιδευτούν μαζί.";
   content.append(scenePanel({
     name: `${movie.dangerA} / ${movie.dangerB}`, time: "01:18 AM", image: movie.dangerA, tone: "red", eyebrow: "YOU CANNOT REACH BOTH", title: "Δύο κραυγές. Δύο διάδρομοι.",
-    body: `${targetLine} ${subjectName(movie.dangerA)} είναι ${genderWord(movie.dangerA, "παγιδευμένος", "παγιδευμένη")} στο «${leftRoom.name}». ${subjectName(movie.dangerB)} τρέχει προς το «${rightRoom.name}». ${emotionalLine}`,
+    body: `${targetLine} ${subjectName(movie.dangerA)} είναι ${genderWord(movie.dangerA, "παγιδευμένος", "παγιδευμένη")} στο «${leftRoom.name}». ${subjectName(movie.dangerB)} τρέχει προς το «${rightRoom.name}». ${emotionalLine} ${dangerDialogue([movie.dangerA, movie.dangerB])}`,
     choices: [
       { label: `Τρέξε στο «${leftRoom.name}» για ${accusativeName(movie.dangerA)}.`, action: () => rescueChoice(movie.dangerA, movie.dangerB) },
       { label: `Πήγαινε στο «${rightRoom.name}» για ${accusativeName(movie.dangerB)}.`, action: () => rescueChoice(movie.dangerB, movie.dangerA) },
@@ -4021,7 +4113,7 @@ function createAccusationDebate(kind) {
       speaker,
       target,
       truthful,
-      text: `«Στο radio άκουσα κάτι που ίσως έδειχνε ${targetLine}, αλλά η φωνή κόπηκε και μπορεί να ήταν μίμηση. ${observations[(index + speaker.length) % observations.length]}. ${endings[(index * 2 + speaker.length) % endings.length]}»`
+      text: voicedDialogue(speaker, `${speaker === "Luna" && target !== "LEGACY GHOST" ? `«${lunaChallenge(target)}» ` : ""}«Στο radio άκουσα κάτι που ίσως έδειχνε ${targetLine}, αλλά η φωνή κόπηκε και μπορεί να ήταν μίμηση. ${observations[(index + speaker.length) % observations.length]}. ${endings[(index * 2 + speaker.length) % endings.length]}»`)
     };
   });
   movie.accusationDebates[kind] = statements;
@@ -4382,7 +4474,7 @@ function renderSecondAttack() {
   const content = movieScreen("NO ONE IS SAFE", 72);
   content.append(scenePanel({
     name: backup ? `${target} / ${backup}` : target, time: "02:41 AM", image: target, room: attackRoom, tone: "red", eyebrow: `A NEW ATTACK ROUTE · SCENARIO ${String(attack.id).padStart(3, "0")}`, title: attack.title,
-    body: `${attack.body}${backup ? ` Ταυτόχρονα ${subjectName(backup, true)} καλεί από δεύτερο διάδρομο.` : ""} Το μοναδικό αληθινό clue είναι ακόμα στην τσέπη σου. Κάθε διαδρομή έχει ανεξάρτητο probability roll.`,
+    body: `${attack.body}${backup ? ` Ταυτόχρονα ${subjectName(backup, true)} καλεί από δεύτερο διάδρομο.` : ""} Το μοναδικό αληθινό clue είναι ακόμα στην τσέπη σου. Κάθε διαδρομή έχει ανεξάρτητο probability roll. ${dangerDialogue([target, backup].filter(Boolean))}`,
     choices: [
       ...(backup ? [{ label: `Ρίσκαρε τα πάντα για να σώσεις και ${accusativeName(target)} και ${accusativeName(backup)}.`, action: () => secondAttackChoice("both") }] : []),
       { label: `Σώσε μόνο ${accusativeName(target)}. Μην μοιράσεις τον χρόνο σου.`, action: () => secondAttackChoice("primary") },

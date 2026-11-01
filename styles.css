@@ -998,6 +998,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .local-handoff-card .display { margin: 12px 0 18px; font-size: clamp(3rem, 9vw, 7rem); line-height: .82; }
 .local-handoff-card .lead { margin: 0 auto 28px; }
 .local-handoff-card .btn { width: 100%; }
+.local-mode-confirm .local-handoff-card { border-color: rgba(226,27,45,.58); background: linear-gradient(145deg, rgba(18,8,13,.98), rgba(7,12,17,.98)); }
+.local-mode-confirm .headline { margin: 10px 0 18px; font-size: clamp(2.2rem, 7vw, 5.6rem); line-height: .9; }
+.local-mode-cast { margin: 0 0 22px; padding: 11px 14px; border: 1px solid rgba(255,255,255,.13); color: var(--ice); font-size: .78rem; font-weight: 800; letter-spacing: .12em; }
+.local-mode-actions { display: grid; grid-template-columns: 1fr; }
 .private-role-screen { display: grid; align-content: center; min-height: calc(100svh - 150px); text-align: center; }
 .private-role-screen .lead { max-width: 760px; margin-inline: auto; }
 .private-role-actions { justify-content: center; }
