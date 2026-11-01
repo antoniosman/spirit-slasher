@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.25.0";
+const APP_VERSION = "1.25.1";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -1856,6 +1856,7 @@ function loadUniverse(id) {
   movie.additionalActionDrafts ||= {};
   movie.additionalActionsComplete ??= false;
   if (movie.stage === 4 && movie.initialInvestigationComplete && !movie.additionalActionsComplete) movie.investigationPhase = "followup";
+  if (movie.additionalActionsComplete && (!Number.isFinite(Number(movie.stage)) || Number(movie.stage) < 5)) movie.stage = 5;
   movie.dialoguedWith ||= [];
   movie.puzzle ||= investigationPuzzles[0];
   movie.puzzleSolved ||= false;
@@ -2629,6 +2630,10 @@ function renderMovie() {
   if (!movie) return startMovie(current.movieNumber || 1);
   if (current.localHiddenKillerEnabled && movie.number === 3 && !movie.roleBriefingComplete) return renderLocalRoleBriefing();
   if (movie.pendingBeat) return renderCinematicBeat();
+  if (movie.additionalActionsComplete && (!Number.isFinite(Number(movie.stage)) || Number(movie.stage) < 5)) {
+    movie.stage = 5;
+    saveCurrent();
+  }
   if (movie.stage === 0) return playCastIntro();
   const renderers = {
     1: renderOpening,
@@ -2924,7 +2929,7 @@ function renderCinematicBeat() {
   }
   const actions = el("div", "actions");
   actions.append(button(beat.cta || "Συνέχεια", "", () => {
-    const destination = movie.pendingNextStage;
+    const destination = movie.pendingNextStage ?? (movie.additionalActionsComplete ? 5 : movie.stage);
     movie.pendingBeat = null;
     movie.pendingNextStage = null;
     if (destination === "credits") {
@@ -3765,6 +3770,10 @@ function resolveAdditionalActions() {
   movie.investigationActions += entries.length;
   movie.additionalActionsComplete = true;
   movie.investigationPhase = "done";
+  // Commit the checkpoint before showing the recap. If a refresh, save sync or
+  // missing pendingNextStage occurs, the game resumes at the first attack
+  // instead of falling through to renderOpening and restarting Movie I.
+  movie.stage = 5;
   remember(`Πρόσθετες ενέργειες: ${entries.map(([player, action]) => `${player} → ${action.type}${action.target ? ` (${action.target})` : ""}`).join(" · ")}.`, lines.join(" "));
   queueBeat({
     kind: puzzleVictim ? "death" : anyCorrectPuzzle ? "clue" : "dialogue",
