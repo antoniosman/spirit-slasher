@@ -1,7 +1,7 @@
 {
   "name": "spirit-slasher",
   "private": true,
-  "version": "1.23.1",
+  "version": "1.24.0",
   "description": "Spirit Slasher PWA and local multiplayer backend",
   "scripts": {
     "server": "node server/server.js"

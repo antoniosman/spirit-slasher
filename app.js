@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.23.1";
+const APP_VERSION = "1.24.0";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -458,7 +458,9 @@ function innerCircleMembers() {
     ...(movie.friends || []),
     ...Object.values(movie.playerFriends || {}).flat(),
     ...(movie.continuityFriends || [])
-  ]).filter(name => !isPlayerCharacter(name) && isAlive(name) && !isKiller(name));
+  // Never remove a hidden killer from an item menu. Disappearing from the
+  // Inner Circle would reveal the twist before the story does.
+  ]).filter(name => !isPlayerCharacter(name) && isAlive(name));
 }
 function describeLocalChoice(value) {
   if (Array.isArray(value)) return value.join(" · ");
@@ -1659,7 +1661,7 @@ function confirmLocalPlayers(players) {
   selectedPlayers.forEach((name, index) => {
     const card = el("article", "panel local-player-card");
     const img = el("img"); img.src = imagePath(name); img.alt = ""; img.dataset.character = name;
-    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", selectedPlayers.length === 3 ? "ROLE ASSIGNED AFTER MODE SELECTION" : "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
+    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", selectedPlayers.length === 3 ? "SURVIVORS MODE = NO SECRET ROLES" : "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
   });
   content.append(pair);
   const actions = el("div", "actions");
@@ -1820,6 +1822,7 @@ function loadUniverse(id) {
   movie.offscreenDeaths ||= [];
   movie.lateDeaths ||= [];
   movie.abandoned ||= [];
+  movie.departed ||= [];
   movie.deathOrder ||= [];
   movie.continuityFriends ||= movie.priorCoreFriends || [];
   movie.newcomers ||= [];
@@ -2161,8 +2164,10 @@ function generateMovie(number) {
     ...(record.killers || []),
     ...Object.entries(record.statuses || {}).filter(([, status]) => status === "DEAD").map(([name]) => name)
   ])));
-  const priorSurvivors = number === 1 ? [] : unique(scenarioHistory.at(-1)?.survivors || [])
+  const movieOneDepartures = unique(scenarioHistory.filter(record => record.number === 1).flatMap(record => record.departed || []))
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
+  const priorSurvivors = number === 1 ? [] : unique(scenarioHistory.at(-1)?.survivors || [])
+    .filter(name => !players.includes(name) && !confirmedDead.has(name) && (number !== 2 || !movieOneDepartures.includes(name)));
   const priorCoreFriends = number === 1 ? [] : unique(scenarioHistory.at(-1)?.friends || [])
     .filter(name => priorSurvivors.includes(name));
   const legacyPriority = unique([...players.flatMap(player => linkedNames(player)), ...priorSurvivors])
@@ -2173,12 +2178,12 @@ function generateMovie(number) {
   const returningSurvivors = number === 2
     ? unique([...priorCoreFriends, ...shuffle(legacyPriority.filter(name => !priorCoreFriends.includes(name)), random)]).slice(0, returningLimit)
     : [];
-  const newcomers = shuffle(allNames().filter(name => !players.includes(name) && !seenBefore.has(name) && !confirmedDead.has(name)), random);
-  const otherLiving = shuffle(allNames().filter(name => !players.includes(name) && !confirmedDead.has(name) && !returningSurvivors.includes(name) && !newcomers.includes(name)), random);
+  const newcomers = shuffle(allNames().filter(name => !players.includes(name) && !seenBefore.has(name) && !confirmedDead.has(name) && (number !== 2 || !movieOneDepartures.includes(name))), random);
+  const otherLiving = shuffle(allNames().filter(name => !players.includes(name) && !confirmedDead.has(name) && !returningSurvivors.includes(name) && !newcomers.includes(name) && (number !== 2 || !movieOneDepartures.includes(name))), random);
   const allLegacySurvivors = unique(scenarioHistory.flatMap(record => record.survivors || []))
     .filter(name => !players.includes(name) && !confirmedDead.has(name));
   let cast = number === 3
-    ? unique([...players, ...newcomers, ...shuffle(allLegacySurvivors, random), ...otherLiving])
+    ? unique([...players, ...movieOneDepartures, ...newcomers, ...shuffle(allLegacySurvivors, random), ...otherLiving])
     : unique([...players, ...returningSurvivors, ...newcomers, ...otherLiving]).slice(0, desired + players.length - 1);
 
   // A previous killer's relative/partner can return as a revenge suspect,
@@ -2410,7 +2415,8 @@ function movieInteractionScore(name) {
     const text = `${choice.text || ""} ${choice.consequence || ""}`;
     return total + (text.includes(name) ? 1 : 0);
   }, 0);
-  return choiceMentions * 4
+  const mortalityBias = name === "Paul" ? -95 : 0;
+  return mortalityBias + choiceMentions * 4
     + (movie.dialoguedWith || []).filter(entry => entry === name).length * 8
     + (movie.canonMoments || []).filter(moment => (moment.pair || []).includes(name)).length * 8
     + (movie.friends || []).includes(name) * 40
@@ -2571,8 +2577,7 @@ function playCastIntro() {
     const legacyCore = current.history.some(record => (record.friends || []).includes(name) && (record.survivors || []).includes(name));
     const playerIndex = playerCharacters().indexOf(name);
     const label = isPlayerCharacter(name) ? playerIndex >= 0 ? `STARRING · PLAYER ${playerIndex + 1}` : "STARRING · ONLINE PLAYER" : legacyCore ? "RETURNING · YOUR INNER CIRCLE" : index < 4 ? "ALSO STARRING" : "WITH";
-    const continuityLine = movie.number > 1 ? continuityIntroLine(name) : "";
-    copy.append(el("div", "credit", label), el("h1", "", name), el("p", "", `${movieLabel(movie.number)} · ${movie.title}${continuityLine ? ` · ${continuityLine}` : ""}`));
+    copy.append(el("div", "credit", label), el("h1", "", name), el("p", "", `${movieLabel(movie.number)} · ${movie.title}`));
     overlay.append(backdrop, copy);
     index += 1;
     if (index >= cast.length) {
@@ -3206,7 +3211,11 @@ function createRelationshipEvent(group, random) {
   const grieving = aliveGroup.find(name => linkedNames(name).some(other => current.movie.status[other] === "DEAD"));
   const first = grieving || pick(aliveGroup, random);
   const second = pick(aliveGroup.filter(name => name !== first), random) || supportingVoices([first], 1)[0] || first;
-  const types = grieving ? ["grief", "grief", "accusation", "vow"] : ["argument", "accusation", "vow", "confession", "rivalry"];
+  const types = grieving
+    ? ["grief", "grief", "accusation", "vow"]
+    : current.movie.number === 1
+      ? ["argument", "accusation", "vow", "confession", "rivalry", "departure", "departure"]
+      : ["argument", "accusation", "vow", "confession", "rivalry"];
   return { type: pick(types, random), first, second, seed: Math.floor(random() * 1_000_000) };
 }
 
@@ -3250,6 +3259,11 @@ function renderRelationshipEvent() {
       eyebrow: "RIVALRY · LOYALTY TEST", title: `${event.first} και ${second} θέλουν να οδηγήσουν την ομάδα.`,
       body: "Και οι δύο προτείνουν διαφορετική διαδρομή. Καμία δεν είναι αποδεδειγμένα ασφαλής και η απόφασή σου θα αλλάξει ποιος νιώθει ότι τον εμπιστεύεσαι.",
       choices: [`Ακολούθησε ${accusativeName(event.first)}.`, `Ακολούθησε ${accusativeName(second)}.`, "Συνδύασε τα σχέδια και κράτησε εσύ τον έλεγχο."]
+    },
+    departure: {
+      eyebrow: "MOVIE I · SOMEONE WANTS OUT", title: `${event.first} λέει ότι φεύγει από την ιστορία.`,
+      body: `${subjectName(event.first)} δεν αντέχει άλλη νύχτα με μάσκες. Αν δεχτείς, θα φύγει πραγματικά τώρα, δεν θα εμφανιστεί στο Movie II και θα επιστρέψει υποχρεωτικά μόνο στο Movie III για το κλείσιμο της τριλογίας.`,
+      choices: [`Άφησε ${accusativeName(event.first)} να φύγει.`, `Πείσε ${accusativeName(event.first)} να μείνει μαζί σας.`, `Ζήτησε μία τελευταία βοήθεια πριν αποφασίσει.`]
     }
   };
   if (event.type === "canon") {
@@ -3317,6 +3331,16 @@ function resolveRelationshipEvent(choiceIndex) {
     movie.canonMoments ||= [];
     movie.canonMoments.push({ pair: [first, second], relation: event.relation, choice: choiceIndex + 1, localChoices: localVoteSet || null });
   }
+  if (event.type === "departure" && choiceIndex === 0) {
+    movie.departed ||= [];
+    if (!movie.departed.includes(first)) movie.departed.push(first);
+    movie.status[first] = "LEFT · RETURNS IN MOVIE III";
+    movie.friends = (movie.friends || []).filter(name => name !== first);
+    Object.keys(movie.playerFriends || {}).forEach(player => {
+      movie.playerFriends[player] = (movie.playerFriends[player] || []).filter(name => name !== first);
+    });
+    remember(`${first} έφυγε οριστικά από το Movie I.`, `${first} will skip Movie II and is guaranteed to return in Movie III.`);
+  }
   movie.relationshipEventShown = true;
   const localVoteLines = localVoteSet
     ? playerCharacters().map(player => `${player}: επιλογή ${(localVoteSet[player] ?? choiceIndex) + 1}`).join(" · ")
@@ -3325,11 +3349,13 @@ function resolveRelationshipEvent(choiceIndex) {
   queueBeat({
     kind: event.type === "argument" || event.type === "accusation" ? "twist" : "dialogue",
     eyebrow: twist > .78 ? "RELATIONSHIP TWIST · NOT THE EXPECTED REACTION" : "RELATIONSHIP SHIFT",
-    title: localVoteSet ? "Οι παίκτες άλλαξαν διαφορετικά τον ίδιο δεσμό." : twist > .78 ? `${strained} θυμάται ότι στάθηκες δίπλα του/της.` : `${favored} έρχεται πιο κοντά σου.`,
+    title: event.type === "departure" && choiceIndex === 0 ? `${first} φεύγει — και αυτή τη φορά η έξοδος είναι πραγματική.` : localVoteSet ? "Οι παίκτες άλλαξαν διαφορετικά τον ίδιο δεσμό." : twist > .78 ? `${strained} θυμάται ότι στάθηκες δίπλα του/της.` : `${favored} έρχεται πιο κοντά σου.`,
      body: event.type === "canon"
        ? `Ο δεσμός ${event.relation} γράφεται στο canon της ταινίας. ${localVoteSet ? `${localVoteLines}. ` : ""}Οι δυο τους θα έχουν αυξημένη πιθανότητα να βρεθούν μαζί, να ανταλλάξουν βοήθεια και να επηρεάσουν ο ένας τη διάσωση του άλλου.`
-       : `Η σκηνή αλλάζει trust, friendship και loyalty χωρίς να αποκαλύπτει ποιος λέει αλήθεια. ${localVoteSet ? `${localVoteLines}. ` : ""}${strained} μπορεί να είναι πληγωμένος/η, φοβισμένος/η ή να παίζει ρόλο.`,
-    names: unique([first, second]), statuses: unique([first, second]).map(name => name === favored ? "BOND STRENGTHENED" : "TENSION"), roomOffset: 1,
+       : event.type === "departure" && choiceIndex === 0
+         ? `${first} αφαιρείται από όλες τις επόμενες σκηνές του Movie I και από ολόκληρο το Movie II. Το Movie III θα ${genderWord(first, "τον", "την")} επαναφέρει υποχρεωτικά, χωρίς να αποκαλύπτει ρόλο ή ενοχή.`
+         : `Η σκηνή αλλάζει trust, friendship και loyalty χωρίς να αποκαλύπτει ποιος λέει αλήθεια. ${localVoteSet ? `${localVoteLines}. ` : ""}${strained} μπορεί να είναι πληγωμένος/η, φοβισμένος/η ή να παίζει ρόλο.`,
+    names: unique([first, second]), statuses: unique([first, second]).map(name => event.type === "departure" && choiceIndex === 0 && name === first ? "LEFT · RETURNS IN MOVIE III" : name === favored ? "BOND STRENGTHENED" : "TENSION"), roomOffset: 1,
     cta: "Συνέχισε με την ομάδα"
   }, 3);
 }
@@ -3338,7 +3364,15 @@ function renderKeyChoice() {
   const movie = current.movie;
   if (movie.relationshipEvent && !movie.relationshipEventShown) return renderRelationshipEvent();
   const candidates = innerCircleMembers();
-  const pendingRecipients = isLocalMode() ? (movie.localDecisions?.[`item-${movie.number}`] || {}) : {};
+  const itemKey = `item-${movie.number}`;
+  const onlineItemRound = isOnlineEngine()
+    ? Object.values(onlineSession?.pendingDecisions || {}).find(decision => Object.values(decision?.submissions || {}).some(submission => submission?.localKey === itemKey))
+    : null;
+  const onlineRecipients = Object.fromEntries(Object.entries(onlineItemRound?.submissions || {}).map(([username, submission]) => {
+    const player = (onlineSession?.players || []).find(entry => entry.username === username);
+    return [player?.character || username, submission?.choice ?? null];
+  }));
+  const pendingRecipients = isOnlineEngine() ? onlineRecipients : isLocalMode() ? (movie.localDecisions?.[itemKey] || {}) : {};
   const pickedBy = Object.fromEntries(Object.entries(pendingRecipients).filter(([, recipient]) => recipient).map(([player, recipient]) => [recipient, player]));
   const focus = candidates[0] || movie.dangerA;
   const content = movieScreen("A QUIET MOMENT", 28);
@@ -3448,10 +3482,24 @@ function renderInvestigation() {
   const wrap = el("div", "content");
   wrap.append(el("p", "eyebrow", "THE MAP KEEPS CHANGING"), el("h1", "headline", movie.investigatedRooms.length ? "Ποιο δωμάτιο θα ερευνήσεις μετά;" : "Πού θα ψάξεις πρώτα;"));
   const grid = el("div", "feature-grid");
+  const roomKey = `room-${movie.number}-${movie.investigationActions}`;
+  const onlineRoomRound = isOnlineEngine()
+    ? Object.values(onlineSession?.pendingDecisions || {}).find(decision => Object.values(decision?.submissions || {}).some(submission => submission?.localKey === roomKey))
+    : null;
+  const onlineRooms = Object.fromEntries(Object.entries(onlineRoomRound?.submissions || {}).map(([username, submission]) => {
+    const player = (onlineSession?.players || []).find(entry => entry.username === username);
+    return [player?.character || username, submission?.choice ?? null];
+  }));
+  const pendingRooms = isOnlineEngine() ? onlineRooms : (movie.localDecisions?.[roomKey] || {});
+  const pickedBy = Object.fromEntries(Object.entries(pendingRooms).filter(([, location]) => location).map(([player, location]) => [location, player]));
   movie.locationChoices.filter(([location]) => !movie.investigatedRooms.includes(location)).forEach(([location, hint], index) => {
     const room = movie.rooms.find(item => item.name === location);
     const card = paintRoom(el("article", "panel feature location-card"), room);
-    card.append(el("b", "", String(index + 1).padStart(2, "0")), el("h3", "", location), el("p", "", hint), button("Έρευνα", "ghost", () => findClue(location), true));
+    const owner = pickedBy[location];
+    const choose = button(owner ? `🔒 ${owner} ερευνά αυτό το δωμάτιο` : "Έρευνα", "ghost", () => findClue(location), true);
+    choose.disabled = Boolean(owner);
+    card.classList.toggle("room-locked", Boolean(owner));
+    card.append(el("b", "", String(index + 1).padStart(2, "0")), el("h3", "", location), el("p", "", owner ? `${hint} · LOCKED BY ${owner}` : hint), choose);
     grid.append(card);
   });
   wrap.append(grid);
@@ -3460,7 +3508,13 @@ function renderInvestigation() {
 
 function findClue(location) {
   const movie = current.movie;
-  location = localDecision(`room-${movie.number}-${movie.investigationActions}`, location);
+  const roomKey = `room-${movie.number}-${movie.investigationActions}`;
+  const duplicate = Object.entries(movie.localDecisions?.[roomKey] || {}).find(([player, picked]) => player !== activePlayerName() && picked === location);
+  if (duplicate) {
+    toast(`Το δωμάτιο έχει ήδη κλειδωθεί από ${duplicate[0]}. Διάλεξε άλλη διαδρομή.`);
+    return;
+  }
+  location = localDecision(roomKey, location);
   if (location === LOCAL_PENDING) return;
   const localChoices = movie.lastLocalResolution?.choices;
   const locations = isMultiplayerMode() ? unique(Object.values(localChoices || {}).filter(Boolean)) : [location];
@@ -3747,21 +3801,25 @@ function createAccusationDebate(kind) {
     "Δεν βασίζομαι σε όσα είπε ο/η παίκτης· αυτό το είδα μόνος/η μου.",
     "Το συμπέρασμα είναι δικό μου, όχι της ομάδας."
   ];
+  const claimedTargets = [];
   const statements = speakers.map((speaker, index) => {
     const localRandom = mulberry32((current.seed + movie.number * 97 + speaker.length * 613 + index * 1777) >>> 0);
-    const shouldTellTruth = Boolean(visibleKillers.length) && (index === 0 || localRandom() > .42);
+    const shouldTellTruth = Boolean(visibleKillers.length) && index === 0 && localRandom() < .42;
     const truthfulTarget = pick(visibleKillers.filter(name => name !== speaker), localRandom);
     const arcSuspect = movie.relationshipArc?.mode === "innocent-suspect" && movie.relationshipArc.subject !== speaker && isAlive(movie.relationshipArc.subject)
       ? movie.relationshipArc.subject : null;
     const bluffTarget = arcSuspect && localRandom() < .56 ? arcSuspect : pick(innocents.filter(name => name !== speaker), localRandom);
-    const target = (shouldTellTruth ? truthfulTarget : bluffTarget) || truthfulTarget || bluffTarget || "LEGACY GHOST";
+    let target = (shouldTellTruth ? truthfulTarget : bluffTarget) || truthfulTarget || bluffTarget || "LEGACY GHOST";
+    const alternatives = shuffle(innocents.filter(name => name !== speaker && !claimedTargets.includes(name)), localRandom);
+    if (claimedTargets.includes(target) && alternatives[0]) target = alternatives[0];
+    claimedTargets.push(target);
     const truthful = Boolean(target && target !== "LEGACY GHOST" && movie.killers.includes(target) && shouldTellTruth);
     const targetLine = target === "LEGACY GHOST" ? "ένα παλιό πρόσωπο από το case file" : accusativeName(target);
     return {
       speaker,
       target,
       truthful,
-      text: `«Πιστεύω ότι είναι ${targetLine}, γιατί ${observations[(index + speaker.length) % observations.length]}. ${endings[(index * 2 + speaker.length) % endings.length]}»`
+      text: `«Στο radio άκουσα κάτι που ίσως έδειχνε ${targetLine}, αλλά η φωνή κόπηκε και μπορεί να ήταν μίμηση. ${observations[(index + speaker.length) % observations.length]}. ${endings[(index * 2 + speaker.length) % endings.length]}»`
     };
   });
   movie.accusationDebates[kind] = statements;
@@ -4125,7 +4183,8 @@ function renderSecondAttack() {
     body: `${attack.body}${backup ? ` Ταυτόχρονα ${subjectName(backup, true)} καλεί από δεύτερο διάδρομο.` : ""} Το μοναδικό αληθινό clue είναι ακόμα στην τσέπη σου. Κάθε διαδρομή έχει ανεξάρτητο probability roll.`,
     choices: [
       ...(backup ? [{ label: `Ρίσκαρε τα πάντα για να σώσεις και ${accusativeName(target)} και ${accusativeName(backup)}.`, action: () => secondAttackChoice("both") }] : []),
-      { label: `Σώσε μόνο ${accusativeName(target)}. Μην μοιράσεις τον χρόνο σου.`, action: () => secondAttackChoice("one") },
+      { label: `Σώσε μόνο ${accusativeName(target)}. Μην μοιράσεις τον χρόνο σου.`, action: () => secondAttackChoice("primary") },
+      ...(backup ? [{ label: `Σώσε μόνο ${accusativeName(backup)}. Άφησε την πρώτη διαδρομή.`, action: () => secondAttackChoice("backup") }] : []),
       { label: "Μην πάει κανείς. Προστάτεψε το στοιχείο και περίμενε.", action: () => secondAttackChoice("none") }
     ], cameos: backup ? [backup] : []
   }));
@@ -4133,11 +4192,10 @@ function renderSecondAttack() {
 
 function secondAttackChoice(rescueMode) {
   const movie = current.movie;
-  const normalizedMode = rescueMode === true ? "one" : rescueMode === false ? "none" : rescueMode;
+  const normalizedMode = rescueMode === true ? "primary" : rescueMode === false ? "none" : rescueMode;
   const submitted = localDecision(`second-attack-${movie.number}`, normalizedMode);
   if (submitted === LOCAL_PENDING) return;
-  const targets = unique([movie.secondTarget, movie.secondBackupTarget]).filter(name => name && isAlive(name) && !isKiller(name)
-    && movie.status[name] !== "SAVED" && !movie.saved.includes(name) && !movie.itemSaved.includes(name));
+  const targets = unique([movie.secondTarget, movie.secondBackupTarget]).filter(name => name && isAlive(name) && !isKiller(name));
   const weaponBonus = playerHasWeapon() ? .12 : 0;
   const puzzleBonus = movie.puzzleAdvantage ? .12 : 0;
   const localVotes = isMultiplayerMode() ? movie.lastLocalResolution?.choices : null;
@@ -4145,14 +4203,18 @@ function secondAttackChoice(rescueMode) {
   const playerOutcomes = [];
   targets.forEach((target, targetIndex) => {
     votes.forEach(([player, rawMode], playerIndex) => {
-      const mode = rawMode === true ? "one" : rawMode === false ? "none" : rawMode;
+      const mode = rawMode === true ? "primary" : rawMode === false ? "none" : rawMode;
       const isPrimary = targetIndex === 0;
-      const baseChance = mode === "both" ? .46 : mode === "one" ? (isPrimary ? .70 : .12) : (isPrimary ? .08 : .10);
+      const baseChance = mode === "both" ? .46
+        : mode === "primary" ? (isPrimary ? .70 : .12)
+          : mode === "backup" ? (isPrimary ? .12 : .70)
+            : (isPrimary ? .08 : .10);
       const itemBonus = itemHeldBy(target) ? .30 : movie.itemKept ? .12 : 0;
       const relationBonus = Math.min(.15, Math.max(0, relationshipState(target, player).loyalty + relationshipState(target, player).trust) / 700);
-      const random = mulberry32((current.seed + movie.number * 6823 + target.length * 211 + playerIndex * 991 + targetIndex * 433 + { both: 19, one: 41, none: 73 }[mode]) >>> 0);
+      const random = mulberry32((current.seed + movie.number * 6823 + target.length * 211 + playerIndex * 991 + targetIndex * 433 + { both: 19, primary: 41, backup: 57, none: 73 }[mode]) >>> 0);
       const survivalChance = Math.min(.96, baseChance + itemBonus + relationBonus + puzzleBonus + weaponBonus);
-      const survived = movie.number === 3 && movieThreeProtected(target) ? true : survivalRoll(target, survivalChance, random);
+      const alreadySaved = movie.status[target] === "SAVED" || movie.saved.includes(target) || movie.itemSaved.includes(target);
+      const survived = alreadySaved || (movie.number === 3 && movieThreeProtected(target)) ? true : survivalRoll(target, survivalChance, random);
       playerOutcomes.push({ player, target, mode, survived, chance: survivalChance, itemBonus });
     });
   });
@@ -4189,8 +4251,8 @@ function secondAttackChoice(rescueMode) {
     kind: deadTargets.length ? "death" : "rescue",
     eyebrow: collateralDeath ? "THE IMPOSSIBLE DOUBLE RESCUE · SOMEONE ELSE PAID" : savedTargets.length === targets.length ? "THE IMPOSSIBLE DOUBLE RESCUE" : savedTargets.length ? "ONE ROUTE OPENED · ONE MAY HAVE CLOSED" : "THE ROUTES CLOSED",
     title: collateralDeath ? `Σώθηκαν και οι δύο — όμως χάθηκε ${subjectName(collateralDeath, true)}.` : savedTargets.length ? `Σώθηκαν: ${savedTargets.join(" και ")}.` : "Κανείς δεν βγήκε από τους διαδρόμους.",
-    body: `${deathAnnouncement}${savedTargets.length ? `Επιβεβαιωμένα SAVED: ${savedTargets.join(", ")}. ` : ""}${deadTargets.length ? `Επιβεβαιωμένα DEAD: ${deadTargets.join(", ")}. ` : ""}${collateralDeath ? "Η διπλή διάσωση ενεργοποίησε το 20% collateral twist: οι killers χτύπησαν διαφορετικό, χαμηλής αλληλεπίδρασης χαρακτήρα και ο θάνατος ανακοινώνεται στο ίδιο cut. " : ""}Οι επιλογές BOTH / ONE / NONE είχαν διαφορετικά τυχαία ποσοστά και τα items, weapons, puzzles και relationships μετακίνησαν τις πιθανότητες.`,
-    names: [...savedTargets, ...deadTargets], statuses: [...savedTargets.map(() => "SAVED"), ...deadTargets.map(() => "DEAD")], roomOffset: 1
+    body: `${deathAnnouncement}${savedTargets.length ? `Επιβεβαιωμένα SAVED: ${savedTargets.join(", ")}. ` : ""}${deadTargets.length ? `Επιβεβαιωμένα DEAD: ${deadTargets.join(", ")}. ` : ""}${collateralDeath ? "Η διπλή διάσωση ενεργοποίησε το 20% collateral twist: οι killers χτύπησαν διαφορετικό, χαμηλής αλληλεπίδρασης χαρακτήρα και ο θάνατος ανακοινώνεται στο ίδιο cut. " : ""}Οι επιλογές BOTH / PRIMARY ONLY / BACKUP ONLY / NONE είχαν διαφορετικά τυχαία ποσοστά και τα items, weapons, puzzles και relationships μετακίνησαν τις πιθανότητες.`,
+    names: unique([...targets, ...deadTargets]), statuses: unique([...targets, ...deadTargets]).map(name => deadTargets.includes(name) ? "DEAD" : "SAVED"), roomOffset: 1
   }, 9);
 }
 
@@ -4256,7 +4318,7 @@ function renderReveal() {
   content.append(el("p", "eyebrow", `ACT III · ${discovered}/${movie.killers.length} IDENTIFIED`));
   const line = discovered === movie.killers.length ? "Not even slightly." : discovered ? "Ήξερα για έναν από εσάς." : "Δεν μπορεί…";
   content.append(el("h1", "display", line));
-  const row = el("div", "killer-row");
+  const row = el("div", `killer-row${movie.killers.length === 1 ? " single-killer" : ""}`);
   movie.killers.forEach((name, index) => {
     const card = el("article", "killer-card");
     const img = el("img"); img.src = imagePath(name); img.alt = name; img.dataset.character = name;
@@ -4508,6 +4570,7 @@ function finishFinaleResolution() {
     movie.resolvedLegacyKillers.forEach(name => setStatus(name, "DEAD"));
   }
   playerCharacters().filter(name => !(current.localHiddenKillerEnabled && movie.killers.includes(name) && name === current.hiddenKiller)).forEach(name => setStatus(name, "ALIVE"));
+  if (movie.number === 3) enforceMovieThreeSurvivorCap();
   movie.completed = true;
   createMovieRecord();
   const killersConfirmedDead = unique([...(movie.resolvedLegacyKillers || []), ...movie.killers]);
@@ -4523,6 +4586,56 @@ function finishFinaleResolution() {
     statuses: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]).map(() => "DEAD") : [...movie.lateDeaths.map(() => "DEAD"), ...movie.killers.map(() => "KILLER · PRESUMED DEAD")],
     roomOffset: 2, cta: "End credits"
   }, "credits");
+}
+
+function enforceMovieThreeSurvivorCap() {
+  const movie = current.movie;
+  if (!movie || movie.number !== 3 || movie.survivorCapApplied) return;
+  const correctTheory = identifiedKillers(movie).length === movie.killers.length;
+  const wrongTheory = falsePredictions(movie).length;
+  const score = (correctTheory ? 3 : 0)
+    + (movie.puzzleAdvantage ? 1 : 0)
+    + ((movie.cluesFound || []).length >= 3 ? 1 : 0)
+    + ((movie.itemSaved || []).length ? 1 : 0)
+    + ((movie.peopleSaved || 0) >= 4 ? 1 : 0)
+    + ((movie.deathsPrevented || 0) >= 3 ? 1 : 0)
+    + (wrongTheory === 0 ? 1 : 0);
+  const random = mulberry32((current.seed + 3 * 31469 + score * 1301 + movie.cast.length * 17) >>> 0);
+  let cap;
+  let tier;
+  if (score >= 7) {
+    cap = random() < .65 ? 9 : 10;
+    tier = "EXCEPTIONAL";
+  } else if (score >= 3) {
+    cap = random() < .60 ? 6 : 7;
+    tier = "STANDARD";
+  } else {
+    const roll = random();
+    cap = roll < .45 ? 3 : roll < .80 ? 4 : 5;
+    tier = "CRITICAL";
+  }
+  cap = Math.max(playerCharacters().filter(name => name !== current.hiddenKiller).length, cap);
+  const living = movie.cast.filter(name => !movie.killers.includes(name) && (isPlayerCharacter(name) || isAlive(name)));
+  // Eight is deliberately not a finale tier. If earlier deaths leave exactly
+  // eight people, the last montage takes one more low-interaction NPC and
+  // closes on seven rather than silently accepting the forbidden midpoint.
+  if (living.length === 8) cap = Math.min(cap, 7);
+  const excess = Math.max(0, living.length - cap);
+  const candidates = rankMovieThreeDeaths(living.filter(name => !isPlayerCharacter(name)), random);
+  const cut = candidates.slice(0, excess);
+  cut.forEach(name => {
+    movie.saved = (movie.saved || []).filter(entry => entry !== name);
+    movie.itemSaved = (movie.itemSaved || []).filter(entry => entry !== name);
+    movie.status[name] = "DEAD";
+    movie.deathOrder ||= [];
+    if (!movie.deathOrder.includes(name)) movie.deathOrder.push(name);
+  });
+  movie.lateDeaths = unique([...(movie.lateDeaths || []), ...cut]);
+  movie.survivorCapApplied = true;
+  movie.survivorCap = cap;
+  movie.survivorTier = tier;
+  movie.survivorScore = score;
+  if (cut.length) remember(`Movie III survivor cut: ${cut.join(" & ")} πέθαναν στο τελευταίο montage.`, `${tier} tier · score ${score}/9 · final survivor cap ${cap}. Lowest-interaction characters were removed first; Paul carries the strongest mortality bias.`);
 }
 
 function createMovieRecord() {
@@ -4545,7 +4658,7 @@ function createMovieRecord() {
     number: movie.number, title: movie.title, cast: movie.cast, killers: movie.killers,
     returningKiller: movie.returningKiller, legacyEcho: movie.legacyEcho, killerProfile: movie.killerProfile, motive: movie.motive, survivors,
     openingScenarioId: movie.openingScenario?.id, openingTarget: movie.openingTarget, openingPartner: movie.openingPartner, openingOutcome: movie.openingOutcome,
-    statuses: movie.status, friends: movie.friends, playerFriends: movie.playerFriends || {}, saved: unique(movie.saved), abandoned: unique(movie.abandoned || []),
+    statuses: movie.status, friends: movie.friends, playerFriends: movie.playerFriends || {}, saved: unique(movie.saved), abandoned: unique(movie.abandoned || []), departed: unique(movie.departed || []),
     playerTheories: movie.finalTheories || {}, playerBets: movie.localBets || {},
     deaths, deathOrder,
     wronglyAccused, firstSuspicion: movie.firstSuspicion, midpointTheory: movie.midpointTheory,
@@ -4560,7 +4673,8 @@ function createMovieRecord() {
     finalInvestigationScenario: movie.finalInvestigationScenario, finalSacrifice: movie.finalSacrifice || null,
     hiddenKillerStrategy: movie.hiddenKillerStrategy || null, finalKillAssignments: movie.finalKillAssignments || [],
     relationshipArc: movie.relationshipArc || null, secretAlliance: movie.secretAlliance || null,
-    secretAttackVictims: movie.secretAttackVictims || [], rareEvent: movie.rareEvent || null
+    secretAttackVictims: movie.secretAttackVictims || [], rareEvent: movie.rareEvent || null,
+    survivorCap: movie.survivorCap || null, survivorTier: movie.survivorTier || null, survivorScore: movie.survivorScore ?? null
   };
   current.history.push(record);
   movie.recordCreated = true;

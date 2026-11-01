@@ -754,6 +754,9 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .reveal-stage { min-height: calc(100svh - 120px); display: grid; align-content: center; }
 .killer-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 28px; }
+.killer-row.single-killer { grid-template-columns: minmax(280px, 760px); justify-content: center; }
+.killer-row.single-killer .killer-card { min-height: min(62svh, 560px); }
+.killer-row.single-killer .killer-card img { height: min(62svh, 560px); object-fit: contain; object-position: center; background: radial-gradient(circle at center, #25090f, #080305 72%); }
 .killer-card { position: relative; min-height: 360px; overflow: hidden; border: 1px solid #7d1720; background: #18070a; }
 .killer-card { animation: killer-reveal .72s cubic-bezier(.2,.8,.2,1) both; }
 .killer-card:nth-child(2) { animation-delay: .18s; }
@@ -774,6 +777,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .killer-card div { position: absolute; inset: auto 0 0; padding: 60px 20px 20px; background: linear-gradient(transparent, #0d0305 66%); }
 .killer-card small { color: var(--blood); font-weight: 800; letter-spacing: .16em; }
 .killer-card h2 { margin: 8px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 2.5rem; }
+.location-card.room-locked { opacity: .68; border-color: #8b3941; }
 .reveal-bet { margin-top: 22px; padding: 22px; border-left: 3px solid var(--ice); }
 .reveal-bet.win { border-color: #8ee6a4; background: linear-gradient(90deg, rgba(45,137,75,.14), rgba(7,9,12,.9)); }
 .reveal-bet.lost { border-color: var(--blood); background: linear-gradient(90deg, rgba(226,27,45,.13), rgba(7,9,12,.9)); }
