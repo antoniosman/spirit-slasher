@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.20";
+const APP_VERSION = "1.21";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -45,6 +45,21 @@ const roster = [
   ["Vicky", "char_vicky.jpg"], ["Vincent", "char_vincent.jpg"],
   ["Violet", "char_violet.png"], ["Zoe", "char_zoe-hq.png"]
 ].map(([name, file]) => ({ name, file }));
+
+const characterGenders = {
+  Alex: "male", Billy: "male", Catherine: "female", Demarin: "male",
+  Elisa: "female", Ester: "female", Eva: "female", Evelin: "female",
+  Hope: "female", Jasmine: "female", Luna: "female", Paul: "male",
+  Pauline: "female", Phillip: "male", Rino: "male", Sargenie: "female",
+  Smaragda: "female", Sorina: "female", Tony: "male", Vicky: "female",
+  Vincent: "male", Violet: "female", Zoe: "female"
+};
+function isFemale(name) { return characterGenders[name] === "female"; }
+function subjectName(name, lower = false) { const article = isFemale(name) ? (lower ? "η" : "Η") : (lower ? "ο" : "Ο"); return `${article} ${name}`; }
+function accusativeName(name) { return `${isFemale(name) ? "την" : "τον"} ${name}`; }
+function toName(name) { return `${isFemale(name) ? "στην" : "στον"} ${name}`; }
+function genitiveName(name) { return `${isFemale(name) ? "της" : "του"} ${name}`; }
+function genderWord(name, male, female) { return isFemale(name) ? female : male; }
 
 const relations = [
   ["Luna", "Hope", "Δίδυμες"],
@@ -162,6 +177,56 @@ const roomZones = {
   ]
 };
 
+const finalInvestigationOpenings = [
+  ["Ένα ασύνδετο intercom ξυπνά.", "Μια φωνή διαβάζει τον αριθμό του επόμενου δωματίου."],
+  ["Το τελευταίο φως αλλάζει χρώμα.", "Ένα emergency strip σχηματίζει βέλος που δεν υπήρχε πριν."],
+  ["Η μπομπίνα γυρίζει μόνη της.", "Ένα κρυμμένο frame εμφανίζεται μόνο για δύο δευτερόλεπτα."],
+  ["Ένα κινητό νεκρού χτυπά.", "Στην οθόνη υπάρχει live φωτογραφία από διπλανό διάδρομο."],
+  ["Το πάτωμα αποκαλύπτει καταπακτή.", "Κάτω από τη σκόνη φαίνονται φρέσκα ίχνη παπουτσιών."],
+  ["Η κάμερα ασφαλείας στρέφεται πάνω σου.", "Το feed δείχνει δέκα λεπτά από το μέλλον."],
+  ["Μια πόρτα γράφει το όνομά σου.", "Το χρώμα είναι ακόμη υγρό και η κλειδαριά μόλις άνοιξε."],
+  ["Ο χάρτης καίγεται από το κέντρο.", "Μένει άθικτη μόνο μία διαδρομή προς το archive."],
+  ["Ακούγεται μια δεύτερη δική σου φωνή.", "Η ηχογράφηση περιγράφει στοιχείο που δεν έχεις βρει ακόμη."],
+  ["Το ρεύμα επιστρέφει σε ένα μόνο δωμάτιο.", "Πίσω από το τζάμι κάποιος άφησε έναν φάκελο με αίμα."]
+];
+const finalInvestigationRisks = [
+  "Η διαδρομή μπορεί να κλειδώσει πίσω σου.", "Ο killer μπορεί να περιμένει μέσα στο σκοτάδι.",
+  "Το εύρημα ίσως είναι τέλεια κατασκευασμένο άλλοθι.", "Κάθε λεπτό δίνει στους killers χρόνο να μετακινήσουν θύμα.",
+  "Ένα λάθος βήμα θα σβήσει τα υπόλοιπα στοιχεία.", "Η εικόνα μπορεί να είναι deepfake από παλιό footage.",
+  "Κάποιος από το group επιμένει ότι είναι παγίδα.", "Το δωμάτιο συνδέεται με δύο αντίθετες εξόδους.",
+  "Το στοιχείο κατονομάζει άνθρωπο που μόλις έσωσες.", "Η αντίστροφη μέτρηση αφήνει μόνο μία προσπάθεια."
+];
+const secondAttackOpenings = [
+  ["Η εικόνα κόβεται στη μέση ενός frame.", (name, room) => `${subjectName(name)} εμφανίζεται για ένα δευτερόλεπτο στο security feed από το «${room}». Πίσω ${genitiveName(name)} κινείται μια δεύτερη σκιά.`],
+  ["Ο projector δείχνει ζωντανή καταδίωξη.", (name, room) => `Το πλάνο ακολουθεί ${accusativeName(name)} μέσα στο «${room}», παρότι κανείς δεν κρατάει κάμερα.`],
+  ["Ένα emergency light αναβοσβήνει τρεις φορές.", (name, room) => `${subjectName(name)} έχει κλειδωθεί στο «${room}». Κάθε αναλαμπή φέρνει τη μάσκα πιο κοντά.`],
+  ["Το ασανσέρ ανοίγει χωρίς καμπίνα.", (name, room) => `Από το σκοτάδι ακούς ${accusativeName(name)} στο «${room}» και μετά το μεταλλικό σύρσιμο μιας παγίδας.`],
+  ["Το live stream αποκτά αντίστροφη μέτρηση.", (name, room) => `${subjectName(name)} είναι ${genderWord(name, "μόνος", "μόνη")} στο «${room}». Το countdown τελειώνει πριν προλάβεις να εξηγήσεις τι συμβαίνει.`],
+  ["Οι πυράντοχες πόρτες κλείνουν διαδοχικά.", (name, room) => `${subjectName(name)} τρέχει στο «${room}», ενώ κάθε πόρτα κόβει ακόμη μία πιθανή έξοδο.`],
+  ["Μια κάμερα πέφτει στο πάτωμα.", (name, room) => `Το τελευταίο πλάνο δείχνει ${accusativeName(name)} να κρύβεται στο «${room}» πριν μια μπότα συνθλίψει τον φακό.`],
+  ["Το radio επαναλαμβάνει την ίδια κραυγή.", (name, room) => `Η φωνή ${genitiveName(name)} ακούγεται από τρεις συχνότητες ταυτόχρονα, αλλά μόνο μία οδηγεί στο «${room}».`],
+  ["Ένα παράθυρο γράφει HELP από μέσα.", (name, room) => `${subjectName(name)} βρίσκεται πίσω από το τζάμι στο «${room}» και μια φιγούρα σβήνει τα γράμματα ένα-ένα.`],
+  ["Ο συναγερμός ανακοινώνει λάθος όνομα.", (name, room) => `Το σύστημα λέει ότι ${subjectName(name, true)} έχει ήδη πεθάνει, ενώ το live feed ${genitiveName(name)} συνεχίζει από το «${room}».`]
+];
+const secondAttackComplications = [
+  "Η συντομότερη διαδρομή έχει γεμίσει καπνό.", "Κάποιος άλλαξε τις πινακίδες εξόδου.",
+  "Ένα δεύτερο τηλέφωνο δίνει αντίθετες οδηγίες.", "Το πάτωμα υποχωρεί κάθε δεκαπέντε δευτερόλεπτα.",
+  "Ο killer έχει αφήσει το αληθινό clue πάνω σε pressure plate.", "Μια γνώριμη φωνή ζητά να μην ανοίξεις την πόρτα.",
+  "Το emergency map δείχνει δωμάτιο που δεν υπάρχει.", "Η μάσκα άφησε δύο διαφορετικά ίχνη αίματος.",
+  "Το ρεύμα αρκεί είτε για την πόρτα είτε για τις κάμερες.", "Ένας masked accomplice περιμένει στη δεύτερη έξοδο."
+];
+function buildFinalInvestigationScenario(movie) {
+  const id = Math.abs((current.seed + movie.number * 7919 + (movie.openingScenario?.id || 0) * 101 + movie.choices.length * 17) % 100);
+  const opening = finalInvestigationOpenings[id % 10];
+  const risk = finalInvestigationRisks[Math.floor(id / 10)];
+  return { id: id + 1, title: opening[0], body: `${opening[1]} ${risk}` };
+}
+function buildSecondAttackScenario(movie, target, room) {
+  const id = Math.abs((current.seed + movie.number * 3571 + (movie.openingScenario?.id || 0) * 43 + movie.choices.length * 29) % 100);
+  const opening = secondAttackOpenings[id % 10];
+  return { id: id + 1, title: opening[0], body: `${opening[1](target, room.name)} ${secondAttackComplications[Math.floor(id / 10)]}` };
+}
+
 function expandedRooms(number) {
   return movieWorlds[number].rooms.flatMap((base, baseIndex) => roomZones[number][baseIndex].map((name, zoneIndex) => ({
     ...base,
@@ -181,7 +246,7 @@ function buildOpeningScenario(number, target, partner, random, excludedIds = [])
     id: scenarioId + 1,
     eyebrow: `${incident.eyebrow} · SCENARIO ${String(scenarioId + 1).padStart(3, "0")}`,
     title: incident.title,
-    body: `Ο/Η ${target} και ο/η ${partner} έχουν απομονωθεί όταν ${incident.event}. ${complication} Έχεις μόνο μία κίνηση πριν χωριστούν.`,
+    body: `${subjectName(target)} και ${subjectName(partner, true)} έχουν απομονωθεί όταν ${incident.event}. ${complication} Έχεις μόνο μία κίνηση πριν χωριστούν.`,
     choices: [openingActions.protect[actionIndex], openingActions.authority[(actionIndex + 3) % 10], openingActions.intervene[(actionIndex + 6) % 10]],
     time: `${String(10 + Math.floor(random() * 2)).padStart(2, "0")}:${String(Math.floor(random() * 60)).padStart(2, "0")} PM`
   };
@@ -195,7 +260,7 @@ const featureCopy = [
   ["120 room variants", "Τρία cinematic map atlases γίνονται 120 διαφορετικά sub-rooms, routes, clues και scene orders σε κάθε canon."],
   ["Accusation history", "Το παιχνίδι θυμάται την πρώτη, τη μεσαία και την τελική θεωρία σου και μετρά τι πρόβλεψες."],
   ["Independent NPC minds", "Κάθε NPC χτίζει δική του υποψία από προσωπικές παρατηρήσεις, μπορεί να μπλοφάρει και δεν επαναλαμβάνει μηχανικά τα ίδια λόγια ή τη θεωρία του παίκτη."],
-  ["Local 2–3P pass-the-phone", "Διάλεξε δύο ή τρεις καλούς χαρακτήρες. Blocking handoff popup ξεκαθαρίζει πάντα ποιος αποφασίζει, ενώ κάθε player κρατά δικά του relationships, theories και bets."],
+  ["Local 2–3P pass-the-phone", "Διάλεξε δύο ή τρεις χαρακτήρες. Στο 3P μπορείς προαιρετικά να ενεργοποιήσεις μυστικό human killer στο Movie III με ιδιωτικό role reveal, μπλόφες και κρυφό sabotage."],
   ["Legacy survivors", "Οι σημαντικές σχέσεις και οι επιζώντες επιστρέφουν. Οι πιο πιστοί δεν πετιούνται άδικα στο opening kill του sequel."],
   ["Movie III mastermind", "Μόνο στο Final Chapter υπάρχει πιθανότητα να κρύβεται ακριβώς ένας παλιός killer — ποτέ στο intro και ποτέ ως κανονικός χαρακτήρας."],
   ["Fictional killer betting", "Πόνταρε Slasher Credits στη final theory: 2× για πλήρη ακριβή πρόβλεψη ή αναλογική επιστροφή για μερική επιτυχία — χωρίς πραγματικά χρήματα."],
@@ -489,7 +554,7 @@ function localDecision(key, value, resolver = values => values.at(-1)) {
     current.activePlayerIndex = players.indexOf(missing);
     movie.localTurnNotice = { key, player, choice: value, nextPlayer: missing };
     saveCurrent();
-    toast(`${player} κλείδωσε την επιλογή. Τώρα αποφασίζει ο/η ${missing}.`);
+    toast(`${player} κλείδωσε την επιλογή. Τώρα αποφασίζει ${subjectName(missing, true)}.`);
     renderMovie();
     return LOCAL_PENDING;
   }
@@ -1045,7 +1110,7 @@ function renderFeatures() {
 function renderModeSelect() {
   const root = screen();
   const content = el("div", "content narrow");
-  content.append(el("p", "eyebrow", "NEW TRILOGY · CHOOSE YOUR CUT"), el("h1", "display", "Πώς θέλεις να παίξεις;"), el("p", "lead", "Οι επιλογές, οι σχέσεις και τα saves λειτουργούν σε κάθε mode. Το Local 2–3P είναι pass-the-phone / share-screen και κρατάει όλους τους ανθρώπινους χαρακτήρες ζωντανούς."));
+  content.append(el("p", "eyebrow", "NEW TRILOGY · CHOOSE YOUR CUT"), el("h1", "display", "Πώς θέλεις να παίξεις;"), el("p", "lead", "Οι επιλογές, οι σχέσεις και τα saves λειτουργούν σε κάθε mode. Το Local 2–3P είναι pass-the-phone / share-screen· στο προαιρετικό Hidden Killer 3P ένας ανθρώπινος player μπορεί να βρίσκεται μέσα από τη μάσκα."));
   const grid = el("div", "mode-grid");
   const single = el("article", "panel mode-card");
   single.append(el("p", "eyebrow", "SINGLE PLAYER"), el("h2", "headline", "Μόνος/η στο cut"), el("p", "section-copy", "Ένας πρωταγωνιστής, procedural τριλογία και όλο το canon στα χέρια σου."), button("Single Player", "", () => renderProtagonist("single")));
@@ -1064,7 +1129,7 @@ function renderMultiplayerMode() {
   const online = el("article", "panel mode-card");
   online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", openOnlineLobby));
   const local = el("article", "panel mode-card");
-  local.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Δύο ή τρεις καλοί χαρακτήρες, ποτέ killers και ποτέ μόνιμα νεκροί. Όλοι οι υπόλοιποι είναι NPCs και οι σχέσεις συνεχίζουν κανονικά."), button("Local 2–3 Players", "", () => renderLocalSetup()));
+  local.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Standard survivor mode για 2–3 παίκτες ή προαιρετικό Hidden Killer όταν επιλέξετε τρεις. Όλοι παίζουν διαδοχικά στην ίδια κοινή τριλογία."), button("Local 2–3 Players", "", () => renderLocalSetup()));
   grid.append(online, local); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderModeSelect)); content.append(actions);
   root.append(content);
@@ -1552,7 +1617,7 @@ function renderLocalSetup(selected = []) {
   title.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS · CASTING"), el("h1", "headline", selectedPlayers.length ? `Διάλεξε τον/την Player ${nextNumber}` : "Διάλεξε 2 ή 3 χαρακτήρες"));
   head.append(title, el("p", "section-copy", selectedPlayers.length
     ? `Ήδη επιλέχθηκαν: ${selectedPlayers.join(" & ")}. Κάθε χαρακτήρας έχει δικά του relationships, theory, bet και ανεξάρτητο turn.`
-    : "Οι ανθρώπινοι players παραμένουν καλοί, ζωντανοί και έξω από τη λίστα killers. Παίζετε διαδοχικά στην ίδια κοινή τριλογία."));
+    : "Στο standard mode οι ανθρώπινοι players παραμένουν καλοί και εκτός killers. Με τρεις παίκτες μπορείτε αργότερα να ενεργοποιήσετε τυχαίο μυστικό killer με ιδιωτική αποκάλυψη ρόλων."));
   content.append(head);
   if (selectedPlayers.length) {
     const chosen = el("div", "local-player-pair local-player-selection");
@@ -1587,11 +1652,13 @@ function confirmLocalPlayers(players) {
   selectedPlayers.forEach((name, index) => {
     const card = el("article", "panel local-player-card");
     const img = el("img"); img.src = imagePath(name); img.alt = "";
-    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
+    card.append(img, el("strong", "", `PLAYER ${index + 1}`), el("h2", "", name), el("small", "", selectedPlayers.length === 3 ? "ROLE ASSIGNED AFTER MODE SELECTION" : "GOOD · IMMUNE TO KILLER ROLE")); pair.append(card);
   });
   content.append(pair);
   const actions = el("div", "actions");
-  actions.append(button(`Έναρξη Local ${selectedPlayers.length}P`, "", () => createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers })), button("Άλλαξε χαρακτήρες", "ghost", () => renderLocalSetup(selectedPlayers.slice(0, -1))));
+  actions.append(button(`Έναρξη Local ${selectedPlayers.length}P · Survivors`, "", () => createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers })));
+  if (selectedPlayers.length === 3) actions.append(button("Hidden Killer 3P · Τυχαίος μυστικός ρόλος", "secondary", () => createUniverse(selectedPlayers[0], { mode: "local", playerCharacters: selectedPlayers, localHiddenKillerEnabled: true })));
+  actions.append(button("Άλλαξε χαρακτήρες", "ghost", () => renderLocalSetup(selectedPlayers.slice(0, -1))));
   content.append(actions); root.append(content);
 }
 
@@ -1618,6 +1685,7 @@ function characterButton(name, onClick, selected = false, extraClass = "") {
   const img = el("img");
   img.src = imagePath(name);
   img.alt = name;
+  img.dataset.character = name;
   img.loading = "lazy";
   card.append(img, el("span", "", name));
   card.addEventListener("click", onClick);
@@ -1664,6 +1732,8 @@ function createUniverse(protagonist, options = {}) {
     playerCharacters: players,
     onlineGroupCharacters: mode === "online" ? onlineGroup : [],
     gameMode: mode,
+    localHiddenKillerEnabled: Boolean(options.localHiddenKillerEnabled && mode === "local" && players.length === 3),
+    hiddenKiller: options.localHiddenKillerEnabled && mode === "local" && players.length === 3 ? players[(seed + players.join("").length) % players.length] : null,
     onlineSessionCode: options.onlineSessionCode || null,
     onlineUsername: options.onlineUsername || null,
     onlinePendingDecision: null,
@@ -1703,6 +1773,8 @@ function loadUniverse(id) {
   current.credits ??= 1000;
   current.playerCharacters = unique(current.playerCharacters?.length ? current.playerCharacters.filter(name => character(name)) : [current.protagonist]);
   current.gameMode ||= current.playerCharacters.length > 1 ? "local" : "single";
+  current.localHiddenKillerEnabled ??= false;
+  current.hiddenKiller ||= null;
   if (current.gameMode === "online") {
     current.onlineGroupCharacters = unique(current.onlineGroupCharacters?.length ? current.onlineGroupCharacters : current.playerCharacters).filter(name => character(name));
     if (current.onlineGroupCharacters.length) current.playerCharacters = [...current.onlineGroupCharacters];
@@ -1770,7 +1842,7 @@ function loadUniverse(id) {
       if (!clue || clue.type !== "REAL CLUE" || clue.title.includes("ARCHIVE ECHO")) return;
       const detail = clue.title.includes(":") ? clue.title.split(":").slice(1).join(":").trim() : "το ίχνος στο archive";
       clue.title = `${movie.legacyEcho} · ARCHIVE ECHO: ${detail}`;
-      clue.text = `Το ίχνος μοιάζει με του/της ${movie.legacyEcho}, σαν να βρισκόταν εδώ. Μπορεί όμως να είναι επιστροφή, αντιγραφή ή εσκεμμένη παγίδα — δεν αποδεικνύει ότι επέστρεψε κανείς. ${clue.text}`;
+      clue.text = `Το ίχνος μοιάζει με εκείνο ${genitiveName(movie.legacyEcho)}, σαν να βρισκόταν εδώ. Μπορεί όμως να είναι επιστροφή, αντιγραφή ή εσκεμμένη παγίδα — δεν αποδεικνύει ότι επέστρεψε κανείς. ${clue.text}`;
     };
     Object.values(movie.locationClues || {}).forEach(migrateLegacyClue);
     (movie.cluesFound || []).forEach(migrateLegacyClue);
@@ -1780,6 +1852,11 @@ function loadUniverse(id) {
   movie.accusationDebates ||= {};
   movie.finalDeepInvestigationResolved ??= false;
   movie.finalDeepInvestigationResult ||= null;
+  movie.finalInvestigationScenario ||= null;
+  movie.roleBriefingComplete ??= !current.localHiddenKillerEnabled;
+  movie.roleBriefingIndex ??= 0;
+  movie.roleBriefingRevealed ??= false;
+  movie.hiddenKillerStrategy ||= null;
   movie.pendingBet ??= 0;
   movie.betAmount ??= 0;
   movie.betPayout ??= 0;
@@ -1876,7 +1953,7 @@ function renderRelationshipBoard() {
   const content = el("div", "content");
   const head = el("div", "section-head");
   const title = el("div");
-  title.append(el("p", "eyebrow", `${movieLabel(movie.number)} · ${viewer} · RELATIONSHIP MECHANICS`), el("h1", "headline", "Οι δικοί σου δεσμοί αλλάζουν ποιος επιστρέφει και ποιος επιβιώνει."), el("p", "section-copy", `Αυτό είναι το προσωπικό relationship board του/της ${viewer}. Το main group αποκτά story priority στα sequels· οι canon συγγένειες, trust, friendship και loyalty επηρεάζουν βοήθεια και survival odds.`));
+  title.append(el("p", "eyebrow", `${movieLabel(movie.number)} · ${viewer} · RELATIONSHIP MECHANICS`), el("h1", "headline", "Οι δικοί σου δεσμοί αλλάζουν ποιος επιστρέφει και ποιος επιβιώνει."), el("p", "section-copy", `Αυτό είναι το προσωπικό relationship board ${genitiveName(viewer)}. Το main group αποκτά story priority στα sequels· οι canon συγγένειες, trust, friendship και loyalty επηρεάζουν βοήθεια και survival odds.`));
   head.append(title, button("Επιστροφή στην ταινία", "ghost", renderMovie));
   content.append(head);
   if (isMultiplayerMode()) {
@@ -1941,13 +2018,13 @@ function dialogueLine(name) {
   if (relatedDead) {
     const bond = relationshipBetween(name, relatedDead);
     const grief = bond.includes("Σύντροφοι") ? [
-      `Δεν μπορώ να δεχτώ ότι ο/η ${relatedDead} χάθηκε. Όποιος το έκανε θα το πληρώσει.`,
-      `Μου υποσχέθηκε ότι θα φύγουμε μαζί. Δεν θα αφήσω τον/την ${relatedDead} να γίνει απλώς άλλο ένα όνομα.`,
-      `Ακούω ακόμη τη φωνή του/της ${relatedDead}. Αν σταματήσω τώρα, τον/την εγκαταλείπω δεύτερη φορά.`
+      `Δεν μπορώ να δεχτώ ότι ${subjectName(relatedDead, true)} χάθηκε. Όποιος το έκανε θα το πληρώσει.`,
+      `Μου υποσχέθηκε ότι θα φύγουμε μαζί. Δεν θα αφήσω ${accusativeName(relatedDead)} να γίνει απλώς άλλο ένα όνομα.`,
+      `Ακούω ακόμη τη φωνή ${genitiveName(relatedDead)}. Αν σταματήσω τώρα, ${genderWord(relatedDead, "τον", "την")} εγκαταλείπω δεύτερη φορά.`
     ] : [
-      `Ο/Η ${relatedDead} ήταν οικογένειά μου. Θα βρω ποιος το έκανε, ακόμη κι αν πρέπει να μείνω μόνος/η.`,
-      `Δεν πρόλαβα να πω αντίο στον/στην ${relatedDead}. Κανείς δεν θα μου πάρει και την αλήθεια.`,
-      `Όποιος σκότωσε τον/την ${relatedDead} θα πληρώσει. Δεν με νοιάζει ποια μάσκα φοράει.`
+      `${subjectName(relatedDead)} ήταν οικογένειά μου. Θα βρω ποιος το έκανε, ακόμη κι αν πρέπει να μείνω χωρίς κανέναν.`,
+      `Δεν πρόλαβα να πω αντίο ${toName(relatedDead)}. Κανείς δεν θα μου πάρει και την αλήθεια.`,
+      `Όποιος σκότωσε ${accusativeName(relatedDead)} θα πληρώσει. Δεν με νοιάζει ποια μάσκα φοράει.`
     ];
     return `${bond || "BLOOD BOND"} · «${grief[Math.abs(seed) % grief.length]}»`;
   }
@@ -2105,9 +2182,16 @@ function generateMovie(number) {
       .filter(name => cast.includes(name) && !players.includes(name));
     eligibleKillers = unique([...shuffle(historyShapedCandidates, random), ...eligibleKillers]);
   }
-  const killers = returningKiller
+  let killers = returningKiller
     ? [returningKiller, ...eligibleKillers.slice(0, Math.max(0, killerCount - 1))]
     : eligibleKillers.slice(0, killerCount);
+  const hiddenHumanKiller = current.localHiddenKillerEnabled && number === 3 ? current.hiddenKiller : null;
+  if (hiddenHumanKiller) {
+    const npcKillers = killers.filter(name => name !== hiddenHumanKiller);
+    if (!npcKillers.length && eligibleKillers[0]) npcKillers.push(eligibleKillers[0]);
+    killers = unique([hiddenHumanKiller, ...npcKillers]);
+    killerProfile = `HIDDEN PLAYER + ${npcKillers.length} MASKED NPC${npcKillers.length === 1 ? "" : "S"}`;
+  }
   const victims = cast.filter(name => !players.includes(name) && !killers.includes(name));
   const previousRecord = scenarioHistory.at(-1);
   const survivingLegacyFriends = unique(scenarioHistory.flatMap(record =>
@@ -2132,12 +2216,12 @@ function generateMovie(number) {
   const secondBackupTarget = pick(remainingVictims.filter(name => ![dangerA, dangerB, secondTarget].includes(name)), random);
   const innocent = pick(cast.filter(name => !players.includes(name) && !killers.includes(name)), random);
   const secretHolder = pick(cast.filter(name => !players.includes(name) && name !== innocent), random);
-  const mainKiller = killers[0];
+  const mainKiller = killers.find(name => !isPlayerCharacter(name)) || killers[0];
   const mysteryFinalClue = number === 3;
   const legacyEcho = mysteryFinalClue && oldKillers.length ? (returningKiller || pick(oldKillers, random)) : null;
   const clueIdentity = mysteryFinalClue ? (legacyEcho ? `${legacyEcho} · ARCHIVE ECHO` : "UNKNOWN FIGURE") : mainKiller;
   const legacyClueWarning = legacyEcho
-    ? `Το ίχνος μοιάζει με του/της ${legacyEcho}, σαν να βρισκόταν εδώ. Μπορεί όμως να είναι επιστροφή, αντιγραφή ή εσκεμμένη παγίδα — δεν αποδεικνύει ότι επέστρεψε κανείς.`
+    ? `Το ίχνος μοιάζει με εκείνο ${genitiveName(legacyEcho)}, σαν να βρισκόταν εδώ. Μπορεί όμως να είναι επιστροφή, αντιγραφή ή εσκεμμένη παγίδα — δεν αποδεικνύει ότι επέστρεψε κανείς.`
     : "Το ίχνος μοιάζει να έρχεται από παλιό case file, αλλά δεν αποδεικνύει αν ανήκει σε παλιό ή νέο killer.";
   const continuityFriends = number === 1 ? [] : unique([
     ...(previousRecord?.friends || []),
@@ -2153,30 +2237,30 @@ function generateMovie(number) {
     ? 3 + Math.floor(random() * 3)
     : number === 2
       ? 3 + Math.floor(random() * 4)
-      : Math.min(Math.max(4, cast.length - 2), cast.length > 16 ? 6 + Math.floor(random() * 5) : 4 + Math.floor(random() * 5));
+      : Math.min(Math.max(4, cast.length - 4), Math.max(7, Math.ceil(cast.length * .55) + Math.floor(random() * 3)));
   const openingKillerRoll = random();
   const puzzle = pick(investigationPuzzles, random);
   const cluePool = [
     pick([
-      { type: "REAL CLUE", title: `${clueIdentity}: το δεύτερο τηλέφωνο`, text: mysteryFinalClue ? `${legacyClueWarning} Το burner phone ενεργοποιήθηκε σε εγκαταλελειμμένο σημείο χωρίς καταχωρημένο ιδιοκτήτη.` : `Το burner phone ενεργοποιήθηκε κοντά στο σπίτι του/της ${mainKiller}, τέσσερα λεπτά πριν από την επίθεση.` },
-      { type: "REAL CLUE", title: `${clueIdentity}: το κλειδί του projector`, text: mysteryFinalClue ? `${legacyClueWarning} Το κλειδί έχει καμένη επιφάνεια και cloned αποτυπώματα από σφραγισμένο evidence bag.` : `Το μοναδικό κλειδί του projection booth βρέθηκε σε σακάκι που φόρεσε ο/η ${mainKiller}.` },
-      { type: "REAL CLUE", title: `${clueIdentity}: το σβησμένο frame`, text: mysteryFinalClue ? `${legacyClueWarning} Το frame αναπαράγει μια γνώριμη κίνηση, όμως το πρόσωπο έχει αφαιρεθεί ψηφιακά.` : `Στο χαμένο frame φαίνεται καθαρά η αντανάκλαση του/της ${mainKiller} πριν χτυπήσει ο συναγερμός.` },
-      { type: "REAL CLUE", title: `${clueIdentity}: η κρυφή διαδρομή`, text: mysteryFinalClue ? `${legacyClueWarning} Ο παλιός κωδικός χρησιμοποιήθηκε από μη καταχωρημένο terminal και θα μπορούσε να έχει αντιγραφεί.` : `Μόνο ο/η ${mainKiller} γνώριζε τον κωδικό της διαδρομής που χρησιμοποίησε η μάσκα.` },
-      { type: "REAL CLUE", title: `${clueIdentity}: το ίχνος στο archive`, text: mysteryFinalClue ? `${legacyClueWarning} Το cloned token συνδέεται με το παλιό case, όχι με επιβεβαιωμένη παρουσία ανθρώπου.` : `Η πρόσβαση στο κλειδωμένο archive έγινε με προσωπικό token του/της ${mainKiller}.` }
+      { type: "REAL CLUE", title: `${clueIdentity}: το δεύτερο τηλέφωνο`, text: mysteryFinalClue ? `${legacyClueWarning} Το burner phone ενεργοποιήθηκε σε εγκαταλελειμμένο σημείο χωρίς καταχωρημένο ιδιοκτήτη.` : `Το burner phone ενεργοποιήθηκε κοντά στο σπίτι ${genitiveName(mainKiller)}, τέσσερα λεπτά πριν από την επίθεση.` },
+      { type: "REAL CLUE", title: `${clueIdentity}: το κλειδί του projector`, text: mysteryFinalClue ? `${legacyClueWarning} Το κλειδί έχει καμένη επιφάνεια και cloned αποτυπώματα από σφραγισμένο evidence bag.` : `Το μοναδικό κλειδί του projection booth βρέθηκε σε σακάκι που φόρεσε ${subjectName(mainKiller, true)}.` },
+      { type: "REAL CLUE", title: `${clueIdentity}: το σβησμένο frame`, text: mysteryFinalClue ? `${legacyClueWarning} Το frame αναπαράγει μια γνώριμη κίνηση, όμως το πρόσωπο έχει αφαιρεθεί ψηφιακά.` : `Στο χαμένο frame φαίνεται καθαρά η αντανάκλαση ${genitiveName(mainKiller)} πριν χτυπήσει ο συναγερμός.` },
+      { type: "REAL CLUE", title: `${clueIdentity}: η κρυφή διαδρομή`, text: mysteryFinalClue ? `${legacyClueWarning} Ο παλιός κωδικός χρησιμοποιήθηκε από μη καταχωρημένο terminal και θα μπορούσε να έχει αντιγραφεί.` : `Μόνο ${subjectName(mainKiller, true)} γνώριζε τον κωδικό της διαδρομής που χρησιμοποίησε η μάσκα.` },
+      { type: "REAL CLUE", title: `${clueIdentity}: το ίχνος στο archive`, text: mysteryFinalClue ? `${legacyClueWarning} Το cloned token συνδέεται με το παλιό case, όχι με επιβεβαιωμένη παρουσία ανθρώπου.` : `Η πρόσβαση στο κλειδωμένο archive έγινε με προσωπικό token ${genitiveName(mainKiller)}.` }
     ], random),
     pick([
-      { type: "RED HERRING", title: `${innocent}: αίμα στο αυτοκίνητο`, text: `Το αίμα ανήκει στο προηγούμενο θύμα, αλλά ο/η ${innocent} καθάρισε το αυτοκίνητο πριν φτάσει η αστυνομία.` },
-      { type: "RED HERRING", title: `${innocent}: η σκισμένη μάσκα`, text: `Το ύφασμα ταιριάζει στα ρούχα του/της ${innocent}, επειδή το θύμα τα είχε δανειστεί νωρίτερα.` },
-      { type: "RED HERRING", title: `${innocent}: το ψεύτικο άλλοθι`, text: `Ο/Η ${innocent} είπε ψέματα για το πού βρισκόταν — αλλά έκρυβε κάτι άσχετο με τους φόνους.` },
+      { type: "RED HERRING", title: `${innocent}: αίμα στο αυτοκίνητο`, text: `Το αίμα ανήκει στο προηγούμενο θύμα, αλλά ${subjectName(innocent, true)} καθάρισε το αυτοκίνητο πριν φτάσει η αστυνομία.` },
+      { type: "RED HERRING", title: `${innocent}: η σκισμένη μάσκα`, text: `Το ύφασμα ταιριάζει στα ρούχα ${genitiveName(innocent)}, επειδή το θύμα τα είχε δανειστεί νωρίτερα.` },
+      { type: "RED HERRING", title: `${innocent}: το ψεύτικο άλλοθι`, text: `${subjectName(innocent)} είπε ψέματα για το πού βρισκόταν — αλλά έκρυβε κάτι άσχετο με τους φόνους.` },
       { type: "RED HERRING", title: `${innocent}: το ματωμένο εισιτήριο`, text: `Το εισιτήριο βρέθηκε στη σκηνή, όμως το είχε κλέψει το πρώτο θύμα ώρες πριν.` },
-      { type: "RED HERRING", title: `${innocent}: η ηχογράφηση`, text: `Η φωνή μοιάζει με του/της ${innocent}, αλλά το αρχείο έχει μονταριστεί από τρία παλιότερα clips.` }
+      { type: "RED HERRING", title: `${innocent}: η ηχογράφηση`, text: `Η φωνή μοιάζει με εκείνη ${genitiveName(innocent)}, αλλά το αρχείο έχει μονταριστεί από τρία παλιότερα clips.` }
     ], random),
     pick([
-      { type: "CHARACTER SECRET", title: `${secretHolder}: σβησμένα μηνύματα`, text: `Ο/Η ${secretHolder} είχε κανονίσει μυστική συνάντηση και έσβησε όλη τη συνομιλία.` },
-      { type: "CHARACTER SECRET", title: `${secretHolder}: κρυφό χρέος`, text: `Ο/Η ${secretHolder} έκρυβε μια συμφωνία που θα κατέστρεφε τη σχέση του/της με το group.` },
-      { type: "CHARACTER SECRET", title: `${secretHolder}: δεύτερη ταυτότητα`, text: `Ένα παλιό badge δείχνει ότι ο/η ${secretHolder} εργαζόταν εδώ με άλλο όνομα.` },
-      { type: "CHARACTER SECRET", title: `${secretHolder}: το κλεμμένο footage`, text: `Ο/Η ${secretHolder} είχε αντιγράψει ιδιωτικό footage για δικό του/της σκοπό, όχι για τον killer.` },
-      { type: "CHARACTER SECRET", title: `${secretHolder}: η μυστική έξοδος`, text: `Ο/Η ${secretHolder} γνώριζε μια έξοδο αλλά την έκρυβε για να προστατεύσει κάποιον άλλο.` }
+      { type: "CHARACTER SECRET", title: `${secretHolder}: σβησμένα μηνύματα`, text: `${subjectName(secretHolder)} είχε κανονίσει μυστική συνάντηση και έσβησε όλη τη συνομιλία.` },
+      { type: "CHARACTER SECRET", title: `${secretHolder}: κρυφό χρέος`, text: `${subjectName(secretHolder)} έκρυβε μια συμφωνία που θα κατέστρεφε τη σχέση ${genitiveName(secretHolder)} με το group.` },
+      { type: "CHARACTER SECRET", title: `${secretHolder}: δεύτερη ταυτότητα`, text: `Ένα παλιό badge δείχνει ότι ${subjectName(secretHolder, true)} εργαζόταν εδώ με άλλο όνομα.` },
+      { type: "CHARACTER SECRET", title: `${secretHolder}: το κλεμμένο footage`, text: `${subjectName(secretHolder)} είχε αντιγράψει ιδιωτικό footage για προσωπικό σκοπό, όχι για τον killer.` },
+      { type: "CHARACTER SECRET", title: `${secretHolder}: η μυστική έξοδος`, text: `${subjectName(secretHolder)} γνώριζε μια έξοδο αλλά την έκρυβε για να προστατεύσει κάποιον άλλο.` }
     ], random)
   ];
   const locationClues = Object.fromEntries(locationChoices.map((location, index) => [location[0], cluePool[index]]));
@@ -2203,6 +2287,7 @@ function generateMovie(number) {
     stageResult: null, saved: [], offscreenDeaths: [], lateDeaths: [], deathOrder: [], canonMoments: [], deathsPrevented: 0, peopleSaved: 0,
     investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {}, finalDeepInvestigationResolved: false, finalDeepInvestigationResult: null,
     openingPlayerIndex: isLocalMode() ? (Math.floor(random() * players.length)) : 0,
+    roleBriefingComplete: !(current.localHiddenKillerEnabled && number === 3), roleBriefingIndex: 0, roleBriefingRevealed: false, hiddenKillerStrategy: null,
     sceneIndex: 0, completed: false, recordCreated: false, pendingBeat: null, pendingNextStage: null
   };
 }
@@ -2215,7 +2300,8 @@ function remember(text, consequence = "") {
 
 function setStatus(name, status) {
   const movie = current.movie;
-  if (!name || isPlayerCharacter(name)) return false;
+  const isHiddenHumanKiller = current.localHiddenKillerEnabled && name === current.hiddenKiller && movie.killers.includes(name);
+  if (!name || (isPlayerCharacter(name) && !isHiddenHumanKiller)) return false;
   const previous = movie.status[name];
   const protectedAsSaved = previous === "SAVED" || (movie.saved || []).includes(name) || (movie.itemSaved || []).includes(name);
   if (status === "DEAD" && protectedAsSaved && !movie.killers.includes(name)) return false;
@@ -2283,10 +2369,10 @@ function renderRecap() {
     block.append(el("p", "eyebrow", `${movieLabel(record.number)} · ${record.title}`), el("h2", "headline", `Τι συνέβη στην ${movieLabel(record.number)}`));
     const opening = record.openingTarget && record.openingPartner
       ? record.openingOutcome && typeof record.openingOutcome === "object"
-        ? `Opening: ${Object.entries(record.openingOutcome).map(([player, outcome]) => `${player} → ${outcome === "both" ? "κινδύνευσαν και οι δύο" : `επέζησε ο/η ${outcome === "target" ? record.openingTarget : record.openingPartner}`}`).join(" · ")}.`
+        ? `Opening: ${Object.entries(record.openingOutcome).map(([player, outcome]) => `${player} → ${outcome === "both" ? "κινδύνευσαν και οι δύο" : `επέζησε ${subjectName(outcome === "target" ? record.openingTarget : record.openingPartner, true)}`}`).join(" · ")}.`
         : record.openingOutcome === "both"
           ? `Opening: ${record.openingTarget} και ${record.openingPartner} πέθαναν.`
-          : `Opening: ${record.openingTarget} και ${record.openingPartner} χωρίστηκαν· επέζησε ο/η ${record.openingOutcome === "target" ? record.openingTarget : record.openingPartner}.`
+          : `Opening: ${record.openingTarget} και ${record.openingPartner} χωρίστηκαν· επέζησε ${subjectName(record.openingOutcome === "target" ? record.openingTarget : record.openingPartner, true)}.`
       : `Opening scenario ${String(record.openingScenarioId || "—").padStart(3, "0")}: το αποτέλεσμα καταγράφηκε στο canon.`;
     const lines = [
       opening,
@@ -2378,6 +2464,7 @@ function playCastIntro() {
 function renderMovie() {
   const movie = current.movie;
   if (!movie) return startMovie(current.movieNumber || 1);
+  if (current.localHiddenKillerEnabled && movie.number === 3 && !movie.roleBriefingComplete) return renderLocalRoleBriefing();
   if (movie.pendingBeat) return renderCinematicBeat();
   if (movie.stage === 0) return playCastIntro();
   const renderers = {
@@ -2397,6 +2484,63 @@ function renderMovie() {
   (renderers[movie.stage] || renderOpening)();
 }
 
+function renderLocalRoleBriefing() {
+  const movie = current.movie;
+  const players = playerCharacters();
+  const index = Math.min(movie.roleBriefingIndex || 0, players.length - 1);
+  const player = players[index];
+  current.activePlayerIndex = index;
+  const root = screen();
+  const content = el("div", "content narrow private-role-screen");
+  if (!movie.roleBriefingRevealed) {
+    content.append(
+      el("p", "eyebrow", `PRIVATE ROLE · PLAYER ${index + 1}/${players.length}`),
+      el("h1", "display", `Δώσε τη συσκευή ${toName(player)}.`),
+      el("p", "lead", "Οι υπόλοιποι παίκτες δεν πρέπει να κοιτάζουν. Κάθε ρόλος αποκαλύπτεται ξεχωριστά και κρύβεται πριν περάσει η συσκευή."),
+      button(`Αποκάλυψε τον ρόλο του ${player}`, "", () => { movie.roleBriefingRevealed = true; saveCurrent(); renderMovie(); })
+    );
+    root.append(content);
+    return;
+  }
+  const isHumanKiller = player === current.hiddenKiller;
+  content.append(
+    el("p", "eyebrow", isHumanKiller ? "SECRET ROLE · THE INSIDE KILLER" : "SECRET ROLE · SURVIVOR"),
+    el("h1", "display", isHumanKiller ? "Είσαι μέσα από τη μάσκα." : "Πρέπει να επιβιώσεις."),
+    el("p", "lead", isHumanKiller
+      ? "Συνεργάζεσαι με άγνωστους masked NPC accomplices μέσω κωδικοποιημένων σημάτων. Δεν μαθαίνεις τις ταυτότητές τους και εκείνοι δεν εμφανίζονται ως σύμμαχοι· έτσι δεν μπορείς να τους προδώσεις κατά λάθος. Μπλόφαρε στις θεωρίες και διάλεξε ένα κρυφό πλεονέκτημα."
+      : "Υπάρχει πιθανότητα ένας από τους άλλους δύο ανθρώπινους players να είναι killer. Οι σχέσεις και τα clues ισχύουν κανονικά—μην εμπιστεύεσαι κανέναν μόνο επειδή είναι player.")
+  );
+  const actions = el("div", "actions private-role-actions");
+  if (isHumanKiller) {
+    actions.append(
+      button("Σαμπόταρε τις εξόδους · περισσότεροι φόνοι", "", () => finishRoleBriefingTurn("sabotage")),
+      button("Φύτεψε τέλειο ψεύτικο clue", "secondary", () => finishRoleBriefingTurn("frame")),
+      button("Στείλε κρυφό σήμα στους accomplices", "ghost", () => finishRoleBriefingTurn("signal"))
+    );
+  } else actions.append(button("Κρύψε τον ρόλο και δώσε τη συσκευή", "", () => finishRoleBriefingTurn("survivor")));
+  content.append(actions);
+  root.append(content);
+}
+
+function finishRoleBriefingTurn(strategy) {
+  const movie = current.movie;
+  const player = playerCharacters()[movie.roleBriefingIndex || 0];
+  if (player === current.hiddenKiller) {
+    movie.hiddenKillerStrategy = strategy;
+    if (strategy === "sabotage") movie.fatalityTarget = Math.min(movie.cast.length - 3, movie.fatalityTarget + 2);
+    if (strategy === "frame") movie.hiddenKillerTruthPenalty = .22;
+    if (strategy === "signal") movie.hiddenKillerSignal = true;
+  }
+  movie.roleBriefingIndex = (movie.roleBriefingIndex || 0) + 1;
+  movie.roleBriefingRevealed = false;
+  if (movie.roleBriefingIndex >= playerCharacters().length) {
+    movie.roleBriefingComplete = true;
+    current.activePlayerIndex = movie.openingPlayerIndex || 0;
+  }
+  saveCurrent();
+  renderMovie();
+}
+
 function movieScreen(sceneName, progress) {
   const root = screen("movie-shell");
   const content = el("div", "content");
@@ -2414,7 +2558,7 @@ function movieScreen(sceneName, progress) {
   content.append(top);
   if (isLocalMode()) {
     const turn = el("div", "turn-strip");
-    turn.append(el("span", "eyebrow", `PASS-THE-PHONE · LOCAL ${playerCharacters().length}P`), el("strong", "", `Τώρα αποφασίζει: ${activePlayerName()}`), el("small", "", `Όλο το κείμενο και η επόμενη επιλογή ανήκουν στον/στην ${activePlayerName()}. Μετά το lock εμφανίζεται αυτόματα popup για τον επόμενο παίκτη.`));
+    turn.append(el("span", "eyebrow", `PASS-THE-PHONE · LOCAL ${playerCharacters().length}P`), el("strong", "", `Τώρα αποφασίζει: ${activePlayerName()}`), el("small", "", `Όλο το κείμενο και η επόμενη επιλογή ανήκουν ${toName(activePlayerName())}. Μετά το lock εμφανίζεται αυτόματα popup για τον επόμενο παίκτη.`));
     content.append(turn);
     const notice = current.movie.localTurnNotice;
     if (notice) {
@@ -2422,8 +2566,8 @@ function movieScreen(sceneName, progress) {
       const handoffCard = el("div", "panel local-handoff-card");
       handoffCard.append(
         el("span", "eyebrow", "PASS THE PHONE · NEXT PLAYER"),
-        el("h2", "display", `Δώσε τη συσκευή στον/στην ${notice.nextPlayer}`),
-        el("p", "lead", `${notice.player} κλείδωσε: «${describeLocalChoice(notice.choice)}». Η επόμενη επιλογή ανήκει αποκλειστικά στον/στην ${notice.nextPlayer}.`),
+        el("h2", "display", `Δώσε τη συσκευή ${toName(notice.nextPlayer)}`),
+        el("p", "lead", `${notice.player} κλείδωσε: «${describeLocalChoice(notice.choice)}». Η επόμενη επιλογή ανήκει αποκλειστικά ${toName(notice.nextPlayer)}.`),
         button(`Συνέχεια ως ${notice.nextPlayer}`, "", () => {
           current.movie.localTurnNotice = null;
           saveCurrent();
@@ -2512,6 +2656,7 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
   const img = el("img");
   img.src = imagePath(image);
   img.alt = name;
+  img.dataset.character = image;
   portrait.append(img);
   visual.append(portrait, el("span", "timecode", time));
   const caption = el("div", "visual-caption");
@@ -2548,7 +2693,7 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
     });
     copy.append(hud);
   }
-  const list = el("div", "choice-list");
+  const list = el("div", `choice-list ${choices.length > 6 ? "choice-list-scroll" : ""}`.trim());
   choices.forEach((choice, index) => {
     const item = el("button", "choice");
     item.type = "button";
@@ -2558,8 +2703,12 @@ function scenePanel({ name, time, image, room = roomFor(), tone = "", eyebrow, t
       item.classList.add("turn-locked");
       item.title = `Περίμενε τη σειρά του/της ${onlineSession?.turn?.username || "άλλου παίκτη"}.`;
     }
+    if (choice.disabled) {
+      item.disabled = true;
+      item.classList.add("choice-disabled");
+    }
     item.append(el("b", "", String.fromCharCode(65 + index)), el("span", "", choice.label));
-    item.addEventListener("click", () => onlineDecisionGate(choice.label, choice.action));
+    if (!choice.disabled) item.addEventListener("click", () => onlineDecisionGate(choice.label, choice.action));
     list.append(item);
   });
   copy.append(list);
@@ -2620,6 +2769,8 @@ function renderCinematicBeat() {
       runCredits();
     } else if (destination === "final-kill") {
       resolveFinalKiller();
+    } else if (destination === "final-sacrifice") {
+      queueFinalKillBeat();
     } else if (destination === "item-reassign") {
       renderItemReassignment();
     } else if (destination === "online-next-turn") {
@@ -2655,7 +2806,7 @@ function renderOpening() {
   const decisionPlayer = isLocalMode() ? activePlayerName() : playerCharacters()[movie.openingPlayerIndex || 0] || current.protagonist;
   content.append(scenePanel({
     name: person, time: scenario.time, image: person, tone: "red", eyebrow: `${scenario.eyebrow}${isLocalMode() ? ` · TURN: ${decisionPlayer}` : isOnlineEngine() ? " · PLAYER 1 DECIDES" : ""}`, title: scenario.title,
-    body: `${scenario.body}${isLocalMode() ? ` Ο/Η ${decisionPlayer} παίρνει την πρώτη απόφαση· μετά κάντε pass turn.` : isOnlineEngine() ? " Ο Player 1 κλειδώνει το opening outcome. Μετά όλοι συνεχίζετε στην ίδια κοινή ιστορία." : ""}`,
+    body: `${scenario.body}${isLocalMode() ? ` ${subjectName(decisionPlayer)} παίρνει την πρώτη απόφαση· μετά κάντε pass turn.` : isOnlineEngine() ? " Ο Player 1 κλειδώνει το opening outcome. Μετά όλοι συνεχίζετε στην ίδια κοινή ιστορία." : ""}`,
     cameos: [movie.openingPartner],
     choices: [
       { label: scenario.choices[0], action: () => openingChoice("warn") },
@@ -2687,7 +2838,7 @@ function openingChoice(choice) {
     outcomeByPlayer[player] = outcome;
     if (outcome === "target") survivors.add(movie.openingTarget);
     if (outcome === "partner") survivors.add(movie.openingPartner);
-    resultLines.push(`${player}: ${outcome === "both" ? "και οι δύο κινδύνευσαν" : `σώθηκε ο/η ${outcome === "target" ? movie.openingTarget : movie.openingPartner}`}`);
+    resultLines.push(`${player}: ${outcome === "both" ? "και οι δύο κινδύνευσαν" : `σώθηκε ${subjectName(outcome === "target" ? movie.openingTarget : movie.openingPartner, true)}`}`);
   });
   const survivorNames = [...survivors];
   const victims = [movie.openingTarget, movie.openingPartner].filter(name => !survivors.has(name));
@@ -2867,18 +3018,16 @@ function chooseFriends(group, groupIndex = -1) {
   movie.relationshipEvent = createRelationshipEvent(group, random);
   movie.relationshipEventShown = false;
   const extras = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && !group.includes(name) && !isKiller(name) && isAlive(name) && movie.status[name] !== "SAVED" && !movie.saved.includes(name)), random);
-  const quietNewcomers = extras.filter(name => movie.newcomers?.includes(name));
-  const establishedExtras = extras.filter(name => !movie.newcomers?.includes(name));
-  const orderedExtras = movie.number === 3
-    ? rankMovieThreeDeaths(extras.filter(name => !movieThreeProtected(name)), random)
-    : [...quietNewcomers, ...establishedExtras];
+  const eligibleExtras = movie.number === 3 ? extras.filter(name => !movieThreeProtected(name)) : extras;
+  const orderedExtras = rankMovieThreeDeaths(eligibleExtras, random);
   const deathRoll = random();
   const largeFinaleCast = movie.number === 3 && movie.cast.length >= 16;
-  const intensityCap = Math.max(0, Math.min(movie.number === 3 ? (largeFinaleCast ? 5 : 4) : 3, (movie.fatalityTarget || 4) - 2));
-  const deathCount = movie.number === 3
-    ? (deathRoll < (largeFinaleCast ? .10 : .16) ? 0 : deathRoll < .34 ? 1 : deathRoll < .68 ? 2 : deathRoll < .88 ? Math.min(4, intensityCap) : intensityCap)
-    : (deathRoll < .18 ? 0 : deathRoll < .58 ? 1 : deathRoll < .88 ? 2 : intensityCap);
-  const minimumLivingExtras = movie.number === 3 && largeFinaleCast ? 2 : 3;
+  const intensityCap = Math.max(0, Math.min(movie.number === 3 ? (largeFinaleCast ? 8 : 6) : 4, (movie.fatalityTarget || 4) - 1));
+  const rolledDeathCount = movie.number === 3
+    ? (deathRoll < .20 ? 1 : deathRoll < .48 ? 2 : deathRoll < .72 ? 3 : deathRoll < .90 ? Math.min(5, intensityCap) : intensityCap)
+    : (deathRoll < .34 ? 1 : deathRoll < .70 ? 2 : deathRoll < .91 ? 3 : intensityCap);
+  const minimumLivingExtras = movie.number === 3 && largeFinaleCast ? 1 : 2;
+  const deathCount = orderedExtras.length > minimumLivingExtras ? Math.max(1, rolledDeathCount) : 0;
   const selectedOffscreen = orderedExtras.slice(0, Math.min(deathCount, Math.max(0, orderedExtras.length - minimumLivingExtras)));
   movie.offscreenDeaths = selectedOffscreen.filter(name => setStatus(name, "DEAD"));
   refreshSceneTargets();
@@ -2887,8 +3036,8 @@ function chooseFriends(group, groupIndex = -1) {
     queueBeat({
       kind: "death",
       eyebrow: movie.number === 3 && movie.offscreenDeaths.length > 2 ? "ELSEWHERE · MULTIPLE DEATH REPORTS" : "ELSEWHERE · DEATH REPORT",
-      title: movie.offscreenDeaths.length === 1 ? "Μία φωνή λείπει από την παρέα." : `${movie.offscreenDeaths.length} δωμάτια σίγησαν.`,
-      body: `Δεν τους διάλεξες για το main group. Οι ανακοινώσεις έρχονται μία-μία: ${movie.offscreenDeaths.map(name => `${name} βρέθηκε νεκρός/ή`).join(" · ")}. Οι υπόλοιποι ζουν — προς το παρόν.`,
+      title: movie.offscreenDeaths.length === 1 ? "Μία φωνή λείπει από την παρέα." : `${movie.offscreenDeaths.length} διαφορετικές διαδρομές σίγησαν.`,
+      body: `Δεν τους διάλεξε κανένας παίκτης για το main group. Οι killers χτύπησαν πρώτα όσους είχαν τη μικρότερη συμμετοχή: ${movie.offscreenDeaths.map(name => `${subjectName(name)} βρέθηκε ${genderWord(name, "νεκρός", "νεκρή")}`).join(" · ")}. Οι υπόλοιποι ζουν — προς το παρόν.`,
       names: movie.offscreenDeaths, statuses: movie.offscreenDeaths.map(() => "DEAD"), roomOffset: 2,
       cta: "Μείνε με την ομάδα"
     }, 3);
@@ -2896,7 +3045,7 @@ function chooseFriends(group, groupIndex = -1) {
     queueBeat({
       kind: "dialogue",
       eyebrow: "THE INNER CIRCLE",
-      title: `${group[0]} σού δίνει τον λόγο του/της.`,
+      title: `${group[0]} σού δίνει τον λόγο ${genitiveName(group[0])}.`,
       body: `Η ομάδα σχηματίστηκε: ${group.join(", ")}. Οι σχέσεις, η πίστη και όσα μοιραστείτε από εδώ και πέρα θα επιστρέψουν στις επόμενες ταινίες.`,
       names: group, statuses: group.map(() => "ALLY"), roomOffset: 1
     }, 3);
@@ -2931,33 +3080,33 @@ function renderRelationshipEvent() {
   const scenes = {
     grief: {
       eyebrow: "GRIEF EVENT · RANDOM RELATIONSHIP SCENE", title: `${event.first} καταρρέει μπροστά στην ομάδα.`,
-      body: relatedDead ? `Ο/Η ${event.first} θρηνεί τον/την ${relatedDead}. Ο/Η ${second} προσπαθεί να τον/την κρατήσει όρθιο/α, αλλά ο πόνος μετατρέπεται σε θυμό.` : `Ο/Η ${event.first} δεν αντέχει άλλο τους θανάτους και ξεσπά μπροστά στον/στην ${second}.`,
-      choices: [`Υποσχέσου ότι θα βρείτε μαζί τον υπεύθυνο.`, `Άφησε τον/την ${second} να τον/την παρηγορήσει.`, "Πες ότι πρέπει να προχωρήσετε πριν υπάρξει άλλο θύμα."]
+      body: relatedDead ? `${subjectName(event.first)} θρηνεί ${accusativeName(relatedDead)}. ${subjectName(second)} προσπαθεί να ${genderWord(event.first, "τον", "την")} κρατήσει ${genderWord(event.first, "όρθιο", "όρθια")}, αλλά ο πόνος μετατρέπεται σε θυμό.` : `${subjectName(event.first)} δεν αντέχει άλλο τους θανάτους και ξεσπά μπροστά ${toName(second)}.`,
+      choices: [`Υποσχέσου ότι θα βρείτε μαζί τον υπεύθυνο.`, `Άφησε ${accusativeName(second)} να ${genderWord(event.first, "τον", "την")} παρηγορήσει.`, "Πες ότι πρέπει να προχωρήσετε πριν υπάρξει άλλο θύμα."]
     },
     argument: {
       eyebrow: "ARGUMENT · THE GROUP FRACTURES", title: `${event.first} και ${second} τσακώνονται για το opening.`,
-      body: `Ο/Η ${event.first} κατηγορεί τον/την ${second} ότι έκρυψε μια έξοδο. Η ένταση είναι αληθινή — αλλά μπορεί να είναι φόβος, ενοχή ή τέλεια παράσταση.`,
-      choices: [`Πάρε το μέρος του/της ${event.first}.`, `Πάρε το μέρος του/της ${second}.`, "Χώρισέ τους και ζήτησε αποδείξεις."]
+      body: `${subjectName(event.first)} κατηγορεί ${accusativeName(second)} ότι έκρυψε μια έξοδο. Η ένταση είναι αληθινή — αλλά μπορεί να είναι φόβος, ενοχή ή τέλεια παράσταση.`,
+      choices: [`Πάρε το μέρος ${genitiveName(event.first)}.`, `Πάρε το μέρος ${genitiveName(second)}.`, "Χώρισέ τους και ζήτησε αποδείξεις."]
     },
     accusation: {
-      eyebrow: "ACCUSATION · NO PROOF", title: `${event.first} δείχνει τον/την ${second}.`,
+      eyebrow: "ACCUSATION · NO PROOF", title: `${event.first} δείχνει ${accusativeName(second)}.`,
       body: `Ένα αντικείμενο βρέθηκε σε λάθος τσάντα. Κανείς δεν ξέρει αν πρόκειται για στοιχείο, παγίδα ή λάθος μέσα στον πανικό.`,
-      choices: [`Πίεσε τον/την ${second} να εξηγήσει.`, `Υπερασπίσου τον/την ${second}.`, `Κράτησε και τους δύο κοντά σου μέχρι να μάθεις περισσότερα.`]
+      choices: [`Πίεσε ${accusativeName(second)} να εξηγήσει.`, `Υπερασπίσου ${accusativeName(second)}.`, `Κράτησέ τους κοντά σου μέχρι να μάθεις περισσότερα.`]
     },
     vow: {
       eyebrow: "PROTECTIVE VOW · TRUST EVENT", title: `${event.first} ορκίζεται να μη σε αφήσει μόνο/η.`,
-      body: `Ο/Η ${second} αμφιβάλλει αν η υπόσχεση είναι γενναιότητα ή προσπάθεια να ελέγξει τις κινήσεις σου. Η ταυτότητα κανενός δεν αποκαλύπτεται.`,
-      choices: [`Δέξου τον όρκο του/της ${event.first}.`, `Ζήτησε να προστατέψει πρώτα τον/την ${second}.`, "Μην αφήσεις κανέναν να γίνει προσωπικός σου φρουρός."]
+      body: `${subjectName(second)} αμφιβάλλει αν η υπόσχεση είναι γενναιότητα ή προσπάθεια να ελέγξει τις κινήσεις σου. Η ταυτότητα κανενός δεν αποκαλύπτεται.`,
+      choices: [`Δέξου τον όρκο ${genitiveName(event.first)}.`, `Ζήτησε να προστατέψει πρώτα ${accusativeName(second)}.`, "Μην αφήσεις κανέναν να γίνει προσωπικός σου φρουρός."]
     },
     confession: {
       eyebrow: "CONFESSION · MAYBE A LIE", title: `${event.first} παραδέχεται ότι είπε ψέματα.`,
-      body: `Το ψέμα αφορά τη διαδρομή του/της πριν από τον φόνο. Ο/Η ${second} πιστεύει ότι η εξήγηση είναι μισή αλήθεια.`,
-      choices: [`Κράτησε το μυστικό του/της ${event.first}.`, `Ανάγκασε τον/την ${event.first} να το πει σε όλους.`, `Ζήτησε από τον/την ${second} να ελέγξει την ιστορία.`]
+      body: `Το ψέμα αφορά τη διαδρομή ${genitiveName(event.first)} πριν από τον φόνο. ${subjectName(second)} πιστεύει ότι η εξήγηση είναι μισή αλήθεια.`,
+      choices: [`Κράτησε το μυστικό ${genitiveName(event.first)}.`, `Ανάγκασε ${accusativeName(event.first)} να το πει σε όλους.`, `Ζήτησε από ${accusativeName(second)} να ελέγξει την ιστορία.`]
     },
     rivalry: {
       eyebrow: "RIVALRY · LOYALTY TEST", title: `${event.first} και ${second} θέλουν να οδηγήσουν την ομάδα.`,
       body: "Και οι δύο προτείνουν διαφορετική διαδρομή. Καμία δεν είναι αποδεδειγμένα ασφαλής και η απόφασή σου θα αλλάξει ποιος νιώθει ότι τον εμπιστεύεσαι.",
-      choices: [`Ακολούθησε τον/την ${event.first}.`, `Ακολούθησε τον/την ${second}.`, "Συνδύασε τα σχέδια και κράτησε εσύ τον έλεγχο."]
+      choices: [`Ακολούθησε ${accusativeName(event.first)}.`, `Ακολούθησε ${accusativeName(second)}.`, "Συνδύασε τα σχέδια και κράτησε εσύ τον έλεγχο."]
     }
   };
   if (event.type === "canon") {
@@ -2966,11 +3115,11 @@ function renderRelationshipEvent() {
       eyebrow: `CANON BOND · ${event.relation.toUpperCase()}`,
       title: `${event.first} και ${second} κινούνται σαν ένα.`,
       body: partners
-        ? `Ο/Η ${event.first} και ο/η ${second} αρνούνται να χωριστούν. Ξέρουν ο ένας τις κινήσεις του άλλου, μοιράζονται το ρίσκο και μπορούν να σε τραβήξουν μαζί τους σε μια επικίνδυνη διαδρομή.`
-        : `Ο/Η ${event.first} και ο/η ${second} έχουν δεσμό που προϋπήρχε της ταινίας. Η απώλεια ή η σωτηρία του ενός θα αλλάξει αμέσως τη στάση του άλλου.`,
+        ? `${subjectName(event.first)} και ${subjectName(second, true)} αρνούνται να χωριστούν. Ξέρουν ο ένας τις κινήσεις του άλλου, μοιράζονται το ρίσκο και μπορούν να σε τραβήξουν μαζί τους σε μια επικίνδυνη διαδρομή.`
+        : `${subjectName(event.first)} και ${subjectName(second, true)} έχουν δεσμό που προϋπήρχε της ταινίας. Η απώλεια ή η σωτηρία του ενός θα αλλάξει αμέσως τη στάση του άλλου.`,
       choices: [
         `Στείλε τους μαζί να ερευνήσουν τη διαδρομή.`,
-        `Κράτησε τον/την ${event.first} δίπλα σου και ζήτησε από τον/την ${second} να περιμένει.`,
+        `Κράτησε ${accusativeName(event.first)} δίπλα σου και ζήτησε από ${accusativeName(second)} να περιμένει.`,
         `Δώσε τους κοινή ευθύνη για τη διάσωση της ομάδας.`
       ]
     };
@@ -3046,13 +3195,17 @@ function renderKeyChoice() {
   const movie = current.movie;
   if (movie.relationshipEvent && !movie.relationshipEventShown) return renderRelationshipEvent();
   const candidates = innerCircleMembers();
+  const pendingRecipients = isLocalMode() ? (movie.localDecisions?.[`item-${movie.number}`] || {}) : {};
+  const pickedBy = Object.fromEntries(Object.entries(pendingRecipients).filter(([, recipient]) => recipient).map(([player, recipient]) => [recipient, player]));
   const focus = candidates[0] || movie.dangerA;
   const content = movieScreen("A QUIET MOMENT", 28);
   content.append(scenePanel({
     name: focus, time: "12:06 AM", image: focus, tone: "cold", eyebrow: "AN ORDINARY CHOICE", title: `Έχεις μόνο ένα ${movie.survivalItem}.`,
     body: `Μπορείς να το δώσεις σε οποιοδήποτε ζωντανό μέλος του inner circle ή να το κρατήσεις. Η προστασία καταγράφεται ξεχωριστά για κάθε ανθρώπινο player.`,
     choices: [
-      ...candidates.map(name => ({ label: `Δώσε το ${movie.survivalItem} στον/στην ${name}.`, action: () => giveKey(name) })),
+      ...candidates.map(name => pickedBy[name]
+        ? { label: `🔒 ${name} · έχει ήδη επιλεγεί από ${pickedBy[name]}.`, disabled: true }
+        : { label: `Δώσε το ${movie.survivalItem} ${toName(name)}.`, action: () => giveKey(name) }),
       { label: `KEEP · Κράτησε το ${movie.survivalItem} πάνω σου.`, action: () => giveKey(null) }
     ]
   }));
@@ -3070,7 +3223,7 @@ function renderItemReassignment() {
     title: `Σε ποιον άλλον θα δώσεις το ${movie.survivalItem};`,
     body: `Το κράτησες από την παρέα σου. Δεν μένει όμως αδρανές: μπορείς τώρα να το εμπιστευτείς σε άλλο ζωντανό πρόσωπο, ακόμη κι αν δεν ξέρεις τι κρύβει. Η απόφαση γράφεται στο canon και επηρεάζει την επόμενη επίθεση.`,
     choices: [
-      ...candidates.slice(0, 6).map(name => ({ label: `Δώσε το ${movie.survivalItem} στον/στην ${name}.`, action: () => giveKey(name) })),
+      ...candidates.slice(0, 6).map(name => ({ label: `Δώσε το ${movie.survivalItem} ${toName(name)}.`, action: () => giveKey(name) })),
       { label: `Κράτησέ το πάνω σου μέχρι τη σύγκρουση.`, action: finalizeKeptItem }
     ], cameos: candidates.slice(0, 3)
   }));
@@ -3096,6 +3249,13 @@ function finalizeKeptItem() {
 
 function giveKey(name) {
   const movie = current.movie;
+  const duplicatePick = name && isLocalMode()
+    ? Object.entries(movie.localDecisions?.[`item-${movie.number}`] || {}).find(([player, recipient]) => player !== activePlayerName() && recipient === name)
+    : null;
+  if (duplicatePick) {
+    toast(`${name} έχει ήδη επιλεγεί από ${duplicatePick[0]}. Διάλεξε άλλο μέλος του inner circle.`);
+    return;
+  }
   name = localDecision(`item-${movie.number}`, name);
   if (name === LOCAL_PENDING) return;
   const localItemVotes = isMultiplayerMode() ? movie.lastLocalResolution?.choices : null;
@@ -3119,7 +3279,7 @@ function giveKey(name) {
       remember(`Οι παίκτες έδωσαν το ${movie.survivalItem} στους/στις ${recipients.join(" και ")}.`, "Κάθε local επιλογή καταγράφηκε· όλοι οι παραλήπτες έχουν ξεχωριστό item protection.");
     } else {
       relationshipState(recipients[0]).trust += 18;
-      remember(`Έδωσες το ${movie.survivalItem} στον/στην ${recipients[0]}.`, "The item now changes the rescue odds, the identity of the next target and the finale.");
+      remember(`Έδωσες το ${movie.survivalItem} ${toName(recipients[0])}.`, "The item now changes the rescue odds, the identity of the next target and the finale.");
     }
   }
   if (keepers.length) remember(`${keepers.join(" και ")} κράτησαν το ${movie.survivalItem}.`, "Το item παραμένει πάνω στους players και δίνει survival bonus στις κρίσιμες επιλογές.");
@@ -3131,7 +3291,7 @@ function giveKey(name) {
     body: recipients.length > 1
       ? `Οι παίκτες επέλεξαν διαφορετικούς παραλήπτες. Το αντικείμενο γίνεται κοινό multiplayer protection: ${recipients.join(" και ")} κρατούν ξεχωριστό survival bonus και η σκηνή καταγράφει όλες τις αποφάσεις.`
       : recipients.length
-        ? `Το αντικείμενο αλλάζει χέρια. Ο/Η ${recipients[0]} θυμάται ότι τον/την εμπιστεύτηκες — και μπορεί να το χρησιμοποιήσει όταν εσύ δεν θα είσαι εκεί.`
+        ? `Το αντικείμενο αλλάζει χέρια. ${subjectName(recipients[0])} θυμάται ότι ${genderWord(recipients[0], "τον", "την")} εμπιστεύτηκες — και μπορεί να το χρησιμοποιήσει όταν εσύ δεν θα είσαι εκεί.`
         : `Το αντικείμενο μένει στους ${keepers.join(" και ")}. Δεν υπάρχει αναγκαστική δεύτερη ανάθεση: το KEEP είναι τελική και ουσιαστική επιλογή.`,
     names: recipients.length ? recipients : keepers, statuses: recipients.length ? recipients.map(() => "ITEM HOLDER · TRUST +18") : keepers.map(() => "ITEM KEPT · PLAYER PROTECTION"), roomOffset: 1
   }, 4);
@@ -3197,7 +3357,7 @@ function renderInvestigationFollowup() {
   const focus = dialogueCandidates[0] || supportingVoices([], 1)[0] || current.protagonist;
   const choices = [];
   if (unsearched[0]) choices.push({ label: `Ερεύνησε και το «${unsearched[0][0]}».`, action: () => { movie.investigationPhase = "rooms"; saveCurrent(); renderMovie(); } });
-  dialogueCandidates.forEach(name => choices.push({ label: `Μίλησε ιδιωτικά με τον/την ${name}${protagonistRelationship(name) ? ` — ${protagonistRelationship(name)}` : ""}.`, action: () => talkAfterInvestigation(name) }));
+  dialogueCandidates.forEach(name => choices.push({ label: `Μίλησε ιδιωτικά με ${accusativeName(name)}${protagonistRelationship(name) ? ` — ${protagonistRelationship(name)}` : ""}.`, action: () => talkAfterInvestigation(name) }));
   if (!movie.puzzleSolved) choices.push({ label: `Λύσε το puzzle: «${movie.puzzle.title}».`, action: () => { movie.investigationPhase = "puzzle"; saveCurrent(); renderMovie(); } });
   choices.push({ label: "Προχώρα τώρα χωρίς άλλη έρευνα · SKIP", action: skipInvestigation });
   const content = movieScreen("INVESTIGATE OR TALK", 43);
@@ -3286,14 +3446,14 @@ function renderDanger() {
   const targetLine = movie.itemKept
     ? `Δεν έδωσες το ${movie.survivalItem} στην παρέα σου. Οι δύο νέοι στόχοι έξω από το main group ζητούν βοήθεια.`
     : movie.keyHolder
-      ? `Το ${movie.survivalItem} βρίσκεται με τον/την ${movie.keyHolder}. Η επιλογή της διαδρομής θα κρίνει αν θα προλάβει να το χρησιμοποιήσει.`
+      ? `Το ${movie.survivalItem} βρίσκεται με ${accusativeName(movie.itemHolders?.[0] || movie.keyHolder)}. Η επιλογή της διαδρομής θα κρίνει αν θα προλάβει να το χρησιμοποιήσει.`
       : "Οι δύο διαδρομές ανοίγουν μαζί και κανείς δεν είναι πραγματικά ασφαλής.";
   content.append(scenePanel({
     name: `${movie.dangerA} / ${movie.dangerB}`, time: "01:18 AM", image: movie.dangerA, tone: "red", eyebrow: "YOU CANNOT REACH BOTH", title: "Δύο κραυγές. Δύο διάδρομοι.",
-    body: `${targetLine} Ο/Η ${movie.dangerA} είναι παγιδευμένος/η στο «${leftRoom.name}». Ο/Η ${movie.dangerB} τρέχει προς το «${rightRoom.name}». Πρέπει να διαλέξεις.`,
+    body: `${targetLine} ${subjectName(movie.dangerA)} είναι ${genderWord(movie.dangerA, "παγιδευμένος", "παγιδευμένη")} στο «${leftRoom.name}». ${subjectName(movie.dangerB)} τρέχει προς το «${rightRoom.name}». Πρέπει να διαλέξεις.`,
     choices: [
-      { label: `Τρέξε στο «${leftRoom.name}» για τον/την ${movie.dangerA}.`, action: () => rescueChoice(movie.dangerA, movie.dangerB) },
-      { label: `Πήγαινε στο «${rightRoom.name}» για τον/την ${movie.dangerB}.`, action: () => rescueChoice(movie.dangerB, movie.dangerA) }
+      { label: `Τρέξε στο «${leftRoom.name}» για ${accusativeName(movie.dangerA)}.`, action: () => rescueChoice(movie.dangerA, movie.dangerB) },
+      { label: `Πήγαινε στο «${rightRoom.name}» για ${accusativeName(movie.dangerB)}.`, action: () => rescueChoice(movie.dangerB, movie.dangerA) }
     ]
   }));
 }
@@ -3346,15 +3506,28 @@ function rescueChoice(savedName, leftName) {
     if (lives && (itemHeldBy(name) || movie.itemKept) && !movie.itemSaved.includes(name)) movie.itemSaved.push(name);
   });
   if (movie.itemKept && living.length) movie.itemUsed = true;
-  remember(`Οι παίκτες έτρεξαν σε διαφορετικές διαδρομές: ${votes.map(([player, selectedName]) => `${player} → ${selectedName}`).join(" · ")}.`, `Survived: ${living.join(" & ") || "none"}. Died: ${dead.join(" & ") || "none"}.`);
-  const bothLive = living.length === 2;
-  const bothDead = dead.length === 2;
+  const rescuedBoth = living.length === 2;
+  let collateralDeath = null;
+  if (rescuedBoth) {
+    const collateralRandom = mulberry32((current.seed + movie.number * 14939 + movie.choices.length * 811 + living.join("").length) >>> 0);
+    if (collateralRandom() < .20) {
+      const collateralPool = rankMovieThreeDeaths(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && !living.includes(name) && movie.status[name] !== "SAVED" && !movie.saved.includes(name) && !itemHeldBy(name)), collateralRandom);
+      collateralDeath = collateralPool[0] || null;
+      if (collateralDeath && setStatus(collateralDeath, "DEAD")) dead.push(collateralDeath);
+      else collateralDeath = null;
+    }
+  }
+  remember(`Οι παίκτες έτρεξαν σε διαφορετικές διαδρομές: ${votes.map(([player, selectedName]) => `${player} → ${selectedName}`).join(" · ")}.`, `Survived: ${living.join(" & ") || "none"}. Died: ${dead.join(" & ") || "none"}.${collateralDeath ? " A 20% collateral twist triggered." : ""}`);
+  const bothLive = rescuedBoth;
+  const bothDead = living.length === 0 && outcomes.length === 2;
   queueBeat({
     kind: dead.length ? "death" : "rescue",
-    eyebrow: bothLive ? "DOUBLE SAVE · THE ODDS SHIFTED" : bothDead ? "THE CHOICE WAS A TRAP" : "ONE SURVIVOR · NOT THE EXPECTED ONE",
-    title: bothLive ? "Και οι δύο βγήκαν ζωντανοί." : bothDead ? "Κανείς δεν βγήκε από τα δωμάτια." : `${living[0]} επέζησε. ${dead[0]} πέθανε.`,
-    body: bothLive
-      ? `Trust, puzzle knowledge, οι ξεχωριστές αποφάσεις και το ${movie.survivalItem} άλλαξαν τις πιθανότητες. ${resultLines.join(" · ")}`
+    eyebrow: collateralDeath ? "DOUBLE SAVE · COLLATERAL DEATH" : bothLive ? "DOUBLE SAVE · THE ODDS SHIFTED" : bothDead ? "THE CHOICE WAS A TRAP" : "ONE SURVIVOR · NOT THE EXPECTED ONE",
+    title: collateralDeath ? `Τους έσωσες και τους δύο — αλλά ${subjectName(collateralDeath, true)} δεν απάντησε ποτέ.` : bothLive ? "Και οι δύο βγήκαν ζωντανοί." : bothDead ? "Κανείς δεν βγήκε από τα δωμάτια." : `${living[0]} επέζησε. ${dead[0]} πέθανε.`,
+    body: collateralDeath
+      ? `Η διπλή διάσωση πέτυχε, όμως ενεργοποιήθηκε η σπάνια πιθανότητα 20%: όσο όλοι κοιτούσαν τους δύο διαδρόμους, οι killers βρήκαν ${accusativeName(collateralDeath)} ${genderWord(collateralDeath, "απομονωμένο", "απομονωμένη")}. Ο θάνατος ανακοινώνεται τώρα και καταγράφεται οριστικά.`
+      : bothLive
+        ? `Trust, puzzle knowledge, οι ξεχωριστές αποφάσεις και το ${movie.survivalItem} άλλαξαν τις πιθανότητες. ${resultLines.join(" · ")}`
       : bothDead
         ? `Ο killer είχε προβλέψει διαφορετικές διαδρομές. ${resultLines.join(" · ")}`
         : `${movie.itemSaved.some(name => living.includes(name)) ? `Το ${movie.survivalItem} άλλαξε άμεσα τις πιθανότητες για ${living.filter(name => movie.itemSaved.includes(name)).join(" και ")}. ` : ""}${resultLines.join(" · ")} Το αποτέλεσμα προέκυψε από ξεχωριστά relationship, item και probability rolls — όχι από σταθερό A/B outcome.`,
@@ -3370,7 +3543,7 @@ function createAccusationDebate(kind) {
   const random = mulberry32((current.seed + movie.number * 6197 + (kind === "final" ? 911 : 421)) >>> 0);
   const speakers = shuffle(movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name) && name !== movie.legacyEcho), random).slice(0, 4);
   const visibleKillers = movie.killers.filter(name => movie.cast.includes(name) && isAlive(name));
-  const innocents = movie.cast.filter(name => !isPlayerCharacter(name) && isAlive(name) && !movie.killers.includes(name));
+  const innocents = movie.cast.filter(name => isAlive(name) && !movie.killers.includes(name));
   const observations = [
     "είδε μια σκιά να βγαίνει από το δωμάτιο πριν ξανανοίξουν τα φώτα",
     "μέτρησε δύο διαφορετικές ώρες στο ίδιο άλλοθι",
@@ -3393,7 +3566,7 @@ function createAccusationDebate(kind) {
     const bluffTarget = pick(innocents.filter(name => name !== speaker), localRandom);
     const target = (shouldTellTruth ? truthfulTarget : bluffTarget) || truthfulTarget || bluffTarget || "LEGACY GHOST";
     const truthful = Boolean(target && target !== "LEGACY GHOST" && movie.killers.includes(target) && shouldTellTruth);
-    const targetLine = target === "LEGACY GHOST" ? "ένα παλιό πρόσωπο από το case file" : `τον/την ${target}`;
+    const targetLine = target === "LEGACY GHOST" ? "ένα παλιό πρόσωπο από το case file" : accusativeName(target);
     return {
       speaker,
       target,
@@ -3422,13 +3595,15 @@ function betForPlayer(name = activePlayerName()) {
 function renderFinalTheoryGateway() {
   const movie = current.movie;
   if (movie.finalDeepInvestigationResolved) return renderAccusation("final");
+  movie.finalInvestigationScenario ||= buildFinalInvestigationScenario(movie);
+  const scenario = movie.finalInvestigationScenario;
   const room = roomFor(3);
   const content = movieScreen("BEFORE THE FINAL THEORY", 76);
   content.append(scenePanel({
     name: activePlayerName(), time: "02:56 AM", image: activePlayerName(), room, tone: "cold",
-    eyebrow: "ONE LAST CHANCE · OR A PERFECT TRAP",
-    title: "Θα ερευνήσεις μία τελευταία διαδρομή;",
-    body: `Πριν κλειδώσεις την τελική μαντεψιά, το «${room.name}» ανοίγει για λίγα δευτερόλεπτα. Το στοιχείο μπορεί να είναι αληθινό — ή να έχει τοποθετηθεί από τον ίδιο τον killer για να σε παρασύρει.`,
+    eyebrow: `ONE LAST CHANCE · SCENARIO ${String(scenario.id).padStart(3, "0")}`,
+    title: scenario.title,
+    body: `${scenario.body} Πριν κλειδώσεις την τελική μαντεψιά, το «${room.name}» ανοίγει για λίγα δευτερόλεπτα. Το στοιχείο μπορεί να είναι αληθινό — ή να έχει τοποθετηθεί από τον ίδιο τον killer για να σε παρασύρει.`,
     choices: [
       { label: "Ερεύνησε περισσότερο πριν από το τελικό συμπέρασμα.", action: () => resolveFinalInvestigation("investigate") },
       { label: "Μην ρισκάρεις. Πήγαινε κατευθείαν στην τελική μαντεψιά.", action: () => resolveFinalInvestigation("theory") }
@@ -3448,24 +3623,24 @@ function resolveFinalInvestigation(choice) {
     return renderAccusation("final");
   }
   const random = mulberry32((current.seed + movie.number * 19081 + movie.choices.length * 977) >>> 0);
-  const truthChance = Math.min(.82, .58 + (movie.puzzleAdvantage ? .15 : 0) + (playerHasWeapon() ? .06 : 0));
+  const truthChance = Math.max(.20, Math.min(.82, .58 + (movie.puzzleAdvantage ? .15 : 0) + (playerHasWeapon() ? .06 : 0) - (movie.hiddenKillerTruthPenalty || 0)));
   const truthful = random() < truthChance;
   const realTarget = movie.mainKiller || movie.killers[0];
-  const falseTarget = pick(movie.cast.filter(name => !isPlayerCharacter(name) && !movie.killers.includes(name) && isAlive(name)), random);
+  const falseTarget = pick(movie.cast.filter(name => !movie.killers.includes(name) && isAlive(name)), random);
   const namedTarget = truthful ? realTarget : falseTarget;
   const clue = truthful
-    ? { type: "FINAL FORENSIC CLUE", title: `${namedTarget}: το μη μονταρισμένο frame`, text: `Το τελευταίο frame συνδέει πραγματικά τον/την ${namedTarget} με τη διαδρομή της μάσκας. Παραμένει clue, όχι αυτόματη αποκάλυψη.` }
-    : { type: "KILLER-PLANTED TRAP", title: `${namedTarget}: το υπερβολικά τέλειο ίχνος`, text: `Το εύρημα δείχνει τον/την ${namedTarget}, αλλά η χρονική σήμανση έχει αλλοιωθεί. Ο πραγματικός killer ήθελε να βρεις ακριβώς αυτό.` };
+    ? { type: "FINAL FORENSIC CLUE", title: `${namedTarget}: το μη μονταρισμένο frame`, text: `Το τελευταίο frame συνδέει πραγματικά ${accusativeName(namedTarget)} με τη διαδρομή της μάσκας. Παραμένει clue, όχι αυτόματη αποκάλυψη.` }
+    : { type: "KILLER-PLANTED TRAP", title: `${namedTarget}: το υπερβολικά τέλειο ίχνος`, text: `Το εύρημα δείχνει ${accusativeName(namedTarget)}, αλλά η χρονική σήμανση έχει αλλοιωθεί. Ο πραγματικός killer ήθελε να βρεις ακριβώς αυτό.` };
   movie.cluesFound.push(clue);
   movie.finalDeepInvestigationResult = truthful ? "TRUTH" : "TRAP";
   if (!truthful && namedTarget) relationshipState(namedTarget).suspicion += 22;
   remember(`Τελική έρευνα: ${clue.title}.`, truthful ? `Truth probability ${Math.round(truthChance * 100)}% — το clue ήταν αληθινό.` : `Trap probability ${Math.round((1 - truthChance) * 100)}% — ο killer φύτεψε το clue.`);
   queueBeat({
-    kind: truthful ? "clue" : "twist",
-    eyebrow: truthful ? "FINAL INVESTIGATION · AUTHENTIC TRACE" : "FINAL INVESTIGATION · THE KILLER WAS WAITING",
-    title: truthful ? "Το τελευταίο frame δεν έχει μονταριστεί." : "Το στοιχείο είναι υπερβολικά τέλειο.",
-    body: `${clue.text} Πιθανότητα αληθινού ευρήματος σε αυτό το run: ${Math.round(truthChance * 100)}%. Τώρα πρέπει να αποφασίσεις αν θα το πιστέψεις.`,
-    names: namedTarget ? [namedTarget] : [], statuses: namedTarget ? [truthful ? "FINAL CLUE" : "POSSIBLE FRAME-UP"] : [], roomOffset: 3,
+    kind: "twist",
+    eyebrow: "FINAL INVESTIGATION · UNVERIFIED TRACE",
+    title: `${movie.finalInvestigationScenario?.title || "Το τελευταίο frame"} — αλήθεια ή τέλεια παγίδα;`,
+    body: `Το εύρημα δείχνει ${namedTarget ? accusativeName(namedTarget) : "μια άγνωστη φιγούρα"}, όμως ο forensic έλεγχος δεν μπορεί να ξεχωρίσει αυθεντικό frame από killer-planted fabrication. Η πραγματική πιθανότητα παραμένει κρυφή μέχρι το reveal· τώρα πρέπει να αποφασίσεις αν θα το πιστέψεις.`,
+    names: namedTarget ? [namedTarget] : [], statuses: namedTarget ? ["UNVERIFIED · TRUTH OR FRAME-UP"] : [], roomOffset: 3,
     cta: "Πήγαινε στην τελική μαντεψιά"
   }, 9);
 }
@@ -3493,15 +3668,20 @@ function renderAccusation(kind) {
   debate.append(debateLines);
   wrap.append(debate);
   const grid = el("div", "suspect-grid");
-  movie.cast.filter(name => !isPlayerCharacter(name) && movie.status[name] !== "DEAD").forEach(name => {
+  movie.cast.filter(name => (!isPlayerCharacter(name) || (current.localHiddenKillerEnabled && movie.number === 3)) && name !== localPlayer && movie.status[name] !== "DEAD").forEach(name => {
     const selected = pendingTheory.includes(name);
-    grid.append(characterButton(name, () => toggleSuspect(name, kind), selected, "suspect-card"));
+    const suspect = characterButton(name, () => toggleSuspect(name, kind), selected, "suspect-card");
+    suspect.dataset.suspectName = name;
+    suspect.setAttribute("aria-pressed", String(selected));
+    grid.append(suspect);
   });
   if (isFinal && movie.number === 3) {
     const ghostSelected = pendingTheory.includes("LEGACY GHOST");
     const ghost = el("button", `character-card suspect-card ghost-suspect ${ghostSelected ? "selected" : ""}`.trim());
     ghost.type = "button";
     ghost.dataset.storyChoice = "true";
+    ghost.dataset.suspectName = "LEGACY GHOST";
+    ghost.setAttribute("aria-pressed", String(ghostSelected));
     ghost.append(el("span", "ghost-mark", "?"), el("strong", "", "LEGACY GHOST"), el("small", "", "Ο killer ίσως δεν βρίσκεται στο cast."));
     ghost.addEventListener("click", () => toggleSuspect("LEGACY GHOST", kind));
     grid.append(ghost);
@@ -3510,7 +3690,7 @@ function renderAccusation(kind) {
   if (isFinal) {
     const bet = el("section", "panel bet-slip");
     const availableCredits = isMultiplayerMode() ? (current.playerCredits[localPlayer] || 0) : current.credits;
-    bet.append(el("p", "eyebrow", "FICTIONAL BET · NO REAL MONEY"), el("h2", "", `Πόνταρε ο/η ${localPlayer}`), el("p", "", `Διαθέσιμα: ${availableCredits} Slasher Credits. Ακριβής θεωρία πληρώνει 2×. Μερική επιτυχία επιστρέφει το αντίστοιχο ποσοστό.`));
+    bet.append(el("p", "eyebrow", "FICTIONAL BET · NO REAL MONEY"), el("h2", "", `Ποντάρει ${subjectName(localPlayer, true)}`), el("p", "", `Διαθέσιμα: ${availableCredits} Slasher Credits. Ακριβής θεωρία πληρώνει 2×. Μερική επιτυχία επιστρέφει το αντίστοιχο ποσοστό.`));
     const controls = el("div", "bet-controls");
     const input = el("input", "bet-input");
     input.type = "number"; input.inputMode = "numeric"; input.min = "0"; input.max = String(availableCredits); input.step = "10"; input.value = String(Math.min(betForPlayer(localPlayer), availableCredits));
@@ -3529,8 +3709,9 @@ function renderAccusation(kind) {
     wrap.append(bet);
   }
   const footer = el("div", "selection-footer");
-  footer.append(el("p", "", pendingTheory.length ? `Επιλογές ${localPlayer}: ${pendingTheory.join(", ")}` : `${localPlayer} δεν έχει επιλέξει ακόμη.`));
+  footer.append(el("p", "theory-selection-copy", pendingTheory.length ? `Επιλογές ${localPlayer}: ${pendingTheory.join(", ")}` : `${localPlayer} δεν έχει επιλέξει ακόμη.`));
   const lock = button("Κλείδωσε θεωρία", "", () => lockTheory(kind), true);
+  lock.classList.add("theory-lock-button");
   lock.disabled = pendingTheory.length < 1 || pendingTheory.length > 4;
   footer.append(lock);
   wrap.append(footer);
@@ -3538,14 +3719,22 @@ function renderAccusation(kind) {
 }
 
 function toggleSuspect(name, kind) {
-  const scrollY = window.scrollY;
-  const list = theoryForPlayer(kind);
+  const localPlayer = activePlayerName();
+  const list = theoryForPlayer(kind, localPlayer);
   const index = list.indexOf(name);
   if (index >= 0) list.splice(index, 1);
   else if (list.length < 4) list.push(name);
   else return toast("Μπορείς να κατηγορήσεις μέχρι 4 άτομα.");
-  renderAccusation(kind);
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  document.querySelectorAll("[data-suspect-name]").forEach(card => {
+    const selected = list.includes(card.dataset.suspectName);
+    card.classList.toggle("selected", selected);
+    card.setAttribute("aria-pressed", String(selected));
+  });
+  const selectionCopy = document.querySelector(".theory-selection-copy");
+  if (selectionCopy) selectionCopy.textContent = list.length ? `Επιλογές ${localPlayer}: ${list.join(", ")}` : `${localPlayer} δεν έχει επιλέξει ακόμη.`;
+  const lock = document.querySelector(".theory-lock-button");
+  if (lock) lock.disabled = list.length < 1 || list.length > 4;
+  saveCurrent();
 }
 
 function lockTheory(kind) {
@@ -3605,7 +3794,7 @@ function lockTheory(kind) {
     if (!allLocked) {
       current.activePlayerIndex = (current.activePlayerIndex + 1) % playerCharacters().length;
       saveCurrent();
-      toast(`${player} κλείδωσε τη θεωρία. Τώρα παίζει ο/η ${activePlayerName()}.`);
+      toast(`${player} κλείδωσε τη θεωρία. Τώρα παίζει ${subjectName(activePlayerName(), true)}.`);
       renderAccusation(kind);
       return;
     }
@@ -3670,9 +3859,9 @@ function renderTrustScene() {
   const content = movieScreen("THE CONFESSION", 66);
   content.append(scenePanel({
     name: focus, time: "02:03 AM", image: focus, tone: "cold", eyebrow: "KNOWLEDGE IS DANGEROUS", title: "Κάποιος ζητάει την αλήθεια.",
-    body: `${relation ? `Ο/Η ${focus} είναι ${relation.toLowerCase()} μαζί σου και η κοινή σας ιστορία βαραίνει την απόφαση. ` : ""}Σου ζητάει να δει το στοιχείο. Αν το μοιραστείς, ίσως αποκτήσεις σύμμαχο — ή δώσεις στον killer ακριβώς ό,τι χρειάζεται.`,
+    body: `${relation ? `${subjectName(focus)} έχει σχέση «${relation.toLowerCase()}» μαζί σου και η κοινή σας ιστορία βαραίνει την απόφαση. ` : ""}Σου ζητάει να δει το στοιχείο. Αν το μοιραστείς, ίσως αποκτήσεις σύμμαχο — ή δώσεις στον killer ακριβώς ό,τι χρειάζεται.`,
     choices: [
-      { label: `Δείξε το στοιχείο στον/στην ${focus}.`, action: () => trustChoice(focus, true) },
+      { label: `Δείξε το στοιχείο ${toName(focus)}.`, action: () => trustChoice(focus, true) },
       { label: "Κράτησέ το μυστικό μέχρι να είσαι βέβαιος/η.", action: () => trustChoice(focus, false) }
     ]
   }));
@@ -3695,12 +3884,12 @@ function trustChoice(name, shared) {
       state.loyalty += 12;
       sharedNames.push(vote.name);
       if (isKiller(vote.name)) sabotageNames.push(vote.name);
-      remember(`${player} μοιράστηκε το στοιχείο με τον/την ${vote.name}.`, `${vote.name} knows what that player found.`);
+      remember(`${player} μοιράστηκε το στοιχείο με ${accusativeName(vote.name)}.`, `${vote.name} knows what that player found.`);
     } else {
       state.suspicion += 14;
       hiddenNames.push(vote.name);
       sabotageNames.push(vote.name);
-      remember(`${player} έκρυψε το στοιχείο από τον/την ${vote.name}.`, `${vote.name} became more suspicious of that player.`);
+      remember(`${player} έκρυψε το στοιχείο από ${accusativeName(vote.name)}.`, `${vote.name} became more suspicious of that player.`);
     }
   });
   const beatKind = sabotageNames.length ? "sabotage" : "dialogue";
@@ -3726,21 +3915,15 @@ function renderSecondAttack() {
     : movie.cast.find(name => name !== target && !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && movie.status[name] !== "SAVED");
   movie.secondBackupTarget = backup || null;
   const attackRoom = roomFor(1);
-  const attackVariants = [
-    ["Η εικόνα κόβεται στη μέση ενός frame.", `Ο/Η ${target} εμφανίζεται για ένα δευτερόλεπτο στο security feed από το «${attackRoom.name}». Πίσω του/της κινείται μια δεύτερη σκιά.`],
-    ["Ο projector δείχνει ζωντανή καταδίωξη.", `Το πλάνο ακολουθεί τον/την ${target} μέσα στο «${attackRoom.name}», παρότι κανείς δεν κρατάει κάμερα.`],
-    ["Ένα emergency light αναβοσβήνει τρεις φορές.", `Ο/Η ${target} έχει κλειδωθεί στο «${attackRoom.name}». Κάθε αναλαμπή φέρνει τη μάσκα πιο κοντά.`],
-    ["Το ασανσέρ ανοίγει χωρίς καμπίνα.", `Από το σκοτάδι ακούς τον/την ${target} στο «${attackRoom.name}» και μετά το μεταλλικό σύρσιμο μιας παγίδας.`],
-    ["Το live stream αποκτά αντίστροφη μέτρηση.", `Ο/Η ${target} είναι μόνος/η στο «${attackRoom.name}». Το countdown τελειώνει πριν προλάβεις να εξηγήσεις τι συμβαίνει.`]
-  ];
-  const attack = attackVariants[movie.openingScenario.id % attackVariants.length];
+  movie.secondAttackScenario ||= buildSecondAttackScenario(movie, target, attackRoom);
+  const attack = movie.secondAttackScenario;
   const content = movieScreen("NO ONE IS SAFE", 72);
   content.append(scenePanel({
-    name: backup ? `${target} / ${backup}` : target, time: "02:41 AM", image: target, room: attackRoom, tone: "red", eyebrow: "A NEW ATTACK ROUTE", title: attack[0],
-    body: `${attack[1]}${backup ? ` Ταυτόχρονα ο/η ${backup} καλεί από δεύτερο διάδρομο.` : ""} Το μοναδικό αληθινό clue είναι ακόμα στην τσέπη σου. Κάθε διαδρομή έχει ανεξάρτητο probability roll.`,
+    name: backup ? `${target} / ${backup}` : target, time: "02:41 AM", image: target, room: attackRoom, tone: "red", eyebrow: `A NEW ATTACK ROUTE · SCENARIO ${String(attack.id).padStart(3, "0")}`, title: attack.title,
+    body: `${attack.body}${backup ? ` Ταυτόχρονα ${subjectName(backup, true)} καλεί από δεύτερο διάδρομο.` : ""} Το μοναδικό αληθινό clue είναι ακόμα στην τσέπη σου. Κάθε διαδρομή έχει ανεξάρτητο probability roll.`,
     choices: [
-      ...(backup ? [{ label: `Ρίσκαρε τα πάντα για να σώσεις και τον/την ${target} και τον/την ${backup}.`, action: () => secondAttackChoice("both") }] : []),
-      { label: `Σώσε μόνο τον/την ${target}. Μην μοιράσεις τον χρόνο σου.`, action: () => secondAttackChoice("one") },
+      ...(backup ? [{ label: `Ρίσκαρε τα πάντα για να σώσεις και ${accusativeName(target)} και ${accusativeName(backup)}.`, action: () => secondAttackChoice("both") }] : []),
+      { label: `Σώσε μόνο ${accusativeName(target)}. Μην μοιράσεις τον χρόνο σου.`, action: () => secondAttackChoice("one") },
       { label: "Μην πάει κανείς. Προστάτεψε το στοιχείο και περίμενε.", action: () => secondAttackChoice("none") }
     ], cameos: backup ? [backup] : []
   }));
@@ -3784,13 +3967,23 @@ function secondAttackChoice(rescueMode) {
       if (targetOutcomes.some(result => result.itemBonus) && !movie.itemSaved.includes(target)) movie.itemSaved.push(target);
     } else if (setStatus(target, "DEAD")) deadTargets.push(target);
   });
+  let collateralDeath = null;
+  if (targets.length === 2 && savedTargets.length === 2) {
+    const collateralRandom = mulberry32((current.seed + movie.number * 17431 + movie.choices.length * 601 + targets.join("").length) >>> 0);
+    if (collateralRandom() < .20) {
+      const collateralPool = rankMovieThreeDeaths(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && !targets.includes(name) && movie.status[name] !== "SAVED" && !movie.saved.includes(name) && !itemHeldBy(name)), collateralRandom);
+      collateralDeath = collateralPool[0] || null;
+      if (collateralDeath && setStatus(collateralDeath, "DEAD")) deadTargets.push(collateralDeath);
+      else collateralDeath = null;
+    }
+  }
   if (savedTargets.length && movie.itemKept) movie.itemUsed = true;
   remember(`Second attack: ${playerOutcomes.map(result => `${result.player} → ${result.mode} / ${result.target}: ${result.survived ? "survived" : "failed"} (${Math.round(result.chance * 100)}%)`).join(" · ")}.`, `${savedTargets.join(" & ") || "Κανείς"} saved · ${deadTargets.join(" & ") || "κανείς"} died.`);
   queueBeat({
     kind: deadTargets.length ? "death" : "rescue",
-    eyebrow: savedTargets.length === targets.length ? "THE IMPOSSIBLE DOUBLE RESCUE" : savedTargets.length ? "ONE ROUTE OPENED · ONE MAY HAVE CLOSED" : "THE ROUTES CLOSED",
-    title: savedTargets.length ? `Σώθηκαν: ${savedTargets.join(" και ")}.` : "Κανείς δεν βγήκε από τους διαδρόμους.",
-    body: `${savedTargets.length ? `Επιβεβαιωμένα SAVED: ${savedTargets.join(", ")}. ` : ""}${deadTargets.length ? `Επιβεβαιωμένα DEAD: ${deadTargets.join(", ")}. ` : ""}Οι επιλογές BOTH / ONE / NONE είχαν διαφορετικά τυχαία ποσοστά και τα items, weapons, puzzles και relationships μετακίνησαν τις πιθανότητες.`,
+    eyebrow: collateralDeath ? "THE IMPOSSIBLE DOUBLE RESCUE · SOMEONE ELSE PAID" : savedTargets.length === targets.length ? "THE IMPOSSIBLE DOUBLE RESCUE" : savedTargets.length ? "ONE ROUTE OPENED · ONE MAY HAVE CLOSED" : "THE ROUTES CLOSED",
+    title: collateralDeath ? `Σώθηκαν και οι δύο — όμως χάθηκε ${subjectName(collateralDeath, true)}.` : savedTargets.length ? `Σώθηκαν: ${savedTargets.join(" και ")}.` : "Κανείς δεν βγήκε από τους διαδρόμους.",
+    body: `${savedTargets.length ? `Επιβεβαιωμένα SAVED: ${savedTargets.join(", ")}. ` : ""}${deadTargets.length ? `Επιβεβαιωμένα DEAD: ${deadTargets.join(", ")}. ` : ""}${collateralDeath ? "Η διπλή διάσωση ενεργοποίησε το 20% collateral twist: οι killers χτύπησαν διαφορετικό, χαμηλής αλληλεπίδρασης χαρακτήρα και το ανακοίνωσαν αμέσως. " : ""}Οι επιλογές BOTH / ONE / NONE είχαν διαφορετικά τυχαία ποσοστά και τα items, weapons, puzzles και relationships μετακίνησαν τις πιθανότητες.`,
     names: [...savedTargets, ...deadTargets], statuses: [...savedTargets.map(() => "SAVED"), ...deadTargets.map(() => "DEAD")], roomOffset: 1
   }, 9);
 }
@@ -3862,13 +4055,13 @@ function renderReveal() {
   const row = el("div", "killer-row");
   movie.killers.forEach((name, index) => {
     const card = el("article", "killer-card");
-    const img = el("img"); img.src = imagePath(name); img.alt = name;
+    const img = el("img"); img.src = imagePath(name); img.alt = name; img.dataset.character = name;
     const copy = el("div");
     copy.append(el("small", "", index === 0 ? "THE MASTERMIND" : "ACCOMPLICE"), el("h2", "", name));
     card.append(img, copy); row.append(card);
   });
   content.append(row, el("p", "lead", `«${movie.motiveLine}» — Motive: ${movie.motive}`));
-  if (movie.returningKiller) content.append(el("p", "remember", `Η μοναδική legacy ανατροπή: ο/η ${movie.returningKiller}, καταγεγραμμένος/η ως KILLER · PRESUMED DEAD, επέζησε κρυφά. Δεν υπήρξε στο intro, στο cast, σε διάλογο ή σε καμία προηγούμενη επιλογή του Movie III.`));
+  if (movie.returningKiller) content.append(el("p", "remember", `Η μοναδική legacy ανατροπή: ${subjectName(movie.returningKiller)}, ${genderWord(movie.returningKiller, "καταγεγραμμένος", "καταγεγραμμένη")} ως KILLER · PRESUMED DEAD, επέζησε κρυφά. Δεν υπήρξε στο intro, στο cast, σε διάλογο ή σε καμία προηγούμενη επιλογή του Movie III.`));
   if (isMultiplayerMode() && movie.localBetResults) {
     const localResults = el("article", "panel reveal-bet partial");
     localResults.append(el("small", "", isOnlineEngine() ? "ONLINE PARTY BET RESULTS" : `LOCAL ${playerCharacters().length}P BET RESULTS`));
@@ -3899,9 +4092,9 @@ function renderFinale() {
   const content = movieScreen("THE FINAL CHASE", 92);
   content.append(scenePanel({
     name: closest || current.protagonist, time: "03:17 AM", image: closest || current.protagonist, tone: "red", eyebrow: "THE LAST DECISION", title: "Το φιλμ τελειώνει μόνο με αίμα.",
-    body: closest ? `Ο/Η ${closest} είναι δεμένος/η απέναντι από την έξοδο. Οι killers περιμένουν να διαλέξεις ανάμεσα στον άνθρωπο και στην παγίδα που έστησες.` : "Έμεινες μόνος/η. Το μόνο πλεονέκτημά σου είναι όσα κατάλαβες πριν από το reveal.",
+    body: closest ? `${subjectName(closest)} είναι ${genderWord(closest, "δεμένος", "δεμένη")} απέναντι από την έξοδο. Οι killers περιμένουν να διαλέξεις ανάμεσα στον άνθρωπο και στην παγίδα που έστησες.` : "Έμεινες χωρίς σύμμαχο. Το μόνο πλεονέκτημά σου είναι όσα κατάλαβες πριν από το reveal.",
     choices: [
-      { label: closest ? `Σώσε πρώτα τον/την ${closest}.` : "Όρμησε προς την έξοδο.", action: () => finaleChoice("friend", closest, discovered) },
+      { label: closest ? `Σώσε πρώτα ${accusativeName(closest)}.` : "Όρμησε προς την έξοδο.", action: () => finaleChoice("friend", closest, discovered) },
       { label: "Ενεργοποίησε την παγίδα και αντιμετώπισε τους killers.", action: () => finaleChoice("trap", closest, discovered) },
       { label: "Προσποιήσου ότι παραδίνεσαι. Περίμενε το λάθος τους.", action: () => finaleChoice("wait", closest, discovered) }
     ]
@@ -3962,27 +4155,50 @@ function finaleChoice(choice, closest, discovered) {
   movie.lateDeaths = lateCandidates.slice(0, remainingFatalities).filter(name => setStatus(name, "DEAD"));
   if (movie.lateDeaths.length) remember(`Το τελικό χάος στο ${roomFor(2).name} είχε κι άλλα θύματα.`, `${movie.lateDeaths.join(" & ")} died during the final chase.`);
   if (movie.number === 3) {
-    const players = playerCharacters();
-    movie.finalKillAssignments = movie.killers.map((killer, index) => ({
-      killer,
-      player: movie.killers.length === 1 ? players[0] : (players[index] || players[index % players.length] || players[0])
-    }));
-    movie.finalKiller = movie.killers.at(-1) || movie.mainKiller;
-    queueBeat({
-      kind: "execution",
-      eyebrow: movie.killers.length === 1 ? "ONE LAST BODY · PLAYER 1" : "FINAL EXECUTIONS · EVERY PLAYER GETS ONE",
-      title: movie.killers.length === 1 ? `${players[0]} αντιμετωπίζει τον τελευταίο killer.` : "Οι killers μοιράζονται ανάμεσα στους παίκτες.",
-      body: movie.finalKillAssignments.length
-        ? `${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκοτώνει τον/την ${killer}`).join(" · ")}. ${movie.killers.length === 1 ? "Όταν υπάρχει ένας μόνο killer, το τελικό χτύπημα ανήκει αποκλειστικά στον Player 1." : "Κάθε παίκτης παίρνει έναν διαφορετικό killer για το οριστικό τέλος."}`
-        : "Η τελευταία μάσκα έπεσε. Το final cut χρειάζεται μόνο μία κίνηση για να τελειώσει.",
-      names: movie.finalKillAssignments.map(entry => entry.killer),
-      statuses: movie.finalKillAssignments.map(entry => `${entry.player} · FINAL BLOW`),
-      roomOffset: 2,
-      cta: movie.finalKillAssignments.length ? "Δώστε τα τελικά χτυπήματα" : "Κλείσε την ιστορία"
-    }, "final-kill");
+    const rescuedOwn = decisions.find(decision => decision.choice === "friend" && decision.closest && outcomeByName[decision.closest]);
+    const sacrificeRandom = mulberry32((current.seed + movie.number * 22877 + movie.choices.length * 1031) >>> 0);
+    const sacrificePool = rankMovieThreeDeaths(movie.cast.filter(name => !isPlayerCharacter(name) && !isKiller(name) && isAlive(name) && name !== rescuedOwn?.closest && movie.status[name] !== "SAVED" && !movie.saved.includes(name) && !movie.itemSaved.includes(name) && !itemHeldBy(name)), sacrificeRandom);
+    const sacrifice = rescuedOwn ? sacrificePool[0] : null;
+    if (sacrifice && setStatus(sacrifice, "DEAD")) {
+      movie.finalSacrifice = { saved: rescuedOwn.closest, lost: sacrifice, player: rescuedOwn.player };
+      movie.lateDeaths = unique([...movie.lateDeaths, sacrifice]);
+      remember(`${rescuedOwn.player} έσωσε ${accusativeName(rescuedOwn.closest)}, αλλά ${subjectName(sacrifice, true)} θυσιάστηκε στη διαδρομή διαφυγής.`, "Movie III rescue sacrifice: one bond survived because another low-interaction character held the killers back.");
+      queueBeat({
+        kind: "death", eyebrow: "MOVIE III · EVERY RESCUE HAS A PRICE",
+        title: `${subjectName(sacrifice)} μένει πίσω για να ανοίξει την έξοδο.`,
+        body: `${subjectName(rescuedOwn.closest)} σώθηκε από ${accusativeName(rescuedOwn.player)}. Την ίδια στιγμή ${subjectName(sacrifice, true)} κλείνει την πυράντοχη πόρτα από την άλλη πλευρά, παρασύρει τους killers μακριά και θυσιάζεται. Η διάσωση είναι αληθινή—και το τίμημα επίσης.`,
+        names: [rescuedOwn.closest, sacrifice], statuses: ["SAVED · OWES A LIFE", "SACRIFICE · DEAD"], roomOffset: 2,
+        cta: "Μετέτρεψε τη θυσία σε τελευταίο χτύπημα"
+      }, "final-sacrifice");
+    } else queueFinalKillBeat();
     return;
   }
   finishFinaleResolution();
+}
+
+function queueFinalKillBeat() {
+  const movie = current.movie;
+  const players = playerCharacters();
+  const survivorPlayers = players.filter(player => player !== current.hiddenKiller);
+  movie.finalKillAssignments = movie.killers.map((killer, index) => ({
+    killer,
+    player: killer === current.hiddenKiller
+      ? (survivorPlayers[index % Math.max(1, survivorPlayers.length)] || players[0])
+      : movie.killers.length === 1 ? players[0] : (players[index] || players[index % players.length] || players[0])
+  }));
+  movie.finalKiller = movie.killers.at(-1) || movie.mainKiller;
+  queueBeat({
+    kind: "execution",
+    eyebrow: movie.killers.length === 1 ? "ONE LAST BODY · PLAYER 1" : "FINAL EXECUTIONS · EVERY PLAYER GETS ONE",
+    title: movie.killers.length === 1 ? `${players[0]} αντιμετωπίζει τον τελευταίο killer.` : "Οι killers μοιράζονται ανάμεσα στους παίκτες.",
+    body: movie.finalKillAssignments.length
+      ? `${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκοτώνει ${accusativeName(killer)}`).join(" · ")}. ${movie.killers.length === 1 ? "Όταν υπάρχει ένας μόνο killer, το τελικό χτύπημα ανήκει αποκλειστικά στον Player 1." : "Κάθε παίκτης παίρνει έναν διαφορετικό killer για το οριστικό τέλος."}`
+      : "Η τελευταία μάσκα έπεσε. Το final cut χρειάζεται μόνο μία κίνηση για να τελειώσει.",
+    names: movie.finalKillAssignments.map(entry => entry.killer),
+    statuses: movie.finalKillAssignments.map(entry => `${entry.player} · FINAL BLOW`),
+    roomOffset: 2,
+    cta: movie.finalKillAssignments.length ? "Δώστε τα τελικά χτυπήματα" : "Κλείσε την ιστορία"
+  }, "final-kill");
 }
 
 function resolveFinalKiller() {
@@ -4008,7 +4224,7 @@ function finishFinaleResolution() {
     movie.resolvedLegacyKillers = unique(current.history.flatMap(record => record.killers || []));
     movie.resolvedLegacyKillers.forEach(name => setStatus(name, "DEAD"));
   }
-  playerCharacters().forEach(name => setStatus(name, "ALIVE"));
+  playerCharacters().filter(name => !(current.localHiddenKillerEnabled && movie.killers.includes(name) && name === current.hiddenKiller)).forEach(name => setStatus(name, "ALIVE"));
   movie.completed = true;
   createMovieRecord();
   const killersConfirmedDead = unique([...(movie.resolvedLegacyKillers || []), ...movie.killers]);
@@ -4018,7 +4234,7 @@ function finishFinaleResolution() {
     eyebrow: movie.number === 3 ? "FINAL CUT · THE NIGHT ENDS" : "FINAL CUT · EVIL FALLS",
     title: movie.number === 3 ? "Οι μάσκες πέφτουν για πάντα." : "Οι killers χάνονται μέσα στη φωτιά.",
     body: movie.number === 3
-      ? `${movie.finalKillAssignments?.length ? `Τελικά χτυπήματα: ${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκότωσε τον/την ${killer}`).join(" · ")}. ` : ""}Η ιστορία τελειώνει οριστικά. ${killersConfirmedDead.join(", ")} καταγράφονται πλέον ως CONFIRMED DEAD. Όσοι παλιοί killers δεν επέστρεψαν, δεν γύρισαν επειδή είχαν πράγματι πεθάνει· το PRESUMED DEAD κλείνει εδώ. ${lost.length ? `Στη διάρκεια της ταινίας και της τελικής έρευνας επιβεβαιώθηκαν νεκροί: ${lost.join(", ")}.` : "Δεν υπήρξαν άλλα θύματα."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} βοήθησε να σωθούν: ${movie.itemSaved.join(", ")}.` : ""}`
+      ? `${movie.finalKillAssignments?.length ? `Τελικά χτυπήματα: ${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκότωσε ${accusativeName(killer)}`).join(" · ")}. ` : ""}Η ιστορία τελειώνει οριστικά. ${killersConfirmedDead.join(", ")} καταγράφονται πλέον ως CONFIRMED DEAD. Όσοι παλιοί killers δεν επέστρεψαν, δεν γύρισαν επειδή είχαν πράγματι πεθάνει· το PRESUMED DEAD κλείνει εδώ. ${lost.length ? `Στη διάρκεια της ταινίας και της τελικής έρευνας επιβεβαιώθηκαν νεκροί: ${lost.join(", ")}.` : "Δεν υπήρξαν άλλα θύματα."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} βοήθησε να σωθούν: ${movie.itemSaved.join(", ")}.` : ""}`
       : `Οι ${movie.killers.length === 1 ? "killer καταγράφεται" : "killers καταγράφονται"} ως PRESUMED DEAD. Δεν θα εμφανιστούν ως κανονικοί χαρακτήρες στην επόμενη ταινία. Μόνο το Movie III μπορεί να κρύβει έναν — και δεν θα το μάθεις πριν το reveal. ${lost.length ? `Στη διάρκεια της νύχτας χάθηκαν επίσης: ${lost.join(", ")}.` : "Οι υπόλοιποι κατάφεραν να επιζήσουν."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`,
     names: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]) : [...movie.lateDeaths, ...movie.killers],
     statuses: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]).map(() => "DEAD") : [...movie.lateDeaths.map(() => "DEAD"), ...movie.killers.map(() => "KILLER · PRESUMED DEAD")],
@@ -4057,7 +4273,9 @@ function createMovieRecord() {
     victimCount: ordinaryDeaths.length, itemSaved: unique(movie.itemSaved), puzzleSolved: movie.puzzleSolved, puzzleAdvantage: movie.puzzleAdvantage,
     betAmount: movie.betAmount, betPayout: movie.betPayout, betResult: movie.betResult,
     choices: movie.choices.length, pivotal: movie.choices.slice(0, 3).map(item => item.text), choicesLog: movie.choices.slice(), canonMoments: movie.canonMoments || [],
-    closestFriend, mostTrusted, totalClues: movie.locationChoices.length, finalDeepInvestigationResult: movie.finalDeepInvestigationResult, finalKillAssignments: movie.finalKillAssignments || []
+    closestFriend, mostTrusted, totalClues: movie.locationChoices.length, finalDeepInvestigationResult: movie.finalDeepInvestigationResult,
+    finalInvestigationScenario: movie.finalInvestigationScenario, finalSacrifice: movie.finalSacrifice || null,
+    hiddenKillerStrategy: movie.hiddenKillerStrategy || null, finalKillAssignments: movie.finalKillAssignments || []
   };
   current.history.push(record);
   movie.recordCreated = true;
@@ -4330,7 +4548,7 @@ function renderFuneral() {
     copy.append(
       el("p", "eyebrow", `${String(index + 1).padStart(2, "0")} / ${String(dead.length).padStart(2, "0")} · ${movieLabel(entry.movie)}`),
       el("h1", "display", entry.name),
-      el("p", "funeral-line", `Ο/Η ${entry.name} θάβεται παρουσία των επιζώντων. Οι ζωντανοί πλησιάζουν κλαίγοντας, ανάβουν κεριά και ρίχνουν λουλούδια στον τάφο.`),
+      el("p", "funeral-line", `${subjectName(entry.name)} θάβεται παρουσία των επιζώντων. Οι ζωντανοί πλησιάζουν κλαίγοντας, ανάβουν κεριά και ρίχνουν λουλούδια στον τάφο.`),
       el("small", "funeral-status", `${entry.title} · BURIED · CONFIRMED DEAD`),
       el("p", "funeral-witnesses", `Παρόντες: ${attendees.join(", ") || playerCharacters().join(" & ")}`)
     );
@@ -4435,6 +4653,7 @@ function renderTrilogyArchive() {
     const deaths = record.deaths || record.cast.filter(name => record.statuses?.[name] === "DEAD");
     block.append(el("p", "section-copy", `Survivors: ${record.survivors.join(", ")}. Saved during the movie: ${record.saved.join(", ") || "κανείς"}.`));
     if (record.number === 3) block.append(el("p", "archive-bet", `Killer profile: ${record.killerProfile || (record.returningKiller ? "LEGACY GHOST" : "NEW KILLERS")}${record.finalDeepInvestigationResult ? ` · Final investigation: ${record.finalDeepInvestigationResult}` : ""}.`));
+    if (record.finalSacrifice) block.append(el("p", "archive-deaths", `Final sacrifice: ${record.finalSacrifice.saved} σώθηκε · ${record.finalSacrifice.lost} θυσιάστηκε για την έξοδο.`));
     if (record.finalKillAssignments?.length) block.append(el("p", "archive-bet", `Final blows: ${record.finalKillAssignments.map(({ player, killer }) => `${player} → ${killer}`).join(" · ")}.`));
     block.append(el("p", "archive-deaths", `Deaths: ${deaths.join(", ") || "κανείς"}.`));
     block.append(el("p", "archive-bet", `Theory: ${record.identified}/${record.killers.length} killers · Bet: ${record.betAmount ? `${record.betResult} / επιστροφή ${record.betPayout}` : "κανένα"}.`));

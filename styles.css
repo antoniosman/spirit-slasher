@@ -450,6 +450,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .visual-caption strong { display: block; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(2.2rem, 5vw, 4.7rem); line-height: .9; }
 .visual-caption small { display: block; margin-top: 10px; color: #c3c9cf; font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; }
 .scene-copy { display: flex; flex-direction: column; justify-content: center; padding: clamp(26px, 5vw, 64px); border-left: 1px solid var(--line); }
+.scene-copy { min-width: 0; overflow: hidden; }
+.scene-copy .headline { max-width: 100%; font-size: clamp(2.6rem, 4.5vw, 5.4rem); overflow-wrap: anywhere; text-wrap: balance; }
 .scene-copy p { color: #c6cbd1; line-height: 1.72; }
 .ensemble-dialogue { display: grid; gap: 7px; margin-top: 18px; }
 .scene-bond-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 7px; margin-top: 14px; }
@@ -540,6 +542,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .choice small { display: block; margin-top: 4px; color: var(--muted); }
 .choice:hover, .choice:focus-visible, .choice.selected { border-color: var(--paper); background: rgba(255,255,255,.07); outline: none; transform: translateX(4px); }
 .choice.turn-locked { opacity: .46; cursor: not-allowed; filter: saturate(.55); }
+.choice.choice-disabled { opacity: .42; cursor: not-allowed; filter: grayscale(.55); border-style: dashed; }
+.choice-list-scroll { max-height: min(54svh, 540px); padding-right: 8px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--blood) rgba(255,255,255,.06); scrollbar-width: thin; mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); }
+.choice-list-scroll .choice:first-child { margin-top: 12px; }
+.choice-list-scroll .choice:last-child { margin-bottom: 12px; }
 .remember { margin-top: 20px; color: var(--ice); font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.16rem; font-style: italic; animation: fade-up .5s both; }
 
 .cast-intro { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; width: 100vw; height: 100dvh; min-height: 100svh; overflow: hidden; touch-action: none; user-select: none; background: #030405; }
@@ -752,6 +758,16 @@ button { -webkit-tap-highlight-color: transparent; }
 .killer-card:nth-child(3) { animation-delay: .34s; }
 .killer-card:nth-child(4) { animation-delay: .48s; }
 .killer-card img { width: 100%; height: 360px; object-fit: cover; filter: sepia(.4) saturate(1.7) hue-rotate(320deg) contrast(1.2) brightness(.64); }
+.character-card img[src*="-hq.png"],
+.speaker-portrait img[src*="-hq.png"],
+.killer-card img[src*="-hq.png"],
+.relationship-card img[src*="-hq.png"] {
+  object-fit: contain;
+  object-position: center top;
+  background: radial-gradient(circle at 50% 30%, #26111d, #07090c 68%);
+}
+.killer-card img[src*="-hq.png"] { padding: 8px 0 38px; transform: scale(.94); }
+.speaker-portrait img[src*="-hq.png"] { padding: 4px; }
 .killer-card div { position: absolute; inset: auto 0 0; padding: 60px 20px 20px; background: linear-gradient(transparent, #0d0305 66%); }
 .killer-card small { color: var(--blood); font-weight: 800; letter-spacing: .16em; }
 .killer-card h2 { margin: 8px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 2.5rem; }
@@ -975,6 +991,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .local-handoff-card .display { margin: 12px 0 18px; font-size: clamp(3rem, 9vw, 7rem); line-height: .82; }
 .local-handoff-card .lead { margin: 0 auto 28px; }
 .local-handoff-card .btn { width: 100%; }
+.private-role-screen { display: grid; align-content: center; min-height: calc(100svh - 150px); text-align: center; }
+.private-role-screen .lead { max-width: 760px; margin-inline: auto; }
+.private-role-actions { justify-content: center; }
+.private-role-actions .btn { flex: 1 1 220px; }
 @keyframes local-handoff-in { from { opacity: 0; } }
 .local-action-log { display: grid; gap: 12px; margin: 0 0 16px; border-color: rgba(137, 200, 215, .28); background: linear-gradient(135deg, rgba(8, 17, 24, .92), rgba(9, 11, 16, .9)); }
 .local-action-log-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
