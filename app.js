@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.23.0";
+const APP_VERSION = "1.23.1";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -45,6 +45,12 @@ const roster = [
   ["Vicky", "char_vicky.jpg"], ["Vincent", "char_vincent.jpg"],
   ["Violet", "char_violet.png"], ["Zoe", "char_zoe-hq.png"]
 ].map(([name, file]) => ({ name, file }));
+
+const cinematicCharacterFiles = {
+  Sargenie: "char_sargenie-cinematic.png",
+  Smaragda: "char_smaragda-cinematic.png",
+  Zoe: "char_zoe-cinematic.png"
+};
 
 const characterGenders = {
   Alex: "male", Billy: "male", Catherine: "female", Demarin: "male",
@@ -260,7 +266,7 @@ const featureCopy = [
   ["120 room variants", "Τρία cinematic map atlases γίνονται 120 διαφορετικά sub-rooms, routes, clues και scene orders σε κάθε canon."],
   ["Accusation history", "Το παιχνίδι θυμάται την πρώτη, τη μεσαία και την τελική θεωρία σου και μετρά τι πρόβλεψες."],
   ["Independent NPC minds", "Κάθε NPC χτίζει δική του υποψία από προσωπικές παρατηρήσεις, μπορεί να μπλοφάρει και δεν επαναλαμβάνει μηχανικά τα ίδια λόγια ή τη θεωρία του παίκτη."],
-  ["Local 2–3P pass-the-phone", "Διάλεξε δύο ή τρεις χαρακτήρες. Στο 3P μπορείς προαιρετικά να ενεργοποιήσεις μυστικό human killer από το Movie I, με ιδιωτικό role reveal, μπλόφες και κρυφό sabotage σε όλη την τριλογία."],
+  ["Local 2–3P pass-the-phone", "Διάλεξε δύο ή τρεις χαρακτήρες. Στο 3P μπορείς προαιρετικά να ενεργοποιήσεις μυστικό human killer μόνο στο Movie III, με ιδιωτικό role reveal, μπλόφες και κρυφό sabotage."],
   ["Legacy survivors", "Οι σημαντικές σχέσεις και οι επιζώντες επιστρέφουν. Οι πιο πιστοί δεν πετιούνται άδικα στο opening kill του sequel."],
   ["Movie III mastermind", "Μόνο στο Final Chapter υπάρχει πιθανότητα να κρύβεται ακριβώς ένας παλιός killer — ποτέ στο intro και ποτέ ως κανονικός χαρακτήρας."],
   ["Fictional killer betting", "Πόνταρε Slasher Credits στη final theory: 2× για πλήρη ακριβή πρόβλεψη ή αναλογική επιστροφή για μερική επιτυχία — χωρίς πραγματικά χρήματα."],
@@ -407,6 +413,7 @@ function chooseSaveImport() {
 
 function character(name) { return roster.find(item => item.name === name); }
 function imagePath(name) { return assetUrl(`assets/characters/${character(name)?.file || "char_billy.webp"}`); }
+function cinematicImagePath(name) { return assetUrl(`assets/characters/${cinematicCharacterFiles[name] || character(name)?.file || "char_billy.webp"}`); }
 function allNames() { return roster.map(item => item.name); }
 function playerCharacters() {
   if (current?.gameMode === "online" && current.onlineGroupCharacters?.length) return unique(current.onlineGroupCharacters);
@@ -1129,7 +1136,7 @@ function renderMultiplayerMode() {
   const online = el("article", "panel mode-card");
   online.append(el("p", "eyebrow", "ONLINE · LOCAL SERVER"), el("h2", "headline", "Account & lobby"), el("p", "section-copy", "Κάνε account, δημιούργησε session ή μπες με code. Ο server μπορεί να τρέχει στο PC σου και να δέχεται παίκτες από LAN ή ασφαλές HTTPS tunnel."), button("Open Online", "", openOnlineLobby));
   const local = el("article", "panel mode-card");
-  local.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Standard survivor mode για 2–3 παίκτες ή προαιρετικό Hidden Killer από το Movie I όταν επιλέξετε τρεις. Όλοι παίζουν διαδοχικά στην ίδια κοινή τριλογία."), button("Local 2–3 Players", "", () => renderLocalSetup()));
+  local.append(el("p", "eyebrow", "LOCAL · 2–3 PLAYERS"), el("h2", "headline", "Pass the phone"), el("p", "section-copy", "Standard survivor mode για 2–3 παίκτες ή προαιρετικό Hidden Killer μόνο στο Movie III όταν επιλέξετε τρεις. Όλοι παίζουν διαδοχικά στην ίδια κοινή τριλογία."), button("Local 2–3 Players", "", () => renderLocalSetup()));
   grid.append(online, local); content.append(grid);
   const actions = el("div", "actions"); actions.append(button("Πίσω", "ghost", renderModeSelect)); content.append(actions);
   root.append(content);
@@ -1855,6 +1862,7 @@ function loadUniverse(id) {
   movie.finalDeepInvestigationResult ||= null;
   movie.finalInvestigationScenario ||= null;
   movie.roleBriefingComplete ??= !current.localHiddenKillerEnabled;
+  if (movie.number !== 3) movie.roleBriefingComplete = true;
   movie.roleBriefingIndex ??= 0;
   movie.roleBriefingRevealed ??= false;
   movie.hiddenKillerStrategy ||= null;
@@ -2234,7 +2242,7 @@ function generateMovie(number) {
   if (number === 3 && returningKiller && relationshipArc?.mode === "revenge-killer" && linkedNames(returningKiller).includes(relationshipArc.subject)) {
     killers = unique([returningKiller, relationshipArc.subject, ...killers]).slice(0, Math.max(2, killerCount));
   }
-  const hiddenHumanKiller = current.localHiddenKillerEnabled ? current.hiddenKiller : null;
+  const hiddenHumanKiller = current.localHiddenKillerEnabled && number === 3 ? current.hiddenKiller : null;
   if (hiddenHumanKiller) {
     const npcKillers = killers.filter(name => name !== hiddenHumanKiller);
     if (!npcKillers.length && eligibleKillers[0]) npcKillers.push(eligibleKillers[0]);
@@ -2353,7 +2361,7 @@ function generateMovie(number) {
     stageResult: null, saved: [], offscreenDeaths: [], lateDeaths: [], abandoned: [], deathOrder: [], canonMoments: [], deathsPrevented: 0, peopleSaved: 0,
     investigatedRooms: [], investigationPhase: "rooms", investigationActions: 0, dialoguedWith: [], puzzle, puzzleSolved: false, puzzleAdvantage: false, itemSaved: [], resolvedLegacyKillers: [], relationshipEvent: null, relationshipEventShown: false, accusationDebates: {}, finalDeepInvestigationResolved: false, finalDeepInvestigationResult: null,
     openingPlayerIndex: isLocalMode() ? (Math.floor(random() * players.length)) : 0,
-    roleBriefingComplete: !current.localHiddenKillerEnabled, roleBriefingIndex: 0, roleBriefingRevealed: false, hiddenKillerStrategy: null,
+    roleBriefingComplete: !(current.localHiddenKillerEnabled && number === 3), roleBriefingIndex: 0, roleBriefingRevealed: false, hiddenKillerStrategy: null,
     sceneIndex: 0, completed: false, recordCreated: false, pendingBeat: null, pendingNextStage: null
   };
 }
@@ -2555,13 +2563,9 @@ function playCastIntro() {
     overlay.textContent = "";
     const backdrop = el("div", "cast-backdrop");
     const img = el("img");
-    img.src = imagePath(name);
+    img.src = cinematicImagePath(name);
     img.alt = "";
     img.dataset.character = name;
-    if (character(name)?.file?.includes("-hq.")) {
-      backdrop.classList.add("portrait-source");
-      backdrop.style.setProperty("--cast-image", `url("${imagePath(name)}")`);
-    }
     backdrop.append(img);
     const copy = el("div", "cast-title");
     const legacyCore = current.history.some(record => (record.friends || []).includes(name) && (record.survivors || []).includes(name));
@@ -2595,7 +2599,7 @@ function playCastIntro() {
 function renderMovie() {
   const movie = current.movie;
   if (!movie) return startMovie(current.movieNumber || 1);
-  if (current.localHiddenKillerEnabled && !movie.roleBriefingComplete) return renderLocalRoleBriefing();
+  if (current.localHiddenKillerEnabled && movie.number === 3 && !movie.roleBriefingComplete) return renderLocalRoleBriefing();
   if (movie.pendingBeat) return renderCinematicBeat();
   if (movie.stage === 0) return playCastIntro();
   const renderers = {
@@ -3854,8 +3858,9 @@ function renderAccusation(kind) {
   debate.append(debateLines);
   wrap.append(debate);
   const grid = el("div", "suspect-grid");
-  movie.cast.filter(name => (!isPlayerCharacter(name) || current.localHiddenKillerEnabled)
-    && (name !== localPlayer || current.localHiddenKillerEnabled) && movie.status[name] !== "DEAD").forEach(name => {
+  const hiddenKillerVote = current.localHiddenKillerEnabled && movie.number === 3;
+  movie.cast.filter(name => (!isPlayerCharacter(name) || hiddenKillerVote)
+    && (name !== localPlayer || hiddenKillerVote) && movie.status[name] !== "DEAD").forEach(name => {
     const selected = pendingTheory.includes(name);
     const suspect = characterButton(name, () => toggleSuspect(name, kind), selected, "suspect-card");
     suspect.dataset.suspectName = name;
@@ -4513,7 +4518,7 @@ function finishFinaleResolution() {
     title: movie.number === 3 ? "Οι μάσκες πέφτουν για πάντα." : "Οι killers χάνονται μέσα στη φωτιά.",
     body: movie.number === 3
       ? `${movie.finalKillAssignments?.length ? `Τελικά χτυπήματα: ${movie.finalKillAssignments.map(({ player, killer }) => `${player} σκότωσε ${accusativeName(killer)}`).join(" · ")}. ` : ""}Η ιστορία τελειώνει οριστικά. ${killersConfirmedDead.join(", ")} καταγράφονται πλέον ως CONFIRMED DEAD. Όσοι παλιοί killers δεν επέστρεψαν, δεν γύρισαν επειδή είχαν πράγματι πεθάνει· το PRESUMED DEAD κλείνει εδώ. ${lost.length ? `Στη διάρκεια της ταινίας και της τελικής έρευνας επιβεβαιώθηκαν νεκροί: ${lost.join(", ")}.` : "Δεν υπήρξαν άλλα θύματα."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} βοήθησε να σωθούν: ${movie.itemSaved.join(", ")}.` : ""}`
-      : `Οι ${movie.killers.length === 1 ? "killer καταγράφεται" : "killers καταγράφονται"} ως PRESUMED DEAD. Δεν θα εμφανιστούν ως κανονικοί NPC χαρακτήρες στην επόμενη ταινία. Στο προαιρετικό Hidden Killer 3P ο μυστικός ρόλος λειτουργεί από το Movie I και παραμένει ιδιωτικός μέχρι κάθε reveal. ${lost.length ? `Στη διάρκεια της νύχτας χάθηκαν επίσης: ${lost.join(", ")}.` : "Οι υπόλοιποι κατάφεραν να επιζήσουν."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`,
+      : `Οι ${movie.killers.length === 1 ? "killer καταγράφεται" : "killers καταγράφονται"} ως PRESUMED DEAD. Δεν θα εμφανιστούν ως κανονικοί χαρακτήρες στην επόμενη ταινία. Μόνο το Movie III μπορεί να κρύβει έναν human killer στο προαιρετικό Hidden Killer 3P — και κανείς δεν θα το μάθει πριν το reveal. ${lost.length ? `Στη διάρκεια της νύχτας χάθηκαν επίσης: ${lost.join(", ")}.` : "Οι υπόλοιποι κατάφεραν να επιζήσουν."} ${movie.itemSaved.length ? `Το ${movie.survivalItem} προστάτευσε: ${movie.itemSaved.join(", ")}.` : ""}`,
     names: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]) : [...movie.lateDeaths, ...movie.killers],
     statuses: movie.number === 3 ? unique([...movie.lateDeaths, ...killersConfirmedDead]).map(() => "DEAD") : [...movie.lateDeaths.map(() => "DEAD"), ...movie.killers.map(() => "KILLER · PRESUMED DEAD")],
     roomOffset: 2, cta: "End credits"
@@ -4599,11 +4604,7 @@ function runCredits() {
     const entry = slides[index];
     const slide = el("article", "credit-slide active");
     const imageWrap = el("div", "credit-image");
-    const img = el("img"); img.src = imagePath(entry.name); img.alt = ""; img.dataset.character = entry.name;
-    if (character(entry.name)?.file?.includes("-hq.")) {
-      imageWrap.classList.add("portrait-source");
-      imageWrap.style.setProperty("--credit-image", `url("${imagePath(entry.name)}")`);
-    }
+    const img = el("img"); img.src = cinematicImagePath(entry.name); img.alt = ""; img.dataset.character = entry.name;
     imageWrap.append(img);
     const copy = el("div", "credit-copy");
     copy.append(el("small", "", entry.role), el("h1", "", entry.name), el("p", "", entry.status));

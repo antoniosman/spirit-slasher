@@ -554,14 +554,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .cast-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
 .cast-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.3) contrast(1.24) brightness(.52); transform: scale(1.06); animation: cast-pan 4s ease-out both; }
 .cast-backdrop::after { content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, rgba(4,5,7,.92) 0 22%, transparent 65%), linear-gradient(0deg, rgba(4,5,7,.88), transparent 44%); }
-.cast-backdrop.portrait-source { background-image: linear-gradient(rgba(3,4,6,.38), rgba(3,4,6,.7)), var(--cast-image); background-position: center 20%; background-size: cover; }
-.cast-backdrop.portrait-source::before { content: ""; position: absolute; z-index: 0; inset: -7%; background: inherit; filter: blur(28px) brightness(.46) saturate(.8); transform: scale(1.08); }
-.cast-backdrop.portrait-source img { position: absolute; z-index: 1; inset: 0; width: min(72vw, 900px); height: 100%; margin: auto; object-fit: contain; object-position: center; filter: grayscale(.16) contrast(1.16) brightness(.7) drop-shadow(0 28px 60px rgba(0,0,0,.72)); transform: scale(.94); animation: cast-portrait-pan 4s ease-out both; }
 .cast-title { position: relative; z-index: 3; width: min(1000px, calc(100% - 40px)); }
 .cast-title { animation: title-cut-in .58s cubic-bezier(.14,.76,.28,1) both; }
 .cast-title .credit { color: var(--blood); font-size: .75rem; font-weight: 800; letter-spacing: .32em; text-transform: uppercase; }
-.cast-title h1 { margin: 12px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(4rem, 13vw, 10rem); line-height: .72; letter-spacing: -.055em; }
-.cast-title p { margin: 18px 0 0; color: #d0d4d8; font-size: 1rem; letter-spacing: .22em; text-transform: uppercase; }
+.cast-title h1 { max-width: min(78vw, 900px); margin: 12px 0 0; overflow-wrap: anywhere; text-wrap: balance; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(3rem, 8vw, 7rem); line-height: .82; letter-spacing: -.045em; }
+.cast-title p { max-width: min(76vw, 860px); margin: 14px 0 0; color: #d0d4d8; font-size: clamp(.72rem, 1.25vw, .95rem); line-height: 1.45; letter-spacing: .16em; text-transform: uppercase; }
 .skip { position: fixed; z-index: 32; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); touch-action: manipulation; color: white; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); padding: 12px 16px; cursor: pointer; }
 
 .suspect-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 26px; }
@@ -789,15 +786,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .credit-slide.active { opacity: 1; }
 .credit-image { position: relative; overflow: hidden; }
 .credit-image img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.16) contrast(1.17) brightness(.72); transform: scale(1.05); animation: credit-pan 6s linear both; }
-.credit-image.portrait-source { background-image: linear-gradient(rgba(2,3,5,.42), rgba(2,3,5,.74)), var(--credit-image); background-position: center 18%; background-size: cover; }
-.credit-image.portrait-source::before { content: ""; position: absolute; inset: -8%; background: inherit; filter: blur(30px) brightness(.5) saturate(.82); transform: scale(1.1); }
-.credit-image.portrait-source img { position: relative; z-index: 1; object-fit: contain; object-position: center; transform: scale(.96); filter: grayscale(.12) contrast(1.12) brightness(.76) drop-shadow(0 28px 60px rgba(0,0,0,.7)); }
 .credit-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 45%, #020304), linear-gradient(0deg, rgba(226,27,45,.3), transparent 48%); }
 .credit-copy { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; padding: clamp(28px, 6vw, 90px); }
 .credit-slide.active .credit-copy { animation: credit-name-in .72s cubic-bezier(.16,.8,.22,1) both; }
 .credit-copy small { color: var(--blood); font-weight: 800; letter-spacing: .25em; text-transform: uppercase; }
-.credit-copy h1 { margin: 12px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(4rem, 11vw, 9rem); line-height: .78; letter-spacing: -.05em; }
-.credit-copy p { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.credit-copy h1 { max-width: 100%; margin: 12px 0 0; overflow-wrap: anywhere; text-wrap: balance; font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(3rem, 7.5vw, 6.5rem); line-height: .84; letter-spacing: -.04em; }
+.credit-copy p { margin: 12px 0 0; color: var(--muted); font-size: clamp(.72rem, 1.2vw, .95rem); line-height: 1.4; letter-spacing: .12em; text-transform: uppercase; }
 .credits-controls { position: fixed; z-index: 31; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
 
 .funeral-screen { min-height: 100svh; padding: 0; overflow: hidden; background: radial-gradient(circle at 50% 28%, #172026, #030406 64%); perspective: 1400px; }
@@ -936,7 +930,6 @@ button { -webkit-tap-highlight-color: transparent; }
 
 @keyframes slash-transition { 0% { transform: translateY(101%) skewY(-4deg); } 45%,55% { transform: translateY(0) skewY(0); } 100% { transform: translateY(-101%) skewY(4deg); } }
 @keyframes cast-pan { from { transform: scale(1.13) translateX(-1%); } to { transform: scale(1.03) translateX(1%); } }
-@keyframes cast-portrait-pan { from { opacity: .25; transform: scale(.9) translateY(1.5%); filter: blur(7px) grayscale(.25) brightness(.55); } to { opacity: 1; transform: scale(.96); } }
 @keyframes credit-pan { from { transform: scale(1.08) translateX(-1%); } to { transform: scale(1.01) translateX(1%); } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes relationship-card-in { from { opacity: 0; transform: translateY(18px) rotateX(4deg); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
@@ -1090,16 +1083,16 @@ button { -webkit-tap-highlight-color: transparent; }
   .survivors-active-name { margin: 5px 0 7px; font-size: clamp(3rem, 16vw, 5.1rem); }
   .survivors-line { margin-bottom: 12px; font-size: 1.02rem; }
   .survivor-chip { flex-basis: 52px; height: 64px; }
-  .credit-copy h1 { font-size: 4rem; }
+  .credit-copy h1 { max-width: 88vw; font-size: clamp(2.5rem, 12vw, 3.8rem); line-height: .88; }
+  .credit-copy p { margin-top: 8px; font-size: .68rem; line-height: 1.35; letter-spacing: .1em; }
   /* Keep the intro cinematic on narrow screens too.  Contain-mode made the
      old intro collapse into a centered square and exposed the wrong crop. */
   .cast-intro { width: 100vw; min-height: 100dvh; place-items: center; padding: 0; }
   .cast-backdrop img { object-fit: cover; object-position: center center; transform: scale(1.02); filter: grayscale(.24) contrast(1.2) brightness(.56); }
-  .cast-backdrop.portrait-source img { width: 100%; height: 100%; object-fit: contain; object-position: center; transform: scale(.96); }
   .cast-backdrop::after { background: linear-gradient(90deg, rgba(4,5,7,.78) 0 18%, transparent 72%), linear-gradient(0deg, rgba(3,4,5,.86), transparent 52%); }
   .cast-title { width: min(1000px, calc(100% - 32px)); align-self: center; }
-  .cast-title h1 { margin-top: 9px; font-size: clamp(3.3rem, 18vw, 5.4rem); line-height: .78; overflow-wrap: anywhere; }
-  .cast-title p { margin-top: 14px; font-size: .72rem; letter-spacing: .15em; }
+  .cast-title h1 { max-width: 86vw; margin-top: 9px; font-size: clamp(2.6rem, 13vw, 4.2rem); line-height: .86; overflow-wrap: anywhere; }
+  .cast-title p { max-width: 84vw; margin-top: 10px; font-size: .64rem; line-height: 1.4; letter-spacing: .11em; }
   .cast-title .credit { font-size: .64rem; letter-spacing: .21em; }
   .status-row { grid-template-columns: 46px 1fr auto; }
   .status-row img { width: 46px; height: 46px; }
