@@ -766,13 +766,14 @@ button { -webkit-tap-highlight-color: transparent; }
 .character-card img[src*="-hq.png"],
 .speaker-portrait img[src*="-hq.png"],
 .killer-card img[src*="-hq.png"],
-.relationship-card img[src*="-hq.png"] {
-  object-fit: contain;
-  object-position: center top;
-  background: radial-gradient(circle at 50% 30%, #26111d, #07090c 68%);
+.relationship-card img[src*="-hq.png"],
+.status-row img[src*="-hq.png"] {
+  object-fit: cover;
+  object-position: center 18%;
+  padding: 0;
+  background: #08090b;
+  transform: none;
 }
-.killer-card img[src*="-hq.png"] { padding: 8px 0 38px; transform: scale(.94); }
-.speaker-portrait img[src*="-hq.png"] { padding: 4px; }
 .killer-card div { position: absolute; inset: auto 0 0; padding: 60px 20px 20px; background: linear-gradient(transparent, #0d0305 66%); }
 .killer-card small { color: var(--blood); font-weight: 800; letter-spacing: .16em; }
 .killer-card h2 { margin: 8px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 2.5rem; }
@@ -788,6 +789,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .credit-slide.active { opacity: 1; }
 .credit-image { position: relative; overflow: hidden; }
 .credit-image img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.16) contrast(1.17) brightness(.72); transform: scale(1.05); animation: credit-pan 6s linear both; }
+.credit-image.portrait-source { background-image: linear-gradient(rgba(2,3,5,.42), rgba(2,3,5,.74)), var(--credit-image); background-position: center 18%; background-size: cover; }
+.credit-image.portrait-source::before { content: ""; position: absolute; inset: -8%; background: inherit; filter: blur(30px) brightness(.5) saturate(.82); transform: scale(1.1); }
+.credit-image.portrait-source img { position: relative; z-index: 1; object-fit: contain; object-position: center; transform: scale(.96); filter: grayscale(.12) contrast(1.12) brightness(.76) drop-shadow(0 28px 60px rgba(0,0,0,.7)); }
 .credit-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 45%, #020304), linear-gradient(0deg, rgba(226,27,45,.3), transparent 48%); }
 .credit-copy { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; padding: clamp(28px, 6vw, 90px); }
 .credit-slide.active .credit-copy { animation: credit-name-in .72s cubic-bezier(.16,.8,.22,1) both; }
