@@ -20,7 +20,7 @@ const SETTINGS_KEY = "spirit-slasher-settings-v1";
 const UPDATE_COMPLETE_KEY = "spirit-slasher-update-complete";
 const UPDATE_RESUME_KEY = "spirit-slasher-resume-after-update";
 const UPDATE_RESUMED_KEY = "spirit-slasher-resumed-after-update";
-const APP_VERSION = "1.22";
+const APP_VERSION = "1.22.1";
 const SAVE_TRANSFER_VERSION = 1;
 const LOCAL_PENDING = Symbol("local-pending");
 const GITHUB_ASSET_BASE = "https://antoniosman.github.io/spirit-slasher/";
@@ -2432,6 +2432,11 @@ function playCastIntro() {
     const img = el("img");
     img.src = imagePath(name);
     img.alt = "";
+    img.dataset.character = name;
+    if (character(name)?.file?.includes("-hq.")) {
+      backdrop.classList.add("portrait-source");
+      backdrop.style.setProperty("--cast-image", `url("${imagePath(name)}")`);
+    }
     backdrop.append(img);
     const copy = el("div", "cast-title");
     const legacyCore = current.history.some(record => (record.friends || []).includes(name) && (record.survivors || []).includes(name));
