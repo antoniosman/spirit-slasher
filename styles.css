@@ -413,15 +413,17 @@ button { -webkit-tap-highlight-color: transparent; }
   z-index: 1;
   top: 7%;
   right: 5%;
-  width: min(39%, 280px);
-  height: 68%;
+  width: min(42%, 320px);
+  height: auto;
+  max-height: 68%;
+  aspect-ratio: .74;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.28);
   box-shadow: -28px 24px 70px rgba(0,0,0,.72), 0 0 0 7px rgba(0,0,0,.18);
   transform: rotate(.8deg);
   animation: portrait-enter .7s cubic-bezier(.18,.75,.2,1) both, portrait-breathe 5s ease-in-out .7s infinite;
 }
-.speaker-portrait img { filter: grayscale(.18) contrast(1.15) brightness(.78); }
+.speaker-portrait img { object-position: center 18%; filter: grayscale(.18) contrast(1.15) brightness(.78); }
 .scene-visual.red .speaker-portrait img { filter: sepia(.35) saturate(1.7) hue-rotate(325deg) contrast(1.22) brightness(.7); }
 .dialogue-in { opacity: 0; animation: dialogue-in .55s ease forwards; }
 .scene-copy .dialogue-in:nth-child(2) { animation-delay: .12s; }
@@ -451,7 +453,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .visual-caption small { display: block; margin-top: 10px; color: #c3c9cf; font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; }
 .scene-copy { display: flex; flex-direction: column; justify-content: center; padding: clamp(26px, 5vw, 64px); border-left: 1px solid var(--line); }
 .scene-copy { min-width: 0; overflow: hidden; }
-.scene-copy .headline { max-width: 100%; font-size: clamp(2.6rem, 4.5vw, 5.4rem); overflow-wrap: anywhere; text-wrap: balance; }
+.scene-copy .headline { max-width: 100%; font-size: clamp(2.25rem, 3.4vw, 4rem); line-height: .9; overflow-wrap: anywhere; text-wrap: balance; }
 .scene-copy p { color: #c6cbd1; line-height: 1.72; }
 .ensemble-dialogue { display: grid; gap: 7px; margin-top: 18px; }
 .scene-bond-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 7px; margin-top: 14px; }
@@ -1053,7 +1055,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .canon-strip { grid-template-columns: 1fr; gap: 4px; }
   .canon-strip strong, .canon-strip small { white-space: normal; text-align: left; }
   .scene-visual { min-height: 45svh; }
-  .speaker-portrait { width: 42%; height: 60%; top: 11%; }
+  .speaker-portrait { top: 10%; width: min(44%, 180px); height: auto; max-height: 66%; aspect-ratio: .74; }
   .visual-caption strong { font-size: 2.4rem; }
   .beat-screen { align-items: end; padding-inline: 0; }
   .beat-content { padding: 94px 16px calc(24px + var(--safe-bottom)); background: linear-gradient(transparent, rgba(2,3,5,.96) 28%); }
